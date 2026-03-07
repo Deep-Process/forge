@@ -148,7 +148,23 @@ Use `task_id: "PLANNING"` for decisions made before tasks exist.
 
 ---
 
-### Step 5 — Decompose into Tasks
+### Step 5 — Check Recipes and Decompose
+
+Before decomposing from scratch, check if a recipe matches the goal:
+
+```bash
+python -m core.recipes list
+```
+
+If a recipe fits, apply it:
+```bash
+python -m core.recipes show {recipe-name}
+python -m core.recipes apply {project} {recipe-name} --vars '{...}'
+```
+
+Then customize the generated tasks for the specific goal. Skip to Step 6.
+
+If no recipe fits, decompose manually:
 
 Apply these decomposition rules:
 
@@ -179,6 +195,24 @@ Add tasks to pipeline (W2):
 ```bash
 python -m core.pipeline add-tasks {project} --data '[...]'
 ```
+
+---
+
+### Step 5b — Configure Project
+
+Set up project configuration for gates and git:
+
+```bash
+python -m core.pipeline config {project} --data '{"test_cmd": "pytest", "lint_cmd": "ruff check ."}'
+```
+
+Configure validation gates:
+```bash
+python -m core.gates config {project} --data '[{"name": "test", "command": "pytest", "required": true}, {"name": "lint", "command": "ruff check .", "required": true}]'
+```
+
+Adapt commands to the project's actual tech stack. If unsure about commands,
+create an OPEN decision asking the user.
 
 ---
 

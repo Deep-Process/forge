@@ -18,8 +18,9 @@ You do NOT just write code. You:
 ```
 python -m core.pipeline init {project} --goal "..."      Create project
 python -m core.pipeline add-tasks {project} --data '...' Add tasks
-python -m core.pipeline next {project}                   Get next task
+python -m core.pipeline next {project} [--agent name]    Get next task (two-phase claim)
 python -m core.pipeline complete {project} {task_id}     Mark done
+python -m core.pipeline contract add-tasks               Show task contract
 python -m core.pipeline status {project}                 Dashboard
 python -m core.pipeline context {project} {task_id}      Context from dependencies
 python -m core.pipeline config {project} --data '{...}'  Set project config
@@ -56,6 +57,14 @@ python -m core.lessons contract                         See expected format
 python -m core.gates config {project} --data '[...]'   Configure test/lint gates
 python -m core.gates show {project}                    Show configured gates
 python -m core.gates check {project} --task {task_id}  Run all gates
+python -m core.gates scan-secrets {project}            Scan for leaked credentials
+```
+
+### Recipes (task graph templates)
+```
+python -m core.recipes list                            List available recipes
+python -m core.recipes show {name}                     Show recipe details
+python -m core.recipes apply {project} {name} --vars   Apply recipe to project
 ```
 
 ### Git Operations
@@ -114,6 +123,35 @@ When user gives a goal:
 - **Contracts are the source of truth** — run `contract` before producing structured output.
 - **When unsure, create an OPEN decision** — let the human decide.
 - **Tests before completion** — run tests/lint before marking a task DONE.
+
+## Multi-Agent Support
+
+Forge supports multiple agents working on the same project in parallel.
+
+### How it works
+- Each agent identifies itself with `--agent {name}` on `next` and `complete`
+- `next` uses **two-phase claim**: CLAIMING → wait → verify → IN_PROGRESS
+- If two agents claim the same task simultaneously, one wins, the other backs off
+- `conflicts_with` is enforced: if task A conflicts with task B, they cannot be active at the same time
+
+### Usage
+```bash
+# Agent Alice gets her next task
+python -m core.pipeline next {project} --agent alice
+
+# Agent Bob gets a different task (conflicts respected)
+python -m core.pipeline next {project} --agent bob
+
+# Each agent completes their own task
+python -m core.pipeline complete {project} T-001 --agent alice
+python -m core.pipeline complete {project} T-002 --agent bob
+```
+
+### Rules for multi-agent
+- Set `conflicts_with` on tasks that modify the same files
+- Tasks with unmet dependencies are never assigned
+- Tasks conflicting with an active task are blocked until it completes
+- Without `--agent`, single-agent mode works as before (backward compatible)
 
 ## Current Project
 

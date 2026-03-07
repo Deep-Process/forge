@@ -84,26 +84,27 @@ User Intent (high-level goal)
 ```
 forge/
 ├── core/                              # Reusable engine (domain-agnostic)
-│   ├── pipeline.py                    # Task graph: create, next, complete, status
-│   ├── decisions.py                   # Decision log: add, read, update, apply
+│   ├── pipeline.py                    # Task graph: init, add-tasks, next, complete, context, config
+│   ├── decisions.py                   # Decision log: add, read, update
+│   ├── changes.py                     # Change records: record, diff, read, summary
 │   ├── contracts.py                   # Contract render + validate (from Skill_v1)
-│   └── changes.py                     # Change records: what was changed, why
-│                                      # NOTE: traces.py deferred (see DD-009 in ASSUMPTIONS.md)
+│   ├── lessons.py                     # Compound learning: add, read, read-all
+│   ├── gates.py                       # Validation gates: config, check, scan-secrets
+│   ├── git_ops.py                     # Git integration: branch-create, commit, status
+│   └── recipes.py                     # Task graph templates: list, show, apply
 │
 ├── skills/                            # Pluggable skill definitions
 │   ├── plan/                          # Decompose goal into task graph
 │   │   └── SKILL.md
-│   ├── implement/                     # Execute a code change
+│   ├── next/                          # Execute next task with full traceability
 │   │   └── SKILL.md
-│   ├── review/                        # Review changes, create decisions
-│   │   └── SKILL.md
-│   ├── test/                          # Run tests, validate changes
-│   │   └── SKILL.md
-│   └── finalize/                      # Summary, documentation
+│   └── review/                        # Multi-perspective code review
 │       └── SKILL.md
 │
-├── config/                            # Configuration
-│   └── defaults.json                  # Default settings
+├── recipes/                           # Reusable task graph templates
+│   ├── api-endpoint.json              # Add API endpoint (5 tasks)
+│   ├── bug-fix.json                   # Bug fix with regression test (3 tasks)
+│   └── refactor.json                  # Safe refactor (4 tasks)
 │
 ├── docs/                              # Documentation
 │   ├── DESIGN.md                      # This file
@@ -117,16 +118,17 @@ forge/
 │   │   ├── status.md                  # /status
 │   │   ├── next.md                    # /next
 │   │   ├── decide.md                  # /decide — review open decisions
-│   │   └── log.md                     # /log — show audit trail
+│   │   ├── review.md                  # /review {task_id}
+│   │   ├── log.md                     # /log — show audit trail
+│   │   └── compound.md               # /compound — extract lessons
 │   └── settings.json                  # Hooks
 │
 └── forge_output/                      # Runtime output (gitignored)
     └── {project}/
-        ├── tracker.json               # Pipeline state
+        ├── tracker.json               # Pipeline state + config + gates
         ├── decisions.json             # Decision log
         ├── changes.json               # Change records
-        └── traces/                    # Execution traces
-            └── {task_id}.json
+        └── lessons.json               # Lessons learned
 ```
 
 ### Core Concepts
@@ -242,7 +244,7 @@ Compared to everything in awesome-claude-code:
 
 3. **Change records, not just commits**: Git tells you what changed. Forge tells you WHY it changed, what task it belonged to, what decisions led to it, and what reasoning the AI applied.
 
-4. **Mechanical gates**: Tests must pass before proceeding. Not advisory, not suggestions — the pipeline stops. Like Skill_v1's GATE A/B/C but for code.
+4. **Validation gates**: Configured checks (test, lint, secret scan) run before task completion. Required gates report failure clearly; the skill procedure instructs the LLM to fix before completing. Gates are advisory to Python (no mechanical block on `pipeline complete`) but mandatory in the skill workflow.
 
 5. **Resumability**: If interrupted mid-task, `forge next` picks up exactly where you left off. State is persisted after every step, not just at task completion.
 

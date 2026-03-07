@@ -78,38 +78,90 @@ For each changed file, read the actual file to see the current state.
 
 ---
 
-### Step 2 — Review Checklist
+### Step 2 — Multi-Perspective Review
 
-Go through each changed file and check:
+Review each changed file through **5 independent perspectives**.
+For each perspective, produce a mini-verdict: PASS / CONCERN / FAIL.
 
-**Correctness**
-- Does the code do what the task instruction asked?
-- Are edge cases handled?
+---
+
+#### 2A — Security Perspective
+
+Focus: OWASP Top 10, secrets, attack surface.
+
+- **Injection**: SQL, command injection, XSS, path traversal
+- **Secrets**: Run `python -m core.gates scan-secrets {project}` for automated detection.
+  Also manually check for hardcoded credentials, API keys, tokens.
+- **Auth/AuthZ**: Are authentication and authorization checks in place?
+- **Input validation**: Is user input validated at system boundaries?
+- **Dependencies**: Are new dependencies from trusted sources? Known CVEs?
+
+Mini-verdict: `Security: {PASS|CONCERN|FAIL} — {1-line summary}`
+
+---
+
+#### 2B — Correctness Perspective
+
+Focus: Does the code do what was asked? Does it break anything?
+
+- Does the implementation match the task instruction?
+- Are edge cases handled (null, empty, overflow, concurrent access)?
+- Are error paths properly handled (not swallowed)?
 - Do the changes break any existing functionality?
+- Are return types and interfaces consistent?
 
-**Security (OWASP-aware)**
-- Input validation: is user input sanitized?
-- Injection: SQL, command, XSS vectors?
-- Authentication/Authorization: proper checks?
-- Secrets: no hardcoded credentials, keys, tokens?
-- Dependencies: known vulnerabilities?
+Mini-verdict: `Correctness: {PASS|CONCERN|FAIL} — {1-line summary}`
 
-**Consistency**
+---
+
+#### 2C — Architecture Perspective
+
+Focus: Design patterns, SOLID, coupling, cohesion.
+
 - Does the code follow existing patterns in the codebase?
-- Naming conventions maintained?
-- Error handling consistent?
+- Is the abstraction level appropriate (not over/under-engineered)?
+- Are responsibilities properly separated?
+- Does this introduce tight coupling or circular dependencies?
+- Is the naming clear and consistent?
 
-**Decisions**
-- Does each decision have valid reasoning?
+Mini-verdict: `Architecture: {PASS|CONCERN|FAIL} — {1-line summary}`
+
+---
+
+#### 2D — Testing Perspective
+
+Focus: Testability, coverage gaps, test quality.
+
+- Are the changes testable? (pure functions, injectable dependencies)
+- Are tests included if the task required them?
+- Do existing tests still pass? (gates will verify, but check logic)
+- Are there untested critical paths?
+- Do tests test behavior, not implementation details?
+
+Mini-verdict: `Testing: {PASS|CONCERN|FAIL} — {1-line summary}`
+
+---
+
+#### 2E — Decision Audit Perspective
+
+Focus: Were decisions properly justified and recorded?
+
+- Does each recorded decision have valid reasoning?
 - Were alternatives properly considered?
 - Any LOW confidence decisions that need escalation?
+- Are there unrecorded decisions (choices made without a decision record)?
+- Do decisions align with project-level patterns from lessons?
 
-For each issue found, record a decision:
+Mini-verdict: `Decisions: {PASS|CONCERN|FAIL} — {1-line summary}`
+
+---
+
+For each CONCERN or FAIL, record a finding as a decision:
 
 ```bash
 python -m core.decisions add {project} --data '[{
   "task_id": "{task_id}",
-  "type": "security|implementation|architecture",
+  "type": "security|implementation|architecture|testing",
   "issue": "Review finding: ...",
   "recommendation": "Fix: ...",
   "reasoning": "Why this matters: ...",
@@ -151,28 +203,36 @@ python -m core.lessons add {project} --data '[{
 
 ### Step 5 — Report
 
-Present review results:
+Present review results with per-perspective verdicts:
 
 ```
 ## Review: {task_id} — {task_name}
+
+### Perspectives
+| Perspective | Verdict | Summary |
+|-------------|---------|---------|
+| Security | PASS/CONCERN/FAIL | {1-line} |
+| Correctness | PASS/CONCERN/FAIL | {1-line} |
+| Architecture | PASS/CONCERN/FAIL | {1-line} |
+| Testing | PASS/CONCERN/FAIL | {1-line} |
+| Decisions | PASS/CONCERN/FAIL | {1-line} |
 
 ### Files Reviewed
 - file1.py — OK
 - file2.py — 1 issue (OPEN decision D-NNN)
 
-### Security
-- No issues found / Issues: ...
-
-### Decisions
-- D-001: validated (reasoning sound)
-- D-002: concern (LOW confidence, escalating)
+### Findings (if any)
+- D-NNN: {issue} — {recommendation}
 
 ### Gates
 - test: PASS
 - lint: PASS
+- secrets: PASS
 
 ### Verdict
-APPROVED / NEEDS CHANGES (N open decisions)
+APPROVED — all perspectives PASS
+APPROVED WITH NOTES — CONCERNs noted but non-blocking
+NEEDS CHANGES — FAIL in N perspectives (N open decisions)
 ```
 
 ---

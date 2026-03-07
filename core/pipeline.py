@@ -33,8 +33,14 @@ import argparse
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from contracts import render_contract, validate_contract
+
+CLAIM_WAIT_SECONDS = 1.5
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -130,6 +136,51 @@ def validate_dag(tasks: list) -> list:
     return errors
 
 
+# -- Contracts --
+
+CONTRACTS = {
+    "add-tasks": {
+        "required": ["id", "name"],
+        "optional": ["description", "instruction", "depends_on", "parallel",
+                      "conflicts_with", "skill"],
+        "enums": {},
+        "types": {
+            "depends_on": list,
+            "conflicts_with": list,
+            "parallel": bool,
+        },
+        "invariant_texts": [
+            "id: unique task identifier (e.g., T-001)",
+            "name: kebab-case descriptive name (e.g., setup-database-schema)",
+            "description: WHAT needs to be done (concrete, not vague)",
+            "instruction: HOW to do it (step-by-step, mention specific files)",
+            "depends_on: list of prerequisite task IDs (must exist)",
+            "parallel: true if this task can run alongside others",
+            "conflicts_with: list of task IDs that modify same files",
+        ],
+        "example": [
+            {
+                "id": "T-001",
+                "name": "setup-database-schema",
+                "description": "Create the database schema for user authentication",
+                "instruction": "Create migrations/001_auth.sql with users and sessions tables. Follow existing migration patterns.",
+                "depends_on": [],
+                "parallel": False,
+            },
+            {
+                "id": "T-002",
+                "name": "implement-auth-middleware",
+                "description": "JWT validation middleware",
+                "instruction": "Create src/middleware/auth.ts with RS256 JWT validation. Use jsonwebtoken library.",
+                "depends_on": ["T-001"],
+                "parallel": False,
+                "conflicts_with": ["T-003"],
+            },
+        ],
+    },
+}
+
+
 # -- Commands --
 
 def cmd_init(args):
@@ -174,12 +225,17 @@ def cmd_add_tasks(args):
         print("ERROR: --data must be a JSON array", file=sys.stderr)
         sys.exit(1)
 
-    # Validate required fields
+    # Contract validation
+    errors = validate_contract(CONTRACTS["add-tasks"], new_tasks)
+    if errors:
+        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Check for duplicate IDs
     existing_ids = {t["id"] for t in tracker["tasks"]}
     for t in new_tasks:
-        if "id" not in t or "name" not in t:
-            print(f"ERROR: Each task must have 'id' and 'name'", file=sys.stderr)
-            sys.exit(1)
         if t["id"] in existing_ids:
             print(f"ERROR: Duplicate task ID '{t['id']}'", file=sys.stderr)
             sys.exit(1)
@@ -219,8 +275,30 @@ def cmd_add_tasks(args):
     print(f"\nRun `next {args.project}` to start.")
 
 
+def _get_active_ids(tracker: dict) -> set:
+    """IDs of tasks that are CLAIMING or IN_PROGRESS."""
+    return {t["id"] for t in tracker["tasks"]
+            if t["status"] in ("CLAIMING", "IN_PROGRESS")}
+
+
+def _has_conflict(task: dict, active_ids: set) -> bool:
+    """Check if task conflicts with any active task."""
+    conflicts = set(task.get("conflicts_with", []))
+    return bool(conflicts & active_ids)
+
+
 def cmd_next(args):
-    """Get next TODO task or subtask respecting dependencies."""
+    """Get next TODO task with two-phase claim for multi-agent safety.
+
+    Protocol:
+    1. Agent writes CLAIMING + agent_name to task
+    2. Agent waits CLAIM_WAIT_SECONDS
+    3. Agent re-reads tracker — if still own name, set IN_PROGRESS
+    4. If another agent overwrote, back off and try next task
+
+    This detects concurrent claims without locks or databases.
+    """
+    agent = getattr(args, "agent", None) or "default"
     tracker = load_tracker(args.project)
 
     if not tracker["tasks"]:
@@ -230,61 +308,121 @@ def cmd_next(args):
 
     done_ids = {t["id"] for t in tracker["tasks"]
                 if t["status"] in ("DONE", "SKIPPED")}
+    active_ids = _get_active_ids(tracker)
 
-    # Check if something is IN_PROGRESS
-    in_progress = [t for t in tracker["tasks"] if t["status"] == "IN_PROGRESS"]
-    if in_progress:
-        task = in_progress[0]
-        if task.get("has_subtasks"):
-            _next_subtask(args.project, tracker, task)
+    # Check if THIS agent already has a task IN_PROGRESS
+    for task in tracker["tasks"]:
+        if task["status"] == "IN_PROGRESS" and task.get("agent") == agent:
+            if task.get("has_subtasks"):
+                _next_subtask(args.project, tracker, task)
+                return
+            print(f"## Current task: {task['id']} — {task['name']}")
+            print(f"Agent: {agent}")
+            print(f"Status: **IN_PROGRESS** (started: {task['started_at']})")
+            print()
+            print_task_detail(task)
             return
-        print(f"## Current task: {task['id']} — {task['name']}")
-        print(f"")
-        print(f"Status: **IN_PROGRESS** (started: {task['started_at']})")
-        print(f"")
-        print_task_detail(task)
-        return
 
-    # Find next TODO with all dependencies met
+    # Check if ANY task is IN_PROGRESS without an agent (single-agent compat)
+    for task in tracker["tasks"]:
+        if task["status"] == "IN_PROGRESS" and not task.get("agent"):
+            if task.get("has_subtasks"):
+                _next_subtask(args.project, tracker, task)
+                return
+            print(f"## Current task: {task['id']} — {task['name']}")
+            print(f"Status: **IN_PROGRESS** (started: {task['started_at']})")
+            print()
+            print_task_detail(task)
+            return
+
+    # Find next TODO with deps met and no conflicts with active tasks
+    candidate = None
     for task in tracker["tasks"]:
         if task["status"] != "TODO":
             continue
         deps_met = all(dep in done_ids for dep in task["depends_on"])
-        if deps_met:
-            task["status"] = "IN_PROGRESS"
-            task["started_at"] = now_iso()
-            save_tracker(args.project, tracker)
+        if not deps_met:
+            continue
+        if _has_conflict(task, active_ids):
+            continue
+        candidate = task
+        break
 
-            print(f"## Next task: {task['id']} — {task['name']}")
-            print(f"")
-            print(f"Status: TODO -> **IN_PROGRESS**")
-            print(f"")
-            print_task_detail(task)
-            return
-
-    # All done or blocked
-    all_done = all(t["status"] in ("DONE", "SKIPPED") for t in tracker["tasks"])
-    if all_done:
-        print(f"## Project complete: {args.project}")
-        print(f"")
-        print(f"All {len(tracker['tasks'])} tasks finished.")
-        print_status(args.project, tracker)
-    else:
-        failed = [t for t in tracker["tasks"] if t["status"] == "FAILED"]
-        if failed:
-            print(f"## Project blocked: {args.project}")
-            print(f"")
-            for t in failed:
-                print(f"  FAILED: {t['id']} {t['name']}: {t['failed_reason']}")
-        else:
-            print(f"## No tasks available (dependencies not met)")
+    if not candidate:
+        # Check terminal states
+        all_done = all(t["status"] in ("DONE", "SKIPPED") for t in tracker["tasks"])
+        if all_done:
+            print(f"## Project complete: {args.project}")
+            print()
+            print(f"All {len(tracker['tasks'])} tasks finished.")
             print_status(args.project, tracker)
+        else:
+            failed = [t for t in tracker["tasks"] if t["status"] == "FAILED"]
+            blocked_by_conflict = any(
+                t["status"] == "TODO"
+                and all(dep in done_ids for dep in t["depends_on"])
+                and _has_conflict(t, active_ids)
+                for t in tracker["tasks"]
+            )
+            if failed:
+                print(f"## Project blocked: {args.project}")
+                print()
+                for t in failed:
+                    print(f"  FAILED: {t['id']} {t['name']}: {t['failed_reason']}")
+            elif blocked_by_conflict:
+                print(f"## All available tasks conflict with active tasks")
+                print(f"Agent: {agent}")
+                print(f"Active: {', '.join(active_ids)}")
+                print(f"Wait for active tasks to complete.")
+            else:
+                print(f"## No tasks available (dependencies not met)")
+                print_status(args.project, tracker)
+        return
+
+    # --- Phase 1: CLAIMING ---
+    candidate["status"] = "CLAIMING"
+    candidate["agent"] = agent
+    candidate["claimed_at"] = now_iso()
+    save_tracker(args.project, tracker)
+
+    # --- Wait ---
+    time.sleep(CLAIM_WAIT_SECONDS)
+
+    # --- Phase 2: Verify claim ---
+    tracker = load_tracker(args.project)
+    task = find_task(tracker, candidate["id"])
+
+    if task["status"] != "CLAIMING" or task.get("agent") != agent:
+        # Another agent claimed it — back off
+        print(f"## Claim conflict on {candidate['id']}")
+        print(f"Agent '{agent}' lost claim to agent '{task.get('agent', '?')}'.")
+        print(f"Retrying with next available task...")
+        # Recursive retry — will find the next candidate
+        cmd_next(args)
+        return
+
+    # Claim won — promote to IN_PROGRESS
+    task["status"] = "IN_PROGRESS"
+    task["started_at"] = now_iso()
+    save_tracker(args.project, tracker)
+
+    print(f"## Next task: {task['id']} — {task['name']}")
+    print(f"Agent: {agent}")
+    print(f"Status: TODO -> CLAIMING -> **IN_PROGRESS**")
+    print()
+    print_task_detail(task)
 
 
 def cmd_complete(args):
     """Mark task as DONE."""
     tracker = load_tracker(args.project)
     task = find_task(tracker, args.task_id)
+    agent = getattr(args, "agent", None)
+
+    # Verify agent ownership if task was claimed
+    if task.get("agent") and agent and task["agent"] != agent:
+        print(f"WARNING: Task {args.task_id} is owned by agent '{task['agent']}', "
+              f"not '{agent}'. Completing anyway.", file=sys.stderr)
 
     task["status"] = "DONE"
     task["completed_at"] = now_iso()
@@ -522,6 +660,7 @@ def cmd_complete_subtask(args):
 
 STATUS_ICONS = {
     "TODO": "[ ]",
+    "CLAIMING": "[?]",
     "IN_PROGRESS": "[>]",
     "DONE": "[x]",
     "SKIPPED": "[-]",
@@ -568,11 +707,14 @@ def print_status(project: str, tracker: dict):
     for task in tasks:
         icon = STATUS_ICONS.get(task["status"], "?")
         line = f"  {icon} {task['id']} {task['name']}"
+        agent_label = f" ({task['agent']})" if task.get("agent") else ""
         if task["status"] == "IN_PROGRESS":
             if task.get("has_subtasks"):
-                line += f" <- current [{task.get('subtask_done', 0)}/{task.get('subtask_total', 0)} subtasks]"
+                line += f" <- current{agent_label} [{task.get('subtask_done', 0)}/{task.get('subtask_total', 0)} subtasks]"
             else:
-                line += " <- current"
+                line += f" <- current{agent_label}"
+        elif task["status"] == "CLAIMING":
+            line += f" <- claiming{agent_label}"
         elif task["status"] == "FAILED":
             line += f" -- {task.get('failed_reason', '')}"
         print(line)
@@ -750,15 +892,18 @@ def main():
 
     p = sub.add_parser("next", help="Get next task")
     p.add_argument("project")
+    p.add_argument("--agent", default=None, help="Agent name for multi-agent claim")
 
     p = sub.add_parser("complete", help="Mark task DONE")
     p.add_argument("project")
     p.add_argument("task_id")
+    p.add_argument("--agent", default=None, help="Agent name (verified against claim)")
 
     p = sub.add_parser("fail", help="Mark task FAILED")
     p.add_argument("project")
     p.add_argument("task_id")
     p.add_argument("--reason", default=None)
+    p.add_argument("--agent", default=None, help="Agent name")
 
     p = sub.add_parser("skip", help="Mark task SKIPPED")
     p.add_argument("project")
@@ -781,6 +926,9 @@ def main():
     p = sub.add_parser("config", help="Set/show project configuration")
     p.add_argument("project")
     p.add_argument("--data", default=None, help="JSON object with config keys")
+
+    p = sub.add_parser("contract", help="Print contract spec")
+    p.add_argument("name", choices=sorted(CONTRACTS.keys()))
 
     p = sub.add_parser("register-subtasks", help="Register subtasks")
     p.add_argument("project")
@@ -809,6 +957,7 @@ def main():
         "reset": cmd_reset,
         "context": cmd_context,
         "config": cmd_config,
+        "contract": lambda args: print(render_contract(args.name, CONTRACTS[args.name])),
         "register-subtasks": cmd_register_subtasks,
         "complete-subtask": cmd_complete_subtask,
     }

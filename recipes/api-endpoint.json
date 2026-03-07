@@ -1,0 +1,42 @@
+{
+  "name": "api-endpoint",
+  "description": "Add a new API endpoint with handler, validation, and tests",
+  "variables": ["endpoint_name", "http_method", "framework"],
+  "tasks": [
+    {
+      "id": "T-001",
+      "name": "define-{endpoint_name}-schema",
+      "description": "Define request/response schema for {endpoint_name}",
+      "instruction": "Create or update the schema/types for the {endpoint_name} endpoint. Define request body validation, response shape, and error responses. Use existing patterns in the codebase.",
+      "depends_on": []
+    },
+    {
+      "id": "T-002",
+      "name": "implement-{endpoint_name}-handler",
+      "description": "Implement the {http_method} handler for {endpoint_name}",
+      "instruction": "Create the route handler for {http_method} {endpoint_name}. Follow existing patterns in the codebase. Include input validation, business logic, error handling, and proper HTTP status codes.",
+      "depends_on": ["T-001"]
+    },
+    {
+      "id": "T-003",
+      "name": "add-{endpoint_name}-middleware",
+      "description": "Add auth/validation middleware for {endpoint_name}",
+      "instruction": "Wire up authentication, authorization, and request validation middleware for the {endpoint_name} endpoint. Follow existing middleware patterns.",
+      "depends_on": ["T-002"]
+    },
+    {
+      "id": "T-004",
+      "name": "test-{endpoint_name}",
+      "description": "Write tests for {endpoint_name} endpoint",
+      "instruction": "Write unit and integration tests for {endpoint_name}. Cover: happy path, validation errors, auth failures, edge cases. Use {framework} test patterns.",
+      "depends_on": ["T-003"]
+    },
+    {
+      "id": "T-005",
+      "name": "document-{endpoint_name}",
+      "description": "Update API documentation for {endpoint_name}",
+      "instruction": "Add {endpoint_name} to API documentation. Include: endpoint URL, method, request/response examples, error codes, auth requirements.",
+      "depends_on": ["T-002"]
+    }
+  ]
+}
