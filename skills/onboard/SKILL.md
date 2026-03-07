@@ -23,6 +23,7 @@ description: "Discover and import existing project knowledge into Forge for brow
 | R2 | `python -m core.decisions contract add` | Contract for recording decisions | Step 4 — before import |
 | R3 | `python -m core.lessons contract` | Contract for recording lessons | Step 4 — before import |
 | R4 | `python -m core.pipeline status {project}` | Pipeline state after creation | Step 6 — verify |
+| R5 | `python -m core.pipeline contract add-tasks` | Contract for adding tasks | Step 4 — before task import |
 
 ## Write Commands
 
@@ -33,12 +34,13 @@ description: "Discover and import existing project knowledge into Forge for brow
 | W3 | `python -m core.lessons add {project} --data '{json}'` | Records imported lessons | Step 4 — import lessons | `python -m core.lessons contract` |
 | W4 | `python -m core.pipeline config {project} --data '{json}'` | Sets test/lint commands | Step 5 — configure | `python -m core.pipeline contract config` |
 | W5 | `python -m core.gates config {project} --data '[{json}]'` | Configures validation gates | Step 5 — configure | `python -m core.gates contract config` |
+| W6 | `python -m core.pipeline add-tasks {project} --data '[{json}]'` | Imports planned tasks | Step 4 — import backlog | `python -m core.pipeline contract add-tasks` |
 
 ## Output
 
 | File | Contains |
 |------|----------|
-| `forge_output/{project}/tracker.json` | Project with config and gates |
+| `forge_output/{project}/tracker.json` | Project with config, gates, and imported tasks |
 | `forge_output/{project}/decisions.json` | Imported decisions and conventions |
 | `forge_output/{project}/lessons.json` | Imported lessons (if any) |
 
@@ -48,6 +50,7 @@ description: "Discover and import existing project knowledge into Forge for brow
 - Key architectural decisions extracted and recorded with `decided_by: "imported"`
 - Active conventions recorded as `type: "convention"` decisions
 - Known constraints recorded as `type: "constraint"` decisions
+- Existing planned tasks (TODO/backlog) imported as pipeline tasks with dependencies
 - Test and lint commands auto-detected and configured as gates
 - User has reviewed and confirmed the imported knowledge is correct
 - No fabricated information — only extract what is explicitly stated in project files
@@ -87,13 +90,15 @@ Scan for presence of:
 
 Read the first found to determine: project name, description, language, framework.
 
-**1B — Documentation** (what has been written down?):
+**1B — Documentation and backlog** (what has been written down? what work is planned?):
 Scan for presence of:
 - `docs/`, `doc/`, `documentation/`
 - `ARCHITECTURE.md`, `DESIGN.md`, `CONTRIBUTING.md`
 - `ADR/`, `adr/`, `docs/adr/`, `docs/decisions/`
 - `CHANGELOG.md`, `HISTORY.md`
-- `TODO.md`, `ROADMAP.md`
+- `TODO.md`, `ROADMAP.md`, `BACKLOG.md`
+- `TRACKER.md`, `TASKS.md`, `PLAN.md`
+- GitHub/GitLab issues (if accessible via CLI)
 
 **1C — AI instructions** (existing LLM context?):
 Scan for presence of:
@@ -131,21 +136,28 @@ Scan for presence of:
 - `.env.example`, `.env.template`, `.env.sample`
 - `config/`, `settings/`
 
-Present discovery results as a summary table:
+Present discovery results as a summary table. **Report EVERY category** — both
+found and not found. This gives a complete picture of what the project has and
+what is missing.
 
 ```
 ## Discovery Results
 
-| Category | Found | Files |
-|----------|-------|-------|
-| Project Identity | YES | package.json |
-| Documentation | YES | docs/ARCHITECTURE.md, CONTRIBUTING.md |
-| AI Instructions | YES | .claude/CLAUDE.md |
-| Code Standards | YES | .eslintrc.json, .prettierrc |
-| CI/CD | YES | .github/workflows/ci.yml |
-| Infrastructure | YES | Dockerfile, docker-compose.yml |
-| Environment | YES | .env.example |
+| Category | Found | Files | Impact if missing |
+|----------|-------|-------|-------------------|
+| Project Identity | YES | package.json | — |
+| Documentation & Backlog | YES | docs/ARCHITECTURE.md, TRACKER.md | — |
+| AI Instructions | NO | (none) | No conventions to import — will need manual input |
+| Code Standards | YES | .eslintrc.json, .prettierrc | — |
+| CI/CD | NO | (none) | Cannot auto-detect test/lint commands for gates |
+| Infrastructure | YES | Dockerfile, docker-compose.yml | — |
+| Environment | NO | (none) | Environment setup may need manual documentation |
 ```
+
+**For every NO:**
+- State what was searched for (specific files/patterns)
+- State the consequence (what cannot be imported/configured)
+- If the missing information is important, create an OPEN decision asking the user
 
 Check lessons from past projects:
 ```bash
@@ -168,6 +180,7 @@ categories:
 | **Security rules** | Auth requirements, data handling rules, encryption requirements | `decisions add` with `type: "security"` |
 | **Test/lint commands** | `npm test`, `pytest`, `ruff check`, CI pipeline commands | `pipeline config` + `gates config` |
 | **Known tech debt** | "TODO: refactor X", "HACK:", documented limitations | `lessons add` with `category: "architecture-lesson"` |
+| **Planned tasks** | TODO items with clear scope, backlog entries, tracker items with status TODO/PLANNED | `pipeline add-tasks` (W6) |
 
 **Critical rules for extraction:**
 
@@ -311,6 +324,45 @@ python -m core.lessons add {project} --data '[{
 }]'
 ```
 
+**Planned tasks** (if backlog/tracker/TODO with actionable items found):
+
+If the project has existing planned work (TODO items, backlog entries, tracker tasks
+with status TODO/PLANNED), import them as pipeline tasks. Only import tasks that are:
+- **Actionable** — clear enough to execute (has description of what to do)
+- **Not yet done** — status is TODO, PLANNED, or equivalent (skip DONE/COMPLETED)
+- **Scoped** — each task is a focused unit of work, not a vague epic
+
+Load the add-tasks contract first (R5):
+```bash
+python -m core.pipeline contract add-tasks
+```
+
+Then import:
+```bash
+python -m core.pipeline add-tasks {project} --data '[{
+  "id": "T-001",
+  "name": "split-large-module",
+  "description": "Split v3.py into separate files per class",
+  "instruction": "Per TRACKER.md Q1.1: Extract DataProcessor, Validator, and Formatter classes into separate modules under src/components/",
+  "depends_on": []
+}, {
+  "id": "T-002",
+  "name": "add-unit-tests-for-processor",
+  "description": "Add unit tests for DataProcessor after extraction",
+  "instruction": "Per TRACKER.md Q1.2: Write pytest tests for the extracted DataProcessor class",
+  "depends_on": ["T-001"]
+}]'
+```
+
+**Rules for task import:**
+
+- Preserve original task IDs if they exist (e.g., "Q1.1" → use as part of name)
+- Map existing dependencies between tasks to `depends_on`
+- If the source has acceptance criteria, include them in `instruction`
+- If the source mentions affected files, include them in `instruction`
+- Do NOT import vague items like "improve performance" — these become `lessons add` instead
+- Completed/done items are NOT imported as tasks — extract learnings from them as decisions or lessons
+
 **Rules for import quality:**
 
 - Do NOT create more than 15-20 decisions. Focus on what matters for future work.
@@ -383,6 +435,7 @@ Present a summary for user review:
 | Constraints | N | CONTRIBUTING.md |
 | Tech stack | N | package.json |
 | Lessons (tech debt) | N | TODO.md |
+| Planned tasks (pipeline) | N | TRACKER.md |
 
 ### Configured Gates
 | Gate | Command | Required |
