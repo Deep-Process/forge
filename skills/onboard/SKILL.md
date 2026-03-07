@@ -437,6 +437,15 @@ Present a summary for user review:
 | Lessons (tech debt) | N | TODO.md |
 | Planned tasks (pipeline) | N | TRACKER.md |
 
+### Not Found (searched but absent)
+| Category | Searched for | Consequence |
+|----------|-------------|-------------|
+| AI Instructions | .claude/CLAUDE.md, .cursorrules | No conventions imported — add manually or create with /plan |
+| CI/CD | .github/workflows/, .gitlab-ci.yml | Gates not auto-configured — specify test/lint commands manually |
+| Backlog | TRACKER.md, TODO.md, BACKLOG.md | No planned tasks imported — use /plan to create new ones |
+
+(Only show categories that were NOT found. Omit this section if everything was found.)
+
 ### Configured Gates
 | Gate | Command | Required |
 |------|---------|----------|
