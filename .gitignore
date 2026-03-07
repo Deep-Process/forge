@@ -1,7 +1,9 @@
 *.pyc
 __pycache__/
 
+# Runtime output (per-project state, not tracked)
+forge_output/
+
 # User-specific config (template is tracked, actual file is not)
 .claude/forge.local.md
 .mcp.json
-skill_v1/

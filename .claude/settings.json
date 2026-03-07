@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "command": "bash -c 'if echo \"$TOOL_INPUT\" | grep -q \"core.pipeline complete \"; then echo \"Task completed. Run /status to verify pipeline state. Remember to record any unlogged changes or decisions.\"; fi'",
+        "description": "Remind to check status and record changes after completing a task",
+        "toolFilter": ["Bash"]
+      }
+    ]
+  }
+}
