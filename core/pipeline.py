@@ -608,6 +608,129 @@ def print_task_detail(task: dict):
     print(f"When done: `python -m core.pipeline complete {{project}} {task['id']}`")
 
 
+# -- Context & Config Commands --
+
+def cmd_context(args):
+    """Show aggregated context for a task: dependency outputs, decisions, changes."""
+    tracker = load_tracker(args.project)
+    task = find_task(tracker, args.task_id)
+
+    print(f"## Context for {args.task_id}: {task['name']}")
+    print()
+
+    # Task details
+    if task.get("description"):
+        print(f"**Description**: {task['description']}")
+    if task.get("instruction"):
+        print(f"**Instruction**: {task['instruction']}")
+    print()
+
+    # Dependency context
+    deps = task.get("depends_on", [])
+    if deps:
+        print(f"### Completed Dependencies")
+        print()
+        for dep_id in deps:
+            dep_task = find_task(tracker, dep_id)
+            print(f"**{dep_id}** — {dep_task['name']} ({dep_task['status']})")
+            if dep_task.get("description"):
+                print(f"  {dep_task['description']}")
+            print()
+
+        # Show changes from dependency tasks
+        changes_file = Path("forge_output") / args.project / "changes.json"
+        if changes_file.exists():
+            changes_data = json.loads(changes_file.read_text(encoding="utf-8"))
+            dep_changes = [c for c in changes_data.get("changes", [])
+                           if c.get("task_id") in deps]
+            if dep_changes:
+                print(f"### Changes from Dependencies")
+                print()
+                print("| Task | File | Action | Summary |")
+                print("|------|------|--------|---------|")
+                for c in dep_changes:
+                    summary = c.get("summary", "")[:50]
+                    print(f"| {c['task_id']} | {c['file']} | {c['action']} | {summary} |")
+                print()
+
+        # Show decisions from dependency tasks
+        decisions_file = Path("forge_output") / args.project / "decisions.json"
+        if decisions_file.exists():
+            dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+            dep_decisions = [d for d in dec_data.get("decisions", [])
+                             if d.get("task_id") in deps]
+            if dep_decisions:
+                print(f"### Decisions from Dependencies")
+                print()
+                for d in dep_decisions:
+                    status = d.get("status", "")
+                    print(f"- **{d['id']}** ({status}): {d.get('issue', '')}")
+                    if d.get("recommendation"):
+                        print(f"  Recommendation: {d['recommendation']}")
+                print()
+    else:
+        print("No dependencies — this is a root task.")
+        print()
+
+    # Show open decisions for this task
+    decisions_file = Path("forge_output") / args.project / "decisions.json"
+    if decisions_file.exists():
+        dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+        task_decisions = [d for d in dec_data.get("decisions", [])
+                          if d.get("task_id") == args.task_id]
+        if task_decisions:
+            print(f"### Existing Decisions for This Task")
+            print()
+            for d in task_decisions:
+                print(f"- **{d['id']}** ({d.get('status', '')}): {d.get('issue', '')}")
+            print()
+
+    # Show relevant lessons
+    lessons_file = Path("forge_output") / args.project / "lessons.json"
+    if lessons_file.exists():
+        lessons_data = json.loads(lessons_file.read_text(encoding="utf-8"))
+        lessons = lessons_data.get("lessons", [])
+        if lessons:
+            print(f"### Relevant Lessons")
+            print()
+            for l in lessons:
+                print(f"- **{l['id']}** [{l.get('severity', '')}]: {l['title']}")
+            print()
+
+
+def cmd_config(args):
+    """Set or show project configuration."""
+    tracker = load_tracker(args.project)
+
+    if args.data:
+        try:
+            config = json.loads(args.data)
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        existing = tracker.get("config", {})
+        existing.update(config)
+        tracker["config"] = existing
+        save_tracker(args.project, tracker)
+
+        print(f"Config updated for '{args.project}':")
+        for k, v in existing.items():
+            print(f"  {k}: {v}")
+    else:
+        config = tracker.get("config", {})
+        if not config:
+            print(f"No config set for '{args.project}'.")
+            print()
+            print("Set with:")
+            print(f'  python -m core.pipeline config {args.project} --data \'{{"test_cmd": "pytest", "lint_cmd": "ruff check .", "branch_prefix": "forge/"}}\'')
+            return
+        print(f"## Config: {args.project}")
+        print()
+        for k, v in config.items():
+            print(f"  {k}: {v}")
+
+
 # -- CLI --
 
 def main():
@@ -651,6 +774,14 @@ def main():
     p.add_argument("project")
     p.add_argument("--from", dest="from_task", required=True)
 
+    p = sub.add_parser("context", help="Aggregated context for a task")
+    p.add_argument("project")
+    p.add_argument("task_id")
+
+    p = sub.add_parser("config", help="Set/show project configuration")
+    p.add_argument("project")
+    p.add_argument("--data", default=None, help="JSON object with config keys")
+
     p = sub.add_parser("register-subtasks", help="Register subtasks")
     p.add_argument("project")
     p.add_argument("task_id")
@@ -676,6 +807,8 @@ def main():
         "status": cmd_status,
         "list": cmd_list,
         "reset": cmd_reset,
+        "context": cmd_context,
+        "config": cmd_config,
         "register-subtasks": cmd_register_subtasks,
         "complete-subtask": cmd_complete_subtask,
     }

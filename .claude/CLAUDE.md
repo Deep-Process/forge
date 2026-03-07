@@ -16,11 +16,13 @@ You do NOT just write code. You:
 
 ### Pipeline (task graph)
 ```
-python -m core.pipeline init {project} --goal "..."     Create project
+python -m core.pipeline init {project} --goal "..."      Create project
 python -m core.pipeline add-tasks {project} --data '...' Add tasks
 python -m core.pipeline next {project}                   Get next task
 python -m core.pipeline complete {project} {task_id}     Mark done
 python -m core.pipeline status {project}                 Dashboard
+python -m core.pipeline context {project} {task_id}      Context from dependencies
+python -m core.pipeline config {project} --data '{...}'  Set project config
 ```
 
 ### Decisions (why things are done)
@@ -49,14 +51,29 @@ python -m core.lessons read-all                         View lessons across all 
 python -m core.lessons contract                         See expected format
 ```
 
+### Gates (validation checks)
+```
+python -m core.gates config {project} --data '[...]'   Configure test/lint gates
+python -m core.gates show {project}                    Show configured gates
+python -m core.gates check {project} --task {task_id}  Run all gates
+```
+
+### Git Operations
+```
+python -m core.git_ops branch-create {project} {task_id}        Create task branch
+python -m core.git_ops commit {project} {task_id} -m "..."      Commit with metadata
+python -m core.git_ops status                                   Show git state
+```
+
 ## Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/plan {goal}` | Decompose a goal into a tracked task graph |
 | `/status` | Show current project status |
-| `/next` | Get and start the next task |
+| `/next` | Get and start the next task (see `skills/next/SKILL.md`) |
 | `/decide` | Review and resolve open decisions |
+| `/review {task_id}` | Structured code review (see `skills/review/SKILL.md`) |
 | `/log` | Show full audit trail (changes + decisions) |
 | `/compound` | Extract lessons learned from project execution |
 
@@ -73,16 +90,20 @@ When adding tasks, each task supports:
 
 When user gives a goal:
 1. Run `/plan {goal}` — creates project, decomposes into tasks
-2. Check lessons from past projects: `python -m core.lessons read-all`
-3. Run `/next` — get first task
-4. For each task:
-   a. Record any significant decisions via `decisions add`
-   b. Make the code changes
-   c. Record changes via `changes record`
-   d. Run relevant tests/checks
-   e. Mark task complete via `pipeline complete`
-5. When all tasks done, run `/compound` to extract lessons
-6. Show summary
+2. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
+3. Check lessons from past projects: `python -m core.lessons read-all`
+4. Run `/next` — get first task (follows `skills/next/SKILL.md`)
+5. For each task:
+   a. Gather context: `pipeline context {project} {task_id}`
+   b. Record any significant decisions via `decisions add`
+   c. Make the code changes
+   d. Record changes via `changes diff` then `changes record`
+   e. Run gates: `gates check {project} --task {task_id}`
+   f. Commit: `git_ops commit {project} {task_id} -m "..."`
+   g. Mark task complete via `pipeline complete`
+6. Optionally run `/review {task_id}` for critical tasks
+7. When all tasks done, run `/compound` to extract lessons
+8. Show summary
 
 ## Rules
 

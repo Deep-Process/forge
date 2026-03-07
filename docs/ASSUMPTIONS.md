@@ -67,16 +67,15 @@ Updated as assumptions are validated or invalidated.
 - **Leaning toward**: (b) full, but with a `detail_level` flag to control verbosity
 - **Decide when**: When implementing the first real skill execution
 
-### DD-003: Should Forge manage git branches
-- **Options**: (a) Forge creates/switches branches, (b) User manages branches, Forge just records
-- **Leaning toward**: (a) Forge manages, creating a branch per project
-- **Risk**: Conflicts with user's git workflow
-- **Decide when**: When implementing git integration skill
+### DD-003: ~~Should Forge manage git branches~~ RESOLVED
+- **Decision**: Forge provides optional git integration (`core/git_ops.py`)
+- **Approach**: Hybrid — Forge can create branches (`branch-create`) and commit with metadata (`commit`), but never force-pushes or deletes branches. User retains full control. All git ops are optional — Forge works without git.
+- **Resolved in**: v1.0, `core/git_ops.py`
 
-### DD-004: How to handle failed gates
-- **Options**: (a) Stop pipeline, require manual fix, (b) Create a decision for the failure
-- **Leaning toward**: Both — stop pipeline AND create a decision record
-- **Decide when**: When implementing gate infrastructure
+### DD-004: ~~How to handle failed gates~~ RESOLVED
+- **Decision**: Gates report pass/fail, required gates block completion advisory (LLM decides)
+- **Approach**: `core/gates.py` runs configured commands, stores results on task. Required gate failure prints warning but doesn't mechanically block `pipeline complete` — the skill procedure (`skills/next/SKILL.md`) instructs the LLM to fix before completing. This keeps Python as pure I/O, LLM as judge.
+- **Resolved in**: v1.0, `core/gates.py`
 
 ### DD-005: Skill discovery and registration
 - **Options**: (a) Skills are hardcoded in config, (b) Auto-discovered from skills/ directory
@@ -99,11 +98,11 @@ Updated as assumptions are validated or invalidated.
 - **Leaning toward**: Defer — changes.py covers the essential traceability. Add traces.py only if we need cross-task trace analysis.
 - **Decide when**: After real-world usage reveals whether change-level traces are sufficient
 
-### DD-010: Skills directory — which skills to build first
-- **Issue**: The skills/ directory is empty. Which skills are most valuable to build first?
-- **Candidates**: plan (goal decomposition), implement (code changes), review (code review), test (test execution)
-- **Leaning toward**: Plan is most critical — without it, the user must manually decompose goals
-- **Decide when**: After core is validated with real usage
+### DD-010: ~~Skills directory — which skills to build first~~ RESOLVED
+- **Decision**: Built plan, next (implement), and review skills
+- **Skills built**: `skills/plan/SKILL.md` (goal decomposition), `skills/next/SKILL.md` (task execution with full traceability), `skills/review/SKILL.md` (structured code review)
+- **Remaining**: test skill (can be added when needed, gates cover automated testing)
+- **Resolved in**: v1.0
 
 ### DD-008: Change record granularity for non-code artifacts
 - **Issue**: Should Forge track changes to configs, docs, tests the same as code?
