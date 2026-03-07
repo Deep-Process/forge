@@ -1,0 +1,7 @@
+*.pyc
+__pycache__/
+
+# User-specific config (template is tracked, actual file is not)
+.claude/forge.local.md
+.mcp.json
+skill_v1/
