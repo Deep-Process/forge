@@ -2,7 +2,7 @@
 
 Structured change orchestrator for Claude Code. Turns high-level goals into tracked, dependency-aware tasks with full traceability and observability.
 
-Every code change goes through: **Plan → Track → Decide → Execute → Record → Validate**
+Every code change goes through: **Discover → Plan → Track → Decide → Execute → Record → Validate**
 
 ## Why Forge
 
@@ -18,7 +18,8 @@ Most AI coding assistants generate code without structure. Forge adds:
 
 ```bash
 # Inside Claude Code, use slash commands:
-/plan Add JWT authentication to the API    # Decompose goal into task graph
+/discover authentication for the API        # Explore options, assess risks, design architecture
+/plan Add JWT authentication to the API     # Decompose goal into task graph
 /next                                       # Execute next task with traceability
 /status                                     # Show project dashboard + DAG
 /decide                                     # Review open decisions
@@ -31,6 +32,7 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 
 | Command | Description |
 |---------|-------------|
+| `/discover {topic}` | Explore options, assess risks, design architecture before planning |
 | `/plan {goal}` | Decompose a goal into a tracked task graph |
 | `/next` | Get and execute the next task with full traceability |
 | `/run [tasks]` | Continuous execution (`/run`, `/run 3`, `/run T-003..T-007`) |
@@ -40,7 +42,6 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 | `/log` | Full audit trail: decisions + changes + narrative |
 | `/compound` | Extract lessons learned from project execution |
 | `/onboard {path}` | Import brownfield project knowledge into Forge |
-| `/process [skill]` | Execute external plugin skill from registry |
 
 ## Architecture
 
@@ -55,12 +56,20 @@ forge/
     lessons.py           # Compound learning across projects
     git_ops.py           # Optional git integration (branch, commit)
     recipes.py           # Task graph templates
-    plugins.py           # External skill registry & discovery
   skills/                # Built-in skill definitions (SKILL.md format)
+    discover/            #   Explore, assess, design before planning
     plan/                #   Decompose goal into task graph
     next/                #   Execute task with full traceability
     onboard/             #   Import brownfield project knowledge
     review/              #   Structured 5-perspective code review
+    deep-orchestration/  #   Coordinate analysis workflows
+    deep-explore/        #   Structured option exploration
+    deep-risk/           #   5D risk assessment
+    deep-feasibility/    #   10D feasibility with GO/NO-GO
+    deep-architect/      #   Architecture with adversarial testing
+    deep-verify/         #   Artifact verification with scoring
+    deep-requirements/   #   Requirements extraction
+    deep-aggregate/      #   Combine analysis outputs
   recipes/               # Reusable task graph templates
     api-endpoint.json    #   5-task template for adding API endpoints
     bug-fix.json         #   3-task template: investigate → fix → regression test
@@ -102,10 +111,6 @@ Lessons extracted from completed projects (patterns discovered, mistakes avoided
 
 JSON templates for common task patterns. Apply with variable substitution to quickly scaffold familiar workflows.
 
-### Plugin Skills
-
-External skills auto-discovered from configured scan paths. Registered in `forge_plugins.json` and executed via `/process {skill-name}`.
-
 ## CLI Usage (standalone, without Claude Code)
 
 ```bash
@@ -142,10 +147,6 @@ python -m core.recipes apply myproject api-endpoint --vars '{"component_name": "
 # Git
 python -m core.git_ops branch-create myproject T-001
 python -m core.git_ops commit myproject T-001 -m "Add user endpoint"
-
-# Plugins
-python -m core.plugins scan
-python -m core.plugins list
 ```
 
 Use `contract` subcommand on any module to see the expected data format (e.g. `python -m core.pipeline contract add-tasks`).
@@ -157,6 +158,25 @@ Forge supports multiple agents working on the same project in parallel:
 - Each agent identifies with `--agent {name}` on `next` and `complete`
 - Two-phase claiming prevents race conditions (`CLAIMING → IN_PROGRESS`)
 - `conflicts_with` on tasks prevents concurrent modification of the same files
+
+## Analysis Skills (Deep-Process)
+
+Forge includes built-in analysis skills adapted from [Deep-Process](https://github.com/Deep-Process/deep-process):
+
+| Skill | Purpose |
+|-------|---------|
+| deep-orchestration | Coordinate analysis workflows (conductor) |
+| deep-explore | Structured option exploration with consequence tracing |
+| deep-risk | 5-dimensional risk assessment with cascade analysis |
+| deep-feasibility | 10-dimension feasibility with GO/NO-GO verdict |
+| deep-architect | Architecture design with 8 adversarial challenges |
+| deep-verify | Artifact verification with impossibility pattern matching |
+| deep-requirements | Requirements extraction and contradiction checking |
+| deep-aggregate | Combine multiple analysis outputs into decision brief |
+
+These are invoked automatically via `/discover` or manually during task execution. Findings are recorded as Forge decisions with full provenance.
+
+To check for updates from upstream: compare version in each `skills/deep-*/SKILL.md` provenance header against https://github.com/Deep-Process/deep-process.
 
 ## Heritage
 

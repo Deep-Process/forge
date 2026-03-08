@@ -139,7 +139,7 @@ CONTRACTS = {
         "required": ["id", "name"],
         "optional": ["description", "instruction", "depends_on", "parallel",
                       "conflicts_with", "skill", "acceptance_criteria",
-                      "type", "blocked_by_decisions"],
+                      "type", "blocked_by_decisions", "scopes", "origin"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -149,6 +149,7 @@ CONTRACTS = {
             "parallel": bool,
             "acceptance_criteria": list,
             "blocked_by_decisions": list,
+            "scopes": list,
         },
         "invariant_texts": [
             "id: unique task identifier (e.g., T-001)",
@@ -161,6 +162,8 @@ CONTRACTS = {
             "acceptance_criteria: list of concrete conditions that must be true when task is DONE",
             "type: task category — feature (default), bug, chore, or investigation",
             "blocked_by_decisions: list of decision IDs (D-001, etc.) that must be CLOSED before this task can start",
+            "scopes: list of guideline scopes this task relates to (e.g., ['backend', 'database']). 'general' is always included automatically.",
+            "origin: source of this task — idea ID (I-001) or free text tracing where this task came from",
         ],
         "example": [
             {
@@ -171,6 +174,7 @@ CONTRACTS = {
                 "depends_on": [],
                 "parallel": False,
                 "type": "feature",
+                "scopes": ["database"],
                 "acceptance_criteria": [
                     "migrations/001_auth.sql exists with users and sessions tables",
                     "Migration runs without errors on empty database",
@@ -197,7 +201,7 @@ CONTRACTS = {
         "required": ["id"],
         "optional": ["name", "description", "instruction", "depends_on",
                       "conflicts_with", "skill", "acceptance_criteria",
-                      "type", "blocked_by_decisions"],
+                      "type", "blocked_by_decisions", "scopes", "origin"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -206,6 +210,7 @@ CONTRACTS = {
             "conflicts_with": list,
             "acceptance_criteria": list,
             "blocked_by_decisions": list,
+            "scopes": list,
         },
         "invariant_texts": [
             "id: existing task ID to update",
@@ -220,6 +225,31 @@ CONTRACTS = {
                     "Returns 401 with error body on failure",
                 ],
                 "depends_on": ["T-001", "T-003"],
+            },
+        ],
+    },
+    "register-subtasks": {
+        "required": ["id"],
+        "optional": ["name", "description"],
+        "enums": {},
+        "types": {},
+        "invariant_texts": [
+            "id: unique subtask identifier within parent (e.g., S-001)",
+            "name: short descriptive name",
+            "description: what this subtask does",
+            "Subtask IDs are prefixed with parent task ID: T-001/S-001",
+            "Parent task must be IN_PROGRESS",
+        ],
+        "example": [
+            {
+                "id": "S-001",
+                "name": "create-schema-file",
+                "description": "Create the SQL migration file with table definitions",
+            },
+            {
+                "id": "S-002",
+                "name": "add-indexes",
+                "description": "Add performance indexes to the schema",
             },
         ],
     },
@@ -320,6 +350,8 @@ def cmd_add_tasks(args):
             "acceptance_criteria": t.get("acceptance_criteria", []),
             "type": t.get("type", "feature"),
             "blocked_by_decisions": t.get("blocked_by_decisions", []),
+            "scopes": t.get("scopes", []),
+            "origin": t.get("origin", ""),
             "status": "TODO",
             "started_at": None,
             "completed_at": None,
@@ -649,7 +681,7 @@ def cmd_update_task(args):
     # Apply updates (only provided fields)
     updatable = ["name", "description", "instruction", "depends_on",
                  "conflicts_with", "skill", "acceptance_criteria",
-                 "type", "blocked_by_decisions"]
+                 "type", "blocked_by_decisions", "scopes", "origin"]
     changed = []
     for field in updatable:
         if field in updates:
@@ -766,6 +798,17 @@ def cmd_register_subtasks(args):
         raw = json.loads(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(raw, list):
+        print("ERROR: --data must be a JSON array", file=sys.stderr)
+        sys.exit(1)
+
+    errors = validate_contract(CONTRACTS["register-subtasks"], raw)
+    if errors:
+        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  {e}", file=sys.stderr)
         sys.exit(1)
 
     subtask_entries = []
@@ -1111,6 +1154,44 @@ def cmd_context(args):
             for l in lessons:
                 print(f"- **{l['id']}** [{l.get('severity', '')}]: {l['title']}")
             print()
+
+    # Guidelines context
+    guidelines_file = Path("forge_output") / args.project / "guidelines.json"
+    if guidelines_file.exists():
+        g_data = json.loads(guidelines_file.read_text(encoding="utf-8"))
+        active_guidelines = [g for g in g_data.get("guidelines", []) if g.get("status") == "ACTIVE"]
+
+        if active_guidelines:
+            # Determine scopes: task.scopes + always "general"
+            task_scopes = set(task.get("scopes", []))
+            task_scopes.add("general")
+
+            must = [g for g in active_guidelines if g.get("weight") == "must" and g.get("scope") in task_scopes]
+            should = [g for g in active_guidelines if g.get("weight") == "should" and g.get("scope") in task_scopes]
+            may_count = sum(1 for g in active_guidelines if g.get("weight") == "may" and g.get("scope") in task_scopes)
+            total = len(must) + len(should) + may_count
+
+            if total > 0:
+                print(f"### Applicable Guidelines ({total})")
+                print()
+                for g in must:
+                    print(f"**{g['id']}** [{g['scope']}] {g['title']} _(MUST)_")
+                    print(f"> {g['content']}")
+                    if g.get("examples"):
+                        for ex in g["examples"][:2]:
+                            print(f"> Example: `{ex[:100]}`")
+                    print()
+                show_full = total <= 10
+                for g in should:
+                    print(f"**{g['id']}** [{g['scope']}] {g['title']}")
+                    if show_full:
+                        print(f"> {g['content']}")
+                    else:
+                        print(f"> {g['content'][:120]}...")
+                    print()
+                if may_count > 0:
+                    print(f"_+{may_count} additional guidelines (weight: may). Use `guidelines read {args.project}` to see all._")
+                    print()
 
     # Context budget estimate
     all_task_ids = set(deps) | {args.task_id}

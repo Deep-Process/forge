@@ -166,7 +166,7 @@ def cmd_add(args):
         tracker = json.loads(tracker_file.read_text(encoding="utf-8"))
         valid_task_ids = {t["id"] for t in tracker.get("tasks", [])}
         # Special task IDs used by skills for pre-task decisions
-        special_ids = {"PLANNING", "ONBOARDING", "REVIEW"}
+        special_ids = {"PLANNING", "ONBOARDING", "REVIEW", "DISCOVERY"}
         for d in new_decisions:
             tid = d.get("task_id", "")
             if tid and tid not in valid_task_ids and tid not in special_ids:

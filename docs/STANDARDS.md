@@ -68,6 +68,24 @@ description: "One sentence"
 - Steps say "read file X" explicitly — no implicit context loading
 - Reference section separated from procedure by `---`
 
+### S2.1 Adapted Skills (deep-* skills)
+
+Skills adapted from external sources (e.g., [Deep-Process](https://github.com/Deep-Process/deep-process)) follow a lighter format to preserve upstream compatibility while meeting Forge minimums.
+
+**Required:**
+- YAML frontmatter with `name`, `id` (SKILL-DEEP-{NAME}), `version`, `description`
+- Provenance header: `> **Provenance**: Adapted from [source](url) {skill} v{version}.`
+- Forge Integration section: how findings map to Forge decisions/lessons
+- Multi-step procedure (Steps)
+
+**Not required** (differs from native S2):
+- Identity table, Read/Write Commands tables, Output table, Success Criteria
+- Prerequisites, Error Handling, Resumability sections
+
+**Rationale:** Deep-* skills are analysis methodology guides, not Forge I/O procedures. They don't invoke Python CLIs directly — the `/discover` skill (which IS native S2) bridges between Forge and deep-* analysis. Forcing full S2 format on methodology guides would add noise without improving traceability.
+
+**Update policy:** Compare `version` in frontmatter against upstream repo. When updating, preserve `id` and Forge Integration section.
+
 ---
 
 ## S3. Python CLI Standard

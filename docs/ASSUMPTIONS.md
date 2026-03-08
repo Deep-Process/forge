@@ -38,7 +38,7 @@ Updated as assumptions are validated or invalidated.
 - **Assumed**: A skill is a directory with SKILL.md + optional Python tools
 - **Why**: Matches Skill_v1 pattern. Easy to read, copy, customize.
 - **Risk**: Doesn't scale to hundreds of skills
-- **Mitigation**: `core/plugins.py` provides a skill registry with auto-discovery for external skill packs
+- **Mitigation**: All analysis skills (deep-*) are bundled directly in `skills/`. No external plugin system needed.
 
 ### A-007: Output format is JSON for machines, Markdown for LLM
 - **Assumed**: Python CLI commands output Markdown (for LLM consumption), internal state is JSON
@@ -50,6 +50,45 @@ Updated as assumptions are validated or invalidated.
 - **Why**: Current development environment
 - **Impact**: UTF-8 workarounds, path handling, no Unix-specific features
 - **Applied**: All Python files include the win32 UTF-8 reconfigure block
+
+### A-009: Deep-* skills don't need full S2 format
+- **Assumed**: Adapted skills (deep-*) follow lighter S2.1 format — frontmatter + procedure + Forge Integration, without Read/Write Commands tables, Output table, etc.
+- **Why**: Deep-* skills are analysis methodology guides, not Forge I/O procedures. The `/discover` skill (native S2) is the bridge.
+- **Risk**: Lower discoverability of what deep-* skills read/write
+- **Mitigation**: Documented in STANDARDS.md S2.1
+- **Added in**: v1.1
+
+### A-010: Atomic writes prevent JSON corruption
+- **Assumed**: `tempfile.mkstemp()` + `os.replace()` is sufficient for crash-safe writes
+- **Why**: `os.replace()` is atomic on both POSIX and NTFS
+- **Risk**: On network file systems (NFS, SMB) atomicity is not guaranteed
+- **Mitigation**: Forge targets local filesystems. No network FS support claimed.
+- **Added in**: v1.1
+
+### A-011: Non-existent decision IDs in blocked_by_decisions don't block
+- **Assumed**: If a task references `D-999` in `blocked_by_decisions` but D-999 doesn't exist, the task is NOT blocked (only OPEN decisions block)
+- **Why**: Normal workflow is task-first, decision-later. A WARNING would fire falsely on freshly created tasks.
+- **Risk**: Typos in decision IDs silently ignored
+- **Added in**: v1.1
+
+### A-012: Discovery findings use task_id "DISCOVERY"
+- **Assumed**: All decisions recorded during `/discover` use `task_id: "DISCOVERY"` (a special ID, not a real task)
+- **Why**: Discovery happens BEFORE a project has tasks. The special ID is in the allowed set alongside "PLANNING", "ONBOARDING", "REVIEW".
+- **Risk**: Orphaned decisions if project is never created
+- **Added in**: v1.1
+
+### A-013: Deep-* skill bundling preserves upstream compatibility
+- **Assumed**: Bundled deep-* skills can be updated by comparing `version` in frontmatter against the upstream repo (https://github.com/Deep-Process/deep-process)
+- **Why**: Skills are Markdown files adapted with minimal changes (added `id`, provenance header, Forge Integration section)
+- **Risk**: Upstream may restructure or rename skills
+- **Mitigation**: Provenance header in each skill tracks source version. Manual diff required on update.
+- **Added in**: v1.1
+
+### A-014: Single task type per task (no multi-tagging)
+- **Assumed**: Each task has exactly one `type` (feature, bug, chore, investigation). No support for multiple types.
+- **Why**: Simplicity. Most tasks have a clear primary purpose.
+- **Risk**: Edge cases like "bug that requires investigation" — user picks the dominant type
+- **Added in**: v1.1
 
 ---
 
@@ -75,10 +114,10 @@ Updated as assumptions are validated or invalidated.
 - **Approach**: `core/gates.py` runs configured commands, stores results on task. Required gate failure prints warning but doesn't mechanically block `pipeline complete` — the skill procedure (`skills/next/SKILL.md`) instructs the LLM to fix before completing. This keeps Python as pure I/O, LLM as judge.
 - **Resolved in**: v1.0, `core/gates.py`
 
-### DD-005: ~~Skill discovery and registration~~ RESOLVED
-- **Decision**: Auto-discovery from configured scan paths via `core/plugins.py`
-- **Approach**: `plugins add-path` registers external skill pack directories. `plugins scan` discovers all `*/SKILL.md` subdirectories, parses YAML frontmatter, persists registry in `forge_plugins.json`. `/process {name}` executes discovered skills.
-- **Resolved in**: v1.0, `core/plugins.py`
+### DD-005: ~~Skill discovery and registration~~ SUPERSEDED
+- **Original decision**: Auto-discovery from configured scan paths via `core/plugins.py`
+- **Superseded by**: Bundling deep-* analysis skills directly into `skills/deep-*/`. External plugin system (`plugins.py`, `/process`, `forge_plugins.json`) removed — the primary use case (deep-process) is now built-in.
+- **Resolved in**: v1.0 (original), superseded in v1.1 (bundling)
 
 ### DD-006: How to handle context window limits
 - **Options**: (a) Rely on Claude Code's built-in compaction, (b) Forge-level context management

@@ -24,6 +24,7 @@ python -m core.pipeline next {project} [--agent name]    Get next task (two-phas
 python -m core.pipeline complete {project} {task_id}     Mark done
 python -m core.pipeline contract add-tasks               Show task contract
 python -m core.pipeline contract update-task             Show update contract
+python -m core.pipeline contract register-subtasks       Show subtask contract
 python -m core.pipeline status {project}                 Dashboard + DAG
 python -m core.pipeline context {project} {task_id}      Context from dependencies
 python -m core.pipeline config {project} --data '{...}'  Set project config
@@ -78,20 +79,11 @@ python -m core.git_ops commit {project} {task_id} -m "..."      Commit with meta
 python -m core.git_ops status                                   Show git state
 ```
 
-### Plugins (external skills)
-```
-python -m core.plugins add-path {path}                          Add external skill pack
-python -m core.plugins scan                                     Discover skills from paths
-python -m core.plugins list                                     List available plugins
-python -m core.plugins show {skill-name}                        Show skill details + SKILL.md path
-python -m core.plugins paths                                    Show configured scan paths
-python -m core.plugins remove-path {path}                       Remove scan path
-```
-
 ## Slash Commands
 
 | Command | Description |
 |---------|-------------|
+| `/discover {topic}` | Explore options, assess risks, design architecture before planning |
 | `/plan {goal}` | Decompose a goal into a tracked task graph |
 | `/status` | Show current project status |
 | `/next` | Get and start the next task (see `skills/next/SKILL.md`) |
@@ -101,7 +93,6 @@ python -m core.plugins remove-path {path}                       Remove scan path
 | `/log` | Show full audit trail (changes + decisions) |
 | `/compound` | Extract lessons learned from project execution |
 | `/onboard` | Import brownfield project knowledge into Forge (see `skills/onboard/SKILL.md`) |
-| `/process [skill]` | Execute external plugin skill: `/process` = list, `/process deep-verify` = execute |
 
 ## Task Properties
 
@@ -131,7 +122,9 @@ For brownfield projects (existing codebase):
 2. Then continue with `/plan {goal}` for specific work
 
 When user gives a goal:
-1. Run `/plan {goal}` — creates project, decomposes into tasks
+1. Optionally run `/discover {topic}` — explore options, assess feasibility and risks, design architecture
+   - Resolve OPEN discovery decisions with `/decide`
+2. Run `/plan {goal}` — creates project, decomposes into tasks (informed by discovery decisions)
 2. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
 3. Check lessons from past projects: `python -m core.lessons read-all`
 4. Run `/next` — get first task (follows `skills/next/SKILL.md`)

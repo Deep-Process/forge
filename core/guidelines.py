@@ -1,0 +1,476 @@
+"""
+Guidelines — project standards and conventions registry.
+
+Stores coding standards, architectural conventions, and project-specific
+rules that must be followed during task execution. Guidelines are scoped
+(backend, frontend, database, general, etc.) and weighted (must/should/may)
+to control how they're loaded into LLM context.
+
+Guidelines are NOT versioned — deprecate old + create new instead of editing.
+
+Usage:
+    python -m core.guidelines <command> <project> [options]
+
+Commands:
+    add      {project} --data '{json}'         Add guidelines
+    read     {project} [--scope X] [--status X] [--weight X]  Read guidelines
+    update   {project} --data '{json}'         Update guideline status/content
+    context  {project} --scopes "backend,db"   Formatted guidelines for LLM context
+    scopes   {project}                         List unique scopes in project
+    contract {name}                            Print contract spec
+"""
+
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+# Import contracts from sibling module
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from contracts import render_contract, validate_contract, atomic_write_json
+
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+
+
+# -- Paths --
+
+def guidelines_path(project: str) -> Path:
+    return Path("forge_output") / project / "guidelines.json"
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def load_or_create(project: str) -> dict:
+    path = guidelines_path(project)
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {
+        "project": project,
+        "updated": now_iso(),
+        "guidelines": [],
+    }
+
+
+def save_json(project: str, data: dict):
+    path = guidelines_path(project)
+    data["updated"] = now_iso()
+    atomic_write_json(path, data)
+
+
+# -- Contracts --
+
+CONTRACTS = {
+    "add": {
+        "required": ["title", "scope", "content"],
+        "optional": ["rationale", "examples", "tags", "weight"],
+        "enums": {
+            "weight": {"must", "should", "may"},
+        },
+        "types": {
+            "examples": list,
+            "tags": list,
+        },
+        "invariant_texts": [
+            "title: concise name for the guideline (e.g., 'Repository Pattern for data access')",
+            "scope: area this applies to — open string, lowercase (e.g., 'backend', 'database', 'frontend', 'api', 'testing', 'general')",
+            "content: the actual guideline — what to do and how",
+            "rationale: WHY this guideline exists",
+            "examples: concrete code or pattern examples",
+            "tags: searchable keywords",
+            "weight: 'must' (always loaded to LLM context), 'should' (loaded when <10, default), 'may' (only on explicit request)",
+        ],
+        "example": [
+            {
+                "title": "Repository Pattern for data access",
+                "scope": "backend",
+                "content": "All database access goes through repository classes. No raw SQL in handlers or services. Repositories return domain objects, not ORM models.",
+                "rationale": "Testability — repositories can be mocked. Single responsibility — data access isolated from business logic.",
+                "examples": [
+                    "class UserRepository:\n    def get_by_id(self, id: int) -> User: ...",
+                    "# In handler: user = user_repo.get_by_id(id), NOT: user = db.query('SELECT...')",
+                ],
+                "tags": ["architecture", "data-access"],
+                "weight": "must",
+            },
+            {
+                "title": "SQL naming conventions",
+                "scope": "database",
+                "content": "snake_case for all identifiers. Plural table names (users, orders). Explicit column lists in SELECT — never SELECT *.",
+                "weight": "should",
+            },
+        ],
+    },
+    "update": {
+        "required": ["id"],
+        "optional": ["title", "content", "status", "rationale",
+                      "scope", "examples", "tags", "weight"],
+        "enums": {
+            "status": {"ACTIVE", "DEPRECATED"},
+            "weight": {"must", "should", "may"},
+        },
+        "types": {
+            "examples": list,
+            "tags": list,
+        },
+        "invariant_texts": [
+            "id: existing guideline ID (G-001, etc.)",
+            "Only provided fields are updated — omitted fields stay unchanged",
+            "To change content significantly: deprecate old (status=DEPRECATED) and create new",
+            "status=DEPRECATED: guideline no longer enforced, kept for history",
+        ],
+        "example": [
+            {"id": "G-001", "status": "DEPRECATED"},
+            {"id": "G-003", "weight": "must"},
+        ],
+    },
+}
+
+
+# -- Commands --
+
+def cmd_add(args):
+    """Add guidelines to the registry."""
+    try:
+        new_guidelines = json.loads(args.data)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(new_guidelines, list):
+        print("ERROR: --data must be a JSON array", file=sys.stderr)
+        sys.exit(1)
+
+    errors = validate_contract(CONTRACTS["add"], new_guidelines)
+    if errors:
+        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    data = load_or_create(args.project)
+    timestamp = now_iso()
+
+    # Find next G-NNN ID
+    existing_ids = [
+        int(g["id"].split("-")[1]) for g in data.get("guidelines", [])
+        if g.get("id", "").startswith("G-")
+    ]
+    next_id = max(existing_ids, default=0) + 1
+
+    # Dedup by (scope, title) — normalized
+    existing_keys = {
+        (g.get("scope", "").lower().strip(), g.get("title", "").lower().strip())
+        for g in data.get("guidelines", [])
+    }
+
+    added = []
+    skipped = []
+    for g in new_guidelines:
+        scope = g["scope"].lower().strip()
+        key = (scope, g["title"].lower().strip())
+        if key in existing_keys:
+            skipped.append(f"Duplicate: {g['title'][:50]}")
+            continue
+
+        guideline = {
+            "id": f"G-{next_id:03d}",
+            "title": g["title"],
+            "scope": scope,
+            "content": g["content"],
+            "rationale": g.get("rationale", ""),
+            "examples": g.get("examples", []),
+            "tags": g.get("tags", []),
+            "weight": g.get("weight", "should"),
+            "status": "ACTIVE",
+            "created": timestamp,
+            "updated": timestamp,
+        }
+
+        data["guidelines"].append(guideline)
+        existing_keys.add(key)
+        added.append(guideline["id"])
+        next_id += 1
+
+    save_json(args.project, data)
+
+    active_count = sum(1 for g in data["guidelines"] if g.get("status") == "ACTIVE")
+    print(f"Guidelines saved: {args.project}")
+    if added:
+        print(f"  Added: {len(added)} ({', '.join(added)})")
+    if skipped:
+        print(f"  Skipped (duplicate): {len(skipped)}")
+    print(f"  Total: {len(data['guidelines'])} | Active: {active_count}")
+
+
+def cmd_read(args):
+    """Read guidelines (optionally filtered)."""
+    path = guidelines_path(args.project)
+    if not path.exists():
+        print(f"No guidelines for '{args.project}' yet.")
+        return
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    guidelines = data.get("guidelines", [])
+
+    # Filter
+    if args.scope:
+        guidelines = [g for g in guidelines if g.get("scope") == args.scope.lower().strip()]
+    if args.status:
+        guidelines = [g for g in guidelines if g.get("status") == args.status]
+    if args.weight:
+        guidelines = [g for g in guidelines if g.get("weight") == args.weight]
+
+    # Sort by ID
+    guidelines.sort(key=lambda g: g.get("id", ""))
+
+    # Render
+    print(f"## Guidelines: {args.project}")
+    filters = []
+    if args.scope:
+        filters.append(f"scope={args.scope}")
+    if args.status:
+        filters.append(f"status={args.status}")
+    if args.weight:
+        filters.append(f"weight={args.weight}")
+    if filters:
+        print(f"Filter: {', '.join(filters)}")
+    print(f"Count: {len(guidelines)}")
+    print()
+
+    if not guidelines:
+        print("(none)")
+        return
+
+    print("| ID | Scope | Weight | Title | Status |")
+    print("|----|-------|--------|-------|--------|")
+    for g in guidelines:
+        title = g.get("title", "")[:50]
+        print(f"| {g['id']} | {g.get('scope', '')} | {g.get('weight', '')} | {title} | {g.get('status', '')} |")
+
+    # Show full content below table
+    print()
+    for g in guidelines:
+        print(f"### {g['id']}: {g['title']}")
+        print(f"**Scope**: {g['scope']} | **Weight**: {g['weight']} | **Status**: {g['status']}")
+        print()
+        print(g.get("content", ""))
+        if g.get("rationale"):
+            print()
+            print(f"**Rationale**: {g['rationale']}")
+        if g.get("examples"):
+            print()
+            print("**Examples**:")
+            for ex in g["examples"]:
+                print(f"  - {ex}")
+        print()
+
+
+def cmd_update(args):
+    """Update guideline fields."""
+    try:
+        updates = json.loads(args.data)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(updates, list):
+        updates = [updates]
+
+    errors = validate_contract(CONTRACTS["update"], updates)
+    if errors:
+        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    data = load_or_create(args.project)
+    guidelines_by_id = {g["id"]: g for g in data.get("guidelines", [])}
+    timestamp = now_iso()
+
+    updated = []
+    for u in updates:
+        g_id = u["id"]
+        if g_id not in guidelines_by_id:
+            print(f"  WARNING: Guideline {g_id} not found, skipping")
+            continue
+
+        g = guidelines_by_id[g_id]
+        updatable = ["title", "content", "status", "rationale", "scope",
+                      "examples", "tags", "weight"]
+        for field in updatable:
+            if field in u:
+                if field == "scope":
+                    g[field] = u[field].lower().strip()
+                else:
+                    g[field] = u[field]
+        g["updated"] = timestamp
+        updated.append(g_id)
+
+    data["guidelines"] = list(guidelines_by_id.values())
+    save_json(args.project, data)
+
+    active_count = sum(1 for g in data["guidelines"] if g.get("status") == "ACTIVE")
+    print(f"Updated {len(updated)} guidelines: {args.project}")
+    for g_id in updated:
+        g = guidelines_by_id[g_id]
+        print(f"  {g_id}: {g.get('title', '')[:40]} ({g.get('status', '')})")
+    print(f"  Active: {active_count}")
+
+
+def cmd_context(args):
+    """Output formatted guidelines for LLM context injection."""
+    path = guidelines_path(args.project)
+    if not path.exists():
+        print("(no guidelines configured)")
+        return
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    guidelines = [g for g in data.get("guidelines", []) if g.get("status") == "ACTIVE"]
+
+    if not guidelines:
+        print("(no active guidelines)")
+        return
+
+    # Parse requested scopes
+    requested_scopes = set()
+    if args.scopes:
+        requested_scopes = {s.strip().lower() for s in args.scopes.split(",")}
+    # Always include general
+    requested_scopes.add("general")
+
+    # Partition by weight
+    must_guidelines = [g for g in guidelines
+                       if g["weight"] == "must" and g["scope"] in requested_scopes]
+    should_guidelines = [g for g in guidelines
+                         if g["weight"] == "should" and g["scope"] in requested_scopes]
+    may_guidelines = [g for g in guidelines
+                      if g["weight"] == "may" and g["scope"] in requested_scopes]
+
+    total = len(must_guidelines) + len(should_guidelines) + len(may_guidelines)
+
+    print(f"### Applicable Guidelines ({total})")
+    print()
+
+    # must: always full content
+    for g in must_guidelines:
+        print(f"**{g['id']}** [{g['scope']}] {g['title']} _(MUST)_")
+        print(f"> {g['content']}")
+        if g.get("examples"):
+            for ex in g["examples"][:2]:
+                print(f"> Example: `{ex[:100]}`")
+        print()
+
+    # should: full content if total <= 10, truncated otherwise
+    show_full = total <= 10
+    for g in should_guidelines:
+        print(f"**{g['id']}** [{g['scope']}] {g['title']}")
+        if show_full:
+            print(f"> {g['content']}")
+        else:
+            print(f"> {g['content'][:120]}...")
+        print()
+
+    # may: title only
+    if may_guidelines:
+        print(f"_Additional guidelines ({len(may_guidelines)}):_")
+        for g in may_guidelines:
+            print(f"- {g['id']} [{g['scope']}] {g['title']}")
+        print()
+
+    if total > 10:
+        print(f"_Showing {len(must_guidelines)} must + {len(should_guidelines)} should + {len(may_guidelines)} may. Use `guidelines read --scope X` for full list._")
+
+
+def cmd_scopes(args):
+    """List unique scopes in the project."""
+    path = guidelines_path(args.project)
+    if not path.exists():
+        print(f"No guidelines for '{args.project}' yet.")
+        return
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    guidelines = data.get("guidelines", [])
+
+    scope_counts = {}
+    for g in guidelines:
+        if g.get("status") != "ACTIVE":
+            continue
+        scope = g.get("scope", "general")
+        scope_counts[scope] = scope_counts.get(scope, 0) + 1
+
+    if not scope_counts:
+        print("No active guidelines.")
+        return
+
+    print(f"## Scopes: {args.project}")
+    print()
+    print("| Scope | Active Guidelines |")
+    print("|-------|-------------------|")
+    for scope, count in sorted(scope_counts.items()):
+        print(f"| {scope} | {count} |")
+
+
+def cmd_contract(args):
+    """Print contract spec for a command."""
+    if args.name not in CONTRACTS:
+        print(f"ERROR: Unknown contract '{args.name}'", file=sys.stderr)
+        print(f"Available: {', '.join(sorted(CONTRACTS.keys()))}", file=sys.stderr)
+        sys.exit(1)
+    print(render_contract(args.name, CONTRACTS[args.name]))
+
+
+# -- CLI --
+
+def main():
+    parser = argparse.ArgumentParser(description="Forge Guidelines -- project standards registry")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("add", help="Add guidelines")
+    p.add_argument("project")
+    p.add_argument("--data", required=True)
+
+    p = sub.add_parser("read", help="Read guidelines")
+    p.add_argument("project")
+    p.add_argument("--scope", help="Filter by scope")
+    p.add_argument("--status", help="Filter by status")
+    p.add_argument("--weight", help="Filter by weight")
+
+    p = sub.add_parser("update", help="Update guidelines")
+    p.add_argument("project")
+    p.add_argument("--data", required=True)
+
+    p = sub.add_parser("context", help="Formatted guidelines for LLM context")
+    p.add_argument("project")
+    p.add_argument("--scopes", required=True, help="Comma-separated scopes")
+
+    p = sub.add_parser("scopes", help="List unique scopes")
+    p.add_argument("project")
+
+    p = sub.add_parser("contract", help="Print contract spec")
+    p.add_argument("name", choices=sorted(CONTRACTS.keys()))
+
+    args = parser.parse_args()
+
+    commands = {
+        "add": cmd_add,
+        "read": cmd_read,
+        "update": cmd_update,
+        "context": cmd_context,
+        "scopes": cmd_scopes,
+        "contract": cmd_contract,
+    }
+
+    commands[args.command](args)
+
+
+if __name__ == "__main__":
+    main()
