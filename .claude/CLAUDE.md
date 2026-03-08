@@ -56,6 +56,26 @@ python -m core.lessons read-all                         View lessons across all 
 python -m core.lessons contract                         See expected format
 ```
 
+### Ideas (staging area)
+```
+python -m core.ideas add {project} --data '[...]'              Add ideas
+python -m core.ideas read {project} [--status X] [--category X]  Read ideas
+python -m core.ideas show {project} {idea_id}                  Show full idea details
+python -m core.ideas update {project} --data '[...]'           Update idea status/fields
+python -m core.ideas commit {project} {idea_id}                Mark ACCEPTED → COMMITTED
+python -m core.ideas contract add                              Show idea contract
+```
+
+### Guidelines (project standards)
+```
+python -m core.guidelines add {project} --data '[...]'         Add guidelines
+python -m core.guidelines read {project} [--scope X] [--weight X]  Read guidelines
+python -m core.guidelines update {project} --data '[...]'      Update guideline status
+python -m core.guidelines context {project} --scopes "a,b"     Guidelines for LLM context
+python -m core.guidelines scopes {project}                     List unique scopes
+python -m core.guidelines contract add                         Show guideline contract
+```
+
 ### Gates (validation checks)
 ```
 python -m core.gates config {project} --data '[...]'   Configure test/lint gates
@@ -105,6 +125,8 @@ When adding tasks, each task supports:
 - `parallel` — `true` if this task can run alongside others (multi-agent)
 - `conflicts_with` — list of task IDs that modify same files (cannot run in parallel)
 - `skill` — path to SKILL.md for structured execution
+- `scopes` — list of guideline scopes this task relates to (e.g., `["backend", "database"]`). `general` is always included automatically. Used by `pipeline context` to load applicable guidelines.
+- `origin` — where this task came from (idea ID like `I-001`, or free text)
 
 Tasks can be modified after creation with `update-task` (only TODO/FAILED tasks).
 Tasks can be removed with `remove-task` (only TODO, and only if no other tasks depend on them).
@@ -122,12 +144,15 @@ For brownfield projects (existing codebase):
 2. Then continue with `/plan {goal}` for specific work
 
 When user gives a goal:
-1. Optionally run `/discover {topic}` — explore options, assess feasibility and risks, design architecture
-   - Resolve OPEN discovery decisions with `/decide`
-2. Run `/plan {goal}` — creates project, decomposes into tasks (informed by discovery decisions)
-2. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
-3. Check lessons from past projects: `python -m core.lessons read-all`
-4. Run `/next` — get first task (follows `skills/next/SKILL.md`)
+1. Optionally capture as idea: `ideas add {project} --data '[...]'` — staging before commitment
+   - Explore with `/discover {idea_id}` — risk, feasibility, architecture analysis
+   - Update idea status: DRAFT → EXPLORING → ACCEPTED
+   - Commit: `ideas commit {project} {idea_id}` when ready
+2. Run `/plan {goal}` (or `/plan {idea_id}` for committed ideas) — creates tasks informed by discovery decisions and guidelines
+3. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
+4. Define project guidelines: `guidelines add {project} --data '[...]'` — coding standards, conventions, architectural rules
+5. Check lessons from past projects: `python -m core.lessons read-all`
+6. Run `/next` — get first task (follows `skills/next/SKILL.md`)
 5. For each task:
    a. Gather context: `pipeline context {project} {task_id}`
    b. Record any significant decisions via `decisions add`
@@ -199,3 +224,5 @@ All Forge state goes to `forge_output/{project}/`:
 - `decisions.json` — decision log
 - `changes.json` — change records
 - `lessons.json` — lessons learned (compound learning)
+- `guidelines.json` — project standards and conventions
+- `ideas.json` — idea staging area (proposals, plans)

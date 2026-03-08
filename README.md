@@ -2,7 +2,7 @@
 
 Structured change orchestrator for Claude Code. Turns high-level goals into tracked, dependency-aware tasks with full traceability and observability.
 
-Every code change goes through: **Discover → Plan → Track → Decide → Execute → Record → Validate**
+Every code change goes through: **Idea → Discover → Plan → Track → Decide → Execute → Record → Validate**
 
 ## Why Forge
 
@@ -55,6 +55,8 @@ forge/
     gates.py             # Validation gates (test, lint, secrets)
     lessons.py           # Compound learning across projects
     git_ops.py           # Optional git integration (branch, commit)
+    guidelines.py        # Project standards and conventions registry
+    ideas.py             # Staging area for proposals and plans
     recipes.py           # Task graph templates
   skills/                # Built-in skill definitions (SKILL.md format)
     discover/            #   Explore, assess, design before planning
@@ -107,6 +109,14 @@ Configurable per project: test, lint, type-check, secret scanning. Required gate
 
 Lessons extracted from completed projects (patterns discovered, mistakes avoided, decisions validated). Stored and queried across projects to improve future work.
 
+### Guidelines
+
+Project-wide coding standards, architectural conventions, and rules. Scoped (backend, frontend, database, general, etc.) and weighted (must/should/may) to control context injection. Automatically loaded into task context during execution — `must` guidelines always visible, `should` when count is manageable, `may` on demand.
+
+### Ideas (Staging)
+
+Proposals and plans that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → ACCEPTED → COMMITTED`. During EXPLORING, run `/discover` or deep-* analysis skills to assess feasibility, risks, and architecture. ACCEPTED ideas are committed to the task pipeline via `/plan`. REJECTED ideas are preserved with reasoning. Decisions created during exploration reference the idea ID for full traceability.
+
 ### Recipes
 
 JSON templates for common task patterns. Apply with variable substitution to quickly scaffold familiar workflows.
@@ -139,6 +149,17 @@ python -m core.gates scan-secrets myproject
 # Lessons
 python -m core.lessons add myproject --data '[...]'
 python -m core.lessons read-all
+
+# Ideas
+python -m core.ideas add myproject --data '[...]'
+python -m core.ideas read myproject --status EXPLORING
+python -m core.ideas show myproject I-001
+python -m core.ideas commit myproject I-001
+
+# Guidelines
+python -m core.guidelines add myproject --data '[...]'
+python -m core.guidelines read myproject --scope backend
+python -m core.guidelines context myproject --scopes "backend,database"
 
 # Recipes
 python -m core.recipes list

@@ -89,10 +89,11 @@ its procedure instead of this generic flow.
 
 Before writing any code, understand the full context:
 
-a. **Read context from dependencies** (what previous tasks produced):
+a. **Read context from dependencies and guidelines** (what previous tasks produced + applicable standards):
 ```bash
 python -m core.pipeline context {project} {task_id}
 ```
+This includes: dependency outputs, decisions, lessons, AND applicable guidelines (based on task's `scopes`). **Follow all MUST guidelines strictly. Follow SHOULD guidelines unless there's a documented reason not to.**
 
 b. **Check existing decisions** for this task:
 ```bash

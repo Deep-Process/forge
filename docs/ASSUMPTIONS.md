@@ -90,6 +90,63 @@ Updated as assumptions are validated or invalidated.
 - **Risk**: Edge cases like "bug that requires investigation" — user picks the dominant type
 - **Added in**: v1.1
 
+### A-015: Guidelines scope is open string (not enum)
+- **Assumed**: Scope is a free-form string, normalized to lowercase. No closed enum.
+- **Why**: Projects vary — "ml-pipeline", "mobile", "devops" can't be predicted. Suggested scopes in contract example.
+- **Risk**: Inconsistent naming ("backend" vs "back-end") — mitigated by normalization and `scopes` command showing existing scopes.
+- **Added in**: v1.2
+
+### A-016: Guidelines weight controls context injection priority
+- **Assumed**: `must` = always loaded to LLM context, `should` = loaded when total ≤10, `may` = titles only.
+- **Why**: Prevents context window explosion while ensuring critical standards are always visible.
+- **Risk**: Important `should` guidelines may be truncated in large projects
+- **Mitigation**: User can promote to `must` via `guidelines update`
+- **Added in**: v1.2
+
+### A-017: Guidelines are not versioned
+- **Assumed**: No version history per guideline. To change: deprecate old + create new.
+- **Why**: Versioning requires snapshots, history, migration logic — overkill for standards that rarely change.
+- **Risk**: No audit trail of guideline evolution
+- **Mitigation**: Deprecation preserves old guideline, new one replaces it. Change can be recorded as a decision.
+- **Added in**: v1.2
+
+### A-018: Staging (ideas) layer is optional
+- **Assumed**: `/plan` works without ideas. Ideas are an opt-in staging area, not a required step.
+- **Why**: Don't force process — Forge is a tool, not bureaucracy. Simple tasks go directly to `/plan`.
+- **Risk**: Users skip staging for complex tasks that would benefit from it.
+- **Mitigation**: `/plan` can warn if a related idea exists in EXPLORING status.
+- **Added in**: v1.2 (design), not yet implemented
+
+### A-019: 'general' scope always included automatically
+- **Assumed**: When loading guidelines for a task, scope "general" is always added regardless of task's explicit scopes.
+- **Why**: General guidelines (error handling, naming, etc.) apply everywhere.
+- **Risk**: None — user can avoid by not creating "general" scope guidelines.
+- **Added in**: v1.2
+
+### A-020: DONE tasks don't reference guidelines
+- **Assumed**: Guidelines are execution context, not part of the result. DONE tasks don't track which guidelines applied.
+- **Why**: Guidelines may change after task completion. Tracking would require snapshots.
+- **Risk**: Can't audit which standards applied to past work. Acceptable — decisions and change records provide the audit trail.
+- **Added in**: v1.2
+
+### A-021: Ideas have enforced status transitions
+- **Assumed**: Status can only change via defined transitions (DRAFT→EXPLORING, EXPLORING→ACCEPTED, etc.). COMMITTED is terminal.
+- **Why**: Prevents accidental skipping of exploration phase. Forces deliberate progression.
+- **Risk**: Too rigid? Mitigated by allowing EXPLORING→DRAFT ("back to drawing board") and REJECTED→DRAFT ("reopen").
+- **Added in**: v1.2
+
+### A-022: exploration_notes are append-only
+- **Assumed**: When updating an idea's exploration_notes, new text is appended (separated by ---), not replaced.
+- **Why**: Exploration happens in multiple rounds (deep-explore, deep-risk, deep-architect). Each round's findings should accumulate, not overwrite.
+- **Risk**: Notes can grow large. Acceptable — ideas are staging, not execution context.
+- **Added in**: v1.2
+
+### A-023: Decisions can reference idea IDs as task_id
+- **Assumed**: decisions.py accepts I-NNN as task_id (validated against ideas.json). This links discovery decisions to the idea being explored.
+- **Why**: During `/discover I-001`, findings need a task_id. The idea ID is the natural anchor.
+- **Risk**: Orphaned decisions if idea is deleted. Mitigated by: ideas are never deleted, only REJECTED.
+- **Added in**: v1.2
+
 ---
 
 ## Deferred Decisions

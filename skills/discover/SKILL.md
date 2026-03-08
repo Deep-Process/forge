@@ -182,12 +182,14 @@ If no project exists yet, create one with a slug derived from the topic:
 python -m core.pipeline init {slug} --goal "Discovery: {topic}"
 ```
 
-Use `task_id: "DISCOVERY"` for all discovery findings:
+Determine the `task_id` for recording findings:
+- If discovering for a **specific idea** (e.g., `/discover I-001`): use the idea ID as task_id (`"I-001"`). This links decisions to the idea, visible in `ideas show`.
+- If discovering a **general topic** (no idea): use `"DISCOVERY"` as task_id.
 
 ```bash
 python -m core.decisions add {project} --data '[
   {
-    "task_id": "DISCOVERY",
+    "task_id": "{idea_id or DISCOVERY}",
     "type": "architecture",
     "issue": "{finding from deep-explore}",
     "recommendation": "{recommended option}",

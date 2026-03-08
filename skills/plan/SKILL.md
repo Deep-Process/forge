@@ -21,8 +21,9 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 |----|---------|---------|------|
 | R1 | `python -m core.pipeline status {project}` | Current pipeline state (if project exists) | Step 1 — check existing state |
 | R2 | `python -m core.lessons read-all` | Lessons from past projects | Step 2 — learn from history |
-| R3 | `python -m core.decisions contract add` | Contract for recording decisions | Step 4 — before recording planning decisions |
-| R4 | `python -m core.changes contract` | Contract for recording changes | Reference only |
+| R3 | `python -m core.guidelines read {project} --weight must` | Must-follow project guidelines | Step 2 — inform decomposition |
+| R4 | `python -m core.decisions contract add` | Contract for recording decisions | Step 4 — before recording planning decisions |
+| R5 | `python -m core.changes contract` | Contract for recording changes | Reference only |
 
 ## Write Commands
 
@@ -83,14 +84,21 @@ Read the existing codebase to understand what exists:
 
 ---
 
-### Step 2 — Learn from History
+### Step 2 — Learn from History & Check Guidelines
 
 Check lessons from past projects for relevant patterns:
 ```bash
 python -m core.lessons read-all
 ```
 
-Note any lessons that apply to the current goal.
+Check project guidelines (if project exists or will be created from existing one):
+```bash
+python -m core.guidelines read {project} --weight must
+```
+
+Note any lessons and `must` guidelines that apply to the current goal. Guidelines inform decomposition — e.g., if a guideline says "every endpoint needs rate limiting", that affects task structure.
+
+When decomposing (Step 5), assign `scopes` to each task based on which guidelines apply.
 
 ---
 

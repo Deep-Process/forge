@@ -167,10 +167,16 @@ def cmd_add(args):
         valid_task_ids = {t["id"] for t in tracker.get("tasks", [])}
         # Special task IDs used by skills for pre-task decisions
         special_ids = {"PLANNING", "ONBOARDING", "REVIEW", "DISCOVERY"}
+        # Also allow idea IDs (I-NNN) as task_id for exploration decisions
+        ideas_file = Path("forge_output") / args.project / "ideas.json"
+        idea_ids = set()
+        if ideas_file.exists():
+            ideas_data = json.loads(ideas_file.read_text(encoding="utf-8"))
+            idea_ids = {i["id"] for i in ideas_data.get("ideas", [])}
         for d in new_decisions:
             tid = d.get("task_id", "")
-            if tid and tid not in valid_task_ids and tid not in special_ids:
-                print(f"WARNING: task_id '{tid}' not found in pipeline. Decision will be saved but may be orphaned.", file=sys.stderr)
+            if tid and tid not in valid_task_ids and tid not in special_ids and tid not in idea_ids:
+                print(f"WARNING: task_id '{tid}' not found in pipeline or ideas. Decision will be saved but may be orphaned.", file=sys.stderr)
 
     data = load_or_create(args.project)
     timestamp = now_iso()

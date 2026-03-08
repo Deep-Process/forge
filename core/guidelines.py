@@ -300,7 +300,7 @@ def cmd_update(args):
     for u in updates:
         g_id = u["id"]
         if g_id not in guidelines_by_id:
-            print(f"  WARNING: Guideline {g_id} not found, skipping")
+            print(f"  WARNING: Guideline {g_id} not found, skipping", file=sys.stderr)
             continue
 
         g = guidelines_by_id[g_id]
@@ -315,7 +315,10 @@ def cmd_update(args):
         g["updated"] = timestamp
         updated.append(g_id)
 
-    data["guidelines"] = list(guidelines_by_id.values())
+    # Update in-place (preserve original list order)
+    for g in data.get("guidelines", []):
+        if g["id"] in guidelines_by_id:
+            g.update(guidelines_by_id[g["id"]])
     save_json(args.project, data)
 
     active_count = sum(1 for g in data["guidelines"] if g.get("status") == "ACTIVE")
@@ -326,6 +329,56 @@ def cmd_update(args):
     print(f"  Active: {active_count}")
 
 
+def render_guidelines_context(active_guidelines: list, scopes: set, project: str = "") -> list:
+    """Render guidelines as formatted Markdown lines for LLM context injection.
+
+    Returns a list of strings (lines). Used by both `guidelines context` CLI
+    and `pipeline context` to avoid duplicating rendering logic.
+    """
+    # Always include general
+    scopes = set(scopes)
+    scopes.add("general")
+
+    must = [g for g in active_guidelines if g.get("weight") == "must" and g.get("scope") in scopes]
+    should = [g for g in active_guidelines if g.get("weight") == "should" and g.get("scope") in scopes]
+    may = [g for g in active_guidelines if g.get("weight") == "may" and g.get("scope") in scopes]
+
+    total = len(must) + len(should) + len(may)
+    if total == 0:
+        return []
+
+    lines = [f"### Applicable Guidelines ({total})", ""]
+
+    for g in must:
+        lines.append(f"**{g['id']}** [{g['scope']}] {g['title']} _(MUST)_")
+        lines.append(f"> {g['content']}")
+        if g.get("examples"):
+            for ex in g["examples"][:2]:
+                lines.append(f"> Example: `{ex[:100]}`")
+        lines.append("")
+
+    show_full = total <= 10
+    for g in should:
+        lines.append(f"**{g['id']}** [{g['scope']}] {g['title']}")
+        if show_full:
+            lines.append(f"> {g['content']}")
+        else:
+            lines.append(f"> {g['content'][:120]}...")
+        lines.append("")
+
+    if may:
+        lines.append(f"_Additional guidelines ({len(may)}):_")
+        for g in may:
+            lines.append(f"- {g['id']} [{g['scope']}] {g['title']}")
+        lines.append("")
+
+    if total > 10:
+        proj_hint = f" `guidelines read {project} --scope X`" if project else " `guidelines read --scope X`"
+        lines.append(f"_Showing {len(must)} must + {len(should)} should + {len(may)} may. Use{proj_hint} for full list._")
+
+    return lines
+
+
 def cmd_context(args):
     """Output formatted guidelines for LLM context injection."""
     path = guidelines_path(args.project)
@@ -334,60 +387,19 @@ def cmd_context(args):
         return
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    guidelines = [g for g in data.get("guidelines", []) if g.get("status") == "ACTIVE"]
+    active = [g for g in data.get("guidelines", []) if g.get("status") == "ACTIVE"]
 
-    if not guidelines:
+    if not active:
         print("(no active guidelines)")
         return
 
-    # Parse requested scopes
     requested_scopes = set()
     if args.scopes:
         requested_scopes = {s.strip().lower() for s in args.scopes.split(",")}
-    # Always include general
-    requested_scopes.add("general")
 
-    # Partition by weight
-    must_guidelines = [g for g in guidelines
-                       if g["weight"] == "must" and g["scope"] in requested_scopes]
-    should_guidelines = [g for g in guidelines
-                         if g["weight"] == "should" and g["scope"] in requested_scopes]
-    may_guidelines = [g for g in guidelines
-                      if g["weight"] == "may" and g["scope"] in requested_scopes]
-
-    total = len(must_guidelines) + len(should_guidelines) + len(may_guidelines)
-
-    print(f"### Applicable Guidelines ({total})")
-    print()
-
-    # must: always full content
-    for g in must_guidelines:
-        print(f"**{g['id']}** [{g['scope']}] {g['title']} _(MUST)_")
-        print(f"> {g['content']}")
-        if g.get("examples"):
-            for ex in g["examples"][:2]:
-                print(f"> Example: `{ex[:100]}`")
-        print()
-
-    # should: full content if total <= 10, truncated otherwise
-    show_full = total <= 10
-    for g in should_guidelines:
-        print(f"**{g['id']}** [{g['scope']}] {g['title']}")
-        if show_full:
-            print(f"> {g['content']}")
-        else:
-            print(f"> {g['content'][:120]}...")
-        print()
-
-    # may: title only
-    if may_guidelines:
-        print(f"_Additional guidelines ({len(may_guidelines)}):_")
-        for g in may_guidelines:
-            print(f"- {g['id']} [{g['scope']}] {g['title']}")
-        print()
-
-    if total > 10:
-        print(f"_Showing {len(must_guidelines)} must + {len(should_guidelines)} should + {len(may_guidelines)} may. Use `guidelines read --scope X` for full list._")
+    lines = render_guidelines_context(active, requested_scopes, args.project)
+    for line in lines:
+        print(line)
 
 
 def cmd_scopes(args):

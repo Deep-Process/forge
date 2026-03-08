@@ -1155,43 +1155,18 @@ def cmd_context(args):
                 print(f"- **{l['id']}** [{l.get('severity', '')}]: {l['title']}")
             print()
 
-    # Guidelines context
+    # Guidelines context (uses shared renderer from guidelines module)
     guidelines_file = Path("forge_output") / args.project / "guidelines.json"
     if guidelines_file.exists():
         g_data = json.loads(guidelines_file.read_text(encoding="utf-8"))
         active_guidelines = [g for g in g_data.get("guidelines", []) if g.get("status") == "ACTIVE"]
 
         if active_guidelines:
-            # Determine scopes: task.scopes + always "general"
             task_scopes = set(task.get("scopes", []))
-            task_scopes.add("general")
-
-            must = [g for g in active_guidelines if g.get("weight") == "must" and g.get("scope") in task_scopes]
-            should = [g for g in active_guidelines if g.get("weight") == "should" and g.get("scope") in task_scopes]
-            may_count = sum(1 for g in active_guidelines if g.get("weight") == "may" and g.get("scope") in task_scopes)
-            total = len(must) + len(should) + may_count
-
-            if total > 0:
-                print(f"### Applicable Guidelines ({total})")
-                print()
-                for g in must:
-                    print(f"**{g['id']}** [{g['scope']}] {g['title']} _(MUST)_")
-                    print(f"> {g['content']}")
-                    if g.get("examples"):
-                        for ex in g["examples"][:2]:
-                            print(f"> Example: `{ex[:100]}`")
-                    print()
-                show_full = total <= 10
-                for g in should:
-                    print(f"**{g['id']}** [{g['scope']}] {g['title']}")
-                    if show_full:
-                        print(f"> {g['content']}")
-                    else:
-                        print(f"> {g['content'][:120]}...")
-                    print()
-                if may_count > 0:
-                    print(f"_+{may_count} additional guidelines (weight: may). Use `guidelines read {args.project}` to see all._")
-                    print()
+            from guidelines import render_guidelines_context
+            lines = render_guidelines_context(active_guidelines, task_scopes, args.project)
+            for line in lines:
+                print(line)
 
     # Context budget estimate
     all_task_ids = set(deps) | {args.task_id}
