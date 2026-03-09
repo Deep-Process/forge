@@ -5,9 +5,6 @@ A gate is a shell command (test, lint, type-check) that must pass before
 a task can be confidently marked DONE. Gates are configured per-project
 and stored in tracker.json.
 
-Includes a built-in secret scanner that detects leaked credentials
-before they can be committed.
-
 Usage:
     python -m core.gates <command> <project> [options]
 
@@ -15,13 +12,11 @@ Commands:
     check        {project} [--task X]        Run all configured gates
     config       {project} --data '{json}'   Configure gates
     show         {project}                   Show current gate config
-    scan-secrets {project}                   Scan for leaked secrets
 """
 
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -57,6 +52,7 @@ CONTRACTS = {
             {"name": "test", "command": "pytest", "required": True},
             {"name": "lint", "command": "ruff check .", "required": True},
             {"name": "typecheck", "command": "mypy src/", "required": False},
+            {"name": "secrets", "command": "gitleaks detect --no-git -v", "required": True},
         ],
     },
 }
@@ -228,118 +224,6 @@ def cmd_check(args):
     return all_passed
 
 
-# -- Built-in: Secret Scanner --
-
-SECRET_PATTERNS = [
-    # AWS
-    (r'AKIA[0-9A-Z]{16}', "AWS Access Key ID"),
-    (r'(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[=:]\s*["\']?[A-Za-z0-9/+=]{40}', "AWS Secret Key"),
-    # GitHub
-    (r'ghp_[0-9a-zA-Z]{36}', "GitHub Personal Access Token"),
-    (r'gho_[0-9a-zA-Z]{36}', "GitHub OAuth Token"),
-    (r'github_pat_[0-9a-zA-Z_]{82}', "GitHub Fine-Grained PAT"),
-    # Slack
-    (r'xox[baprs]-[0-9]{10,13}-[0-9a-zA-Z]{24,}', "Slack Token"),
-    # Generic
-    (r'(?:password|passwd|pwd)\s*[=:]\s*["\'][^"\']{8,}["\']', "Hardcoded Password"),
-    (r'(?:api[_-]?key|apikey)\s*[=:]\s*["\'][^"\']{16,}["\']', "Hardcoded API Key"),
-    (r'(?:secret|token)\s*[=:]\s*["\'][^"\']{16,}["\']', "Hardcoded Secret/Token"),
-    # Private keys
-    (r'-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----', "Private Key"),
-    # Azure
-    (r'(?:AccountKey|SharedAccessKey)\s*=\s*[A-Za-z0-9+/=]{40,}', "Azure Storage/SAS Key"),
-    # Google
-    (r'AIza[0-9A-Za-z_-]{35}', "Google API Key"),
-    # JWT (long base64 tokens)
-    (r'eyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}', "JWT Token"),
-]
-
-SKIP_EXTENSIONS = {
-    '.pyc', '.pyo', '.so', '.dll', '.exe', '.bin', '.png', '.jpg',
-    '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2', '.ttf',
-    '.eot', '.zip', '.tar', '.gz', '.pdf', '.lock',
-}
-
-SKIP_DIRS = {
-    '.git', '__pycache__', 'node_modules', '.venv', 'venv',
-    'forge_output', '.tox', '.mypy_cache', 'dist', 'build',
-}
-
-
-def scan_file_for_secrets(filepath: Path) -> list:
-    """Scan a single file for secret patterns. Returns list of findings."""
-    findings = []
-    try:
-        content = filepath.read_text(encoding="utf-8", errors="ignore")
-    except (PermissionError, OSError):
-        return findings
-
-    for line_num, line in enumerate(content.split("\n"), 1):
-        for pattern, name in SECRET_PATTERNS:
-            if re.search(pattern, line, re.IGNORECASE):
-                # Skip obvious false positives
-                stripped = line.strip()
-                if any(fp in stripped.lower() for fp in [
-                    "example", "placeholder", "your_", "xxx", "test",
-                    "fake", "dummy", "sample", "todo", "fixme",
-                ]):
-                    continue
-                findings.append({
-                    "file": str(filepath),
-                    "line": line_num,
-                    "type": name,
-                    "text": stripped[:120],
-                })
-    return findings
-
-
-def cmd_scan_secrets(args):
-    """Scan project files for leaked secrets."""
-    # Determine scan root
-    scan_root = Path(".")
-
-    findings = []
-    scanned = 0
-
-    for dirpath, dirnames, filenames in os.walk(scan_root):
-        # Skip excluded directories
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
-
-        for filename in filenames:
-            filepath = Path(dirpath) / filename
-            if filepath.suffix.lower() in SKIP_EXTENSIONS:
-                continue
-            scanned += 1
-            file_findings = scan_file_for_secrets(filepath)
-            findings.extend(file_findings)
-
-    print(f"## Secret Scan: {args.project}")
-    print(f"Files scanned: {scanned}")
-    print()
-
-    if not findings:
-        print("No secrets detected.")
-        print()
-        print("**Note**: This scanner uses regex patterns and covers common secret formats")
-        print("(AWS, GitHub, Slack, Azure, Google, JWT, private keys). It does NOT detect")
-        print("encoded secrets, secrets passed via env vars, or novel token formats.")
-        print("For comprehensive scanning, complement with tools like git-secrets or trufflehog.")
-        return True
-
-    print(f"FINDINGS: {len(findings)} potential secrets detected!")
-    print()
-    print("| # | File | Line | Type | Preview |")
-    print("|---|------|------|------|---------|")
-    for i, f in enumerate(findings, 1):
-        preview = f["text"][:60].replace("|", "\\|")
-        print(f"| {i} | {f['file']} | {f['line']} | {f['type']} | `{preview}` |")
-
-    print()
-    print("ACTION REQUIRED: Review each finding. Remove real secrets before committing.")
-    print("False positives in test/example files can be ignored.")
-    return False
-
-
 # -- CLI --
 
 def main():
@@ -357,9 +241,6 @@ def main():
     p.add_argument("project")
     p.add_argument("--task", help="Associate results with task")
 
-    p = sub.add_parser("scan-secrets", help="Scan for leaked secrets")
-    p.add_argument("project")
-
     p = sub.add_parser("contract", help="Print contract spec")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
 
@@ -369,7 +250,6 @@ def main():
         "config": cmd_config,
         "show": cmd_show,
         "check": cmd_check,
-        "scan-secrets": cmd_scan_secrets,
         "contract": lambda a: print(render_contract(a.name, CONTRACTS[a.name])),
     }
 

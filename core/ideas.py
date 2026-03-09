@@ -10,17 +10,14 @@ related_to, supersedes, duplicates) for organizing complex proposals
 into sub-ideas and tracking dependencies.
 
 Lifecycle:
-    DRAFT → EXPLORING → READY → APPROVED → COMMITTED
+    DRAFT → EXPLORING → APPROVED → COMMITTED
           ↘ REJECTED (with reason)    ↗
-          ↔ PARKED (temporarily shelved)
 
 - DRAFT: initial capture, not yet analyzed
 - EXPLORING: deep-* analysis in progress (discover, risk, feasibility, etc.)
-- READY: analysis complete, awaiting approval decision
 - APPROVED: approved for implementation, not yet in pipeline
 - COMMITTED: materialized into task graph via /plan (terminal state)
 - REJECTED: discarded (with reason, or merged_into another idea)
-- PARKED: temporarily shelved for later reconsideration
 
 Decisions created during exploration reference the idea via task_id: "I-NNN".
 When committed, tasks in the pipeline carry origin: "I-NNN" for traceability.
@@ -71,7 +68,17 @@ def now_iso() -> str:
 def load_or_create(project: str) -> dict:
     path = ideas_path(project)
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        # Migration: READY → APPROVED, PARKED → DRAFT
+        for idea in data.get("ideas", []):
+            if idea.get("status") == "READY":
+                idea["status"] = "APPROVED"
+            elif idea.get("status") == "PARKED":
+                idea["status"] = "DRAFT"
+                existing = idea.get("exploration_notes", "")
+                separator = "\n\n---\n\n" if existing else ""
+                idea["exploration_notes"] = existing + separator + "--- Unparked (auto-migrated from PARKED status)"
+        return data
     return {
         "project": project,
         "updated": now_iso(),
@@ -151,8 +158,8 @@ CONTRACTS = {
                       "tags", "related_ideas", "guidelines",
                       "exploration_notes", "parent_id", "relations"],
         "enums": {
-            "status": {"DRAFT", "EXPLORING", "READY", "APPROVED",
-                        "REJECTED", "PARKED"},
+            "status": {"DRAFT", "EXPLORING", "APPROVED",
+                        "REJECTED"},
             "category": {"feature", "improvement", "experiment",
                          "migration", "refactor", "infrastructure",
                          "business-opportunity", "research"},
@@ -167,13 +174,11 @@ CONTRACTS = {
         "invariant_texts": [
             "id: existing idea ID (I-001, etc.)",
             "Only provided fields are updated — omitted fields stay unchanged",
-            "status transitions: DRAFT→EXPLORING/REJECTED, EXPLORING→READY/REJECTED/DRAFT/PARKED, "
-            "READY→APPROVED/REJECTED/EXPLORING/PARKED, APPROVED→REJECTED/PARKED, "
-            "REJECTED→DRAFT, PARKED→DRAFT/EXPLORING",
+            "status transitions: DRAFT→EXPLORING/REJECTED, EXPLORING→APPROVED/REJECTED/DRAFT, "
+            "APPROVED→REJECTED, REJECTED→DRAFT",
             "REJECTED: set rejection_reason explaining why",
             "REJECTED+merged_into: idea absorbed by another (e.g., merged_into='I-005')",
             "COMMITTED status is set only by the `commit` command, not by update",
-            "PARKED: temporarily shelved, can be resumed later to DRAFT or EXPLORING",
             "exploration_notes: free-text notes from analysis (appended, not replaced)",
             "relations: new relations are ADDED to existing ones (not replaced)",
         ],
@@ -181,10 +186,7 @@ CONTRACTS = {
             {"id": "I-001", "status": "EXPLORING"},
             {"id": "I-002", "status": "REJECTED",
              "rejection_reason": "Too risky for current phase, revisit in Q3"},
-            {"id": "I-003", "status": "READY"},
             {"id": "I-004", "status": "APPROVED"},
-            {"id": "I-005", "status": "PARKED",
-             "rejection_reason": "Waiting for infrastructure upgrade"},
             {"id": "I-006", "relations": [
                 {"type": "depends_on", "target_id": "I-001"}
             ]},
@@ -196,11 +198,9 @@ CONTRACTS = {
 # APPROVED → COMMITTED is handled by cmd_commit (or pipeline approve-plan), not update.
 VALID_TRANSITIONS = {
     "DRAFT": {"EXPLORING", "REJECTED"},
-    "EXPLORING": {"READY", "REJECTED", "DRAFT", "PARKED"},
-    "READY": {"APPROVED", "REJECTED", "EXPLORING", "PARKED"},
-    "APPROVED": {"REJECTED", "PARKED"},
+    "EXPLORING": {"APPROVED", "REJECTED", "DRAFT"},
+    "APPROVED": {"REJECTED"},
     "REJECTED": {"DRAFT"},  # can reopen
-    "PARKED": {"DRAFT", "EXPLORING"},  # can resume
     "COMMITTED": set(),  # terminal — no transitions allowed
 }
 
@@ -498,13 +498,9 @@ def cmd_show(args):
     if idea["status"] == "DRAFT":
         print("**Next**: `/discover {id}` to analyze this idea")
     elif idea["status"] == "EXPLORING":
-        print("**Next**: Update to READY when analysis is complete, or REJECTED if not viable")
-    elif idea["status"] == "READY":
-        print("**Next**: Review and update to APPROVED, or back to EXPLORING for more analysis")
+        print("**Next**: Update to APPROVED when analysis is complete, or REJECTED if not viable")
     elif idea["status"] == "APPROVED":
         print(f"**Next**: `/plan {idea['id']}` to create task graph from this idea")
-    elif idea["status"] == "PARKED":
-        print("**Next**: Update to DRAFT or EXPLORING when ready to resume")
 
 
 def cmd_update(args):
@@ -608,9 +604,7 @@ def cmd_commit(args):
         if idea["status"] == "DRAFT":
             print("  Explore it first: /discover {id} or update to EXPLORING", file=sys.stderr)
         elif idea["status"] == "EXPLORING":
-            print("  Analysis still in progress. Update to READY when done.", file=sys.stderr)
-        elif idea["status"] == "READY":
-            print("  Review complete. Update to APPROVED to allow commit.", file=sys.stderr)
+            print("  Analysis still in progress. Update to APPROVED when done.", file=sys.stderr)
         sys.exit(1)
 
     # Validate depends_on relations — all targets must be APPROVED or COMMITTED
@@ -706,8 +700,8 @@ def _status_counts(data: dict) -> dict:
 
 def _format_counts(counts: dict) -> str:
     parts = []
-    for status in ["DRAFT", "EXPLORING", "READY", "APPROVED",
-                    "COMMITTED", "REJECTED", "PARKED"]:
+    for status in ["DRAFT", "EXPLORING", "APPROVED",
+                    "COMMITTED", "REJECTED"]:
         if counts.get(status, 0) > 0:
             parts.append(f"{status}: {counts[status]}")
     return " | ".join(parts) if parts else "empty"

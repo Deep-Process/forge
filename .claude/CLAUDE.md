@@ -55,18 +55,21 @@ Risk status lifecycle: OPEN → ANALYZING → MITIGATED/ACCEPTED → CLOSED (can
 
 ### Changes (what was modified)
 ```
-python -m core.changes diff {project} {task_id}         Auto-detect changes from git
-python -m core.changes record {project} --data '...'    Record file changes
+python -m core.changes auto {project} {task_id} --reasoning "..." [--decision_ids "D-001,D-002"] [--guidelines "G-001"]  One-step: git diff → record
+python -m core.changes diff {project} {task_id}         Auto-detect changes from git (manual enrichment)
+python -m core.changes record {project} --data '...'    Record file changes (full control)
 python -m core.changes read {project}                   View change log
 python -m core.changes summary {project}                Statistics
 python -m core.changes contract                         See expected format
 ```
 
+Prefer `changes auto` for routine recording (one command). Use `changes diff` + `changes record` when per-file reasoning_trace is needed.
+
 ### Lessons (compound learning)
 ```
 python -m core.lessons add {project} --data '...'      Record lessons learned
 python -m core.lessons read {project}                   View project lessons
-python -m core.lessons read-all                         View lessons across all projects
+python -m core.lessons read-all [--severity X] [--tags "a,b"] [--category X] [--limit N]  View lessons across all projects
 python -m core.lessons contract                         See expected format
 ```
 
@@ -95,16 +98,17 @@ python -m core.guidelines contract add                         Show guideline co
 python -m core.gates config {project} --data '[...]'   Configure test/lint gates
 python -m core.gates show {project}                    Show configured gates
 python -m core.gates check {project} --task {task_id}  Run all gates
-python -m core.gates scan-secrets {project}            Scan for leaked credentials
 python -m core.gates contract config                   Show gate contract
 ```
+
+Tip: Configure secret scanning as a gate: `{"name": "secrets", "command": "gitleaks detect --no-git -v", "required": true}`
 
 ## Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/idea {title}` | Add an idea to staging area (supports --parent, --relates-to) |
-| `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
+| `/ideas [id] [action]` | List/show/manage ideas (explore, approve, reject, commit) |
 | `/discover {topic\|idea_id}` | Explore options, assess risks, design architecture → creates exploration + risk decisions |
 | `/plan {goal\|idea_id}` | Decompose into task graph (two-phase: draft → approve) |
 | `/risk [title\|id] [action]` | Manage risks (add type=risk decisions, analyze, mitigate, accept, close) |
@@ -160,7 +164,7 @@ When user gives a goal:
    - Ideas support hierarchy: `/idea {title} --parent I-001` for sub-ideas
    - Ideas support relations: depends_on, related_to, supersedes, duplicates
 2. Explore: `/discover {idea_id}` — creates exploration + risk decisions
-   - Status flow: DRAFT → EXPLORING → READY → APPROVED
+   - Status flow: DRAFT → EXPLORING → APPROVED
    - Use `/risk` to track and mitigate identified risks
 3. When ready: `/ideas {idea_id} approve` then `/plan {idea_id}`
 4. `/plan` creates a **draft plan** — review, modify, then approve to materialize

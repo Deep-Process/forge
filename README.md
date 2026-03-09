@@ -22,7 +22,6 @@ Most AI coding assistants generate code without structure. Forge adds:
 /idea Signal Generator --parent I-001       # Sub-idea with hierarchy
 /discover I-001                             # Explore → creates exploration + risk decisions
 /risk                                       # View and manage identified risks
-/ideas I-001 ready                          # Mark analysis complete
 /ideas I-001 approve                        # Approve for implementation
 /plan I-001                                 # Draft plan → review → approve → tracker
 /guideline use Repository Pattern --scope backend  # Set project standards
@@ -37,7 +36,7 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 | Command | Description |
 |---------|-------------|
 | `/idea {title}` | Add idea to staging area (supports hierarchy and relations) |
-| `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
+| `/ideas [id] [action]` | List/show/manage ideas (explore, approve, reject, commit) |
 | `/discover {topic\|idea_id}` | Explore options, assess risks → creates exploration + risk decisions |
 | `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
 | `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
@@ -121,7 +120,7 @@ Project-wide coding standards, architectural conventions, and rules. Scoped (bac
 
 ### Ideas (Staging)
 
-Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → READY → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create exploration and risk decisions. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED and PARKED ideas are preserved with reasoning. Can be resumed from PARKED.
+Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create exploration and risk decisions. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED ideas are preserved with reasoning.
 
 ## CLI Usage (standalone, without Claude Code)
 
@@ -146,11 +145,9 @@ python -m core.changes summary myproject
 # Gates
 python -m core.gates config myproject --data '[...]'
 python -m core.gates check myproject --task T-001
-python -m core.gates scan-secrets myproject
-
 # Lessons
 python -m core.lessons add myproject --data '[...]'
-python -m core.lessons read-all
+python -m core.lessons read-all --severity critical --limit 15
 
 # Ideas (hierarchical)
 python -m core.ideas add myproject --data '[{"title": "...", "parent_id": "I-001", "relations": [...]}]'

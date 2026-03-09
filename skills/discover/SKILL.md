@@ -40,6 +40,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | W4 | `python -m core.decisions add {project} --data '{json}'` | Records risk decisions (type=risk) | Step 5 — from risk analysis | `decisions:add` |
 | W5 | `python -m core.pipeline init {slug} --goal "..."` | Creates project if none exists | Step 5 — before recording | — |
 | W6 | `python -m core.ideas update {project} --data '{json}'` | Updates idea status to EXPLORING | Step 5 — if idea-scoped | `ideas:update` |
+| W7 | Write `forge_output/{project}/research/{skill}-{slug}.md` | Persists full deep-* analysis output | Step 4 — after each skill completes | — |
 
 ## Output
 
@@ -47,6 +48,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 |------|----------|------------|
 | `forge_output/{project}/decisions.json` | All discovery findings: standard decisions (W1), exploration decisions (W3), and risk decisions (W4) | W1, W3, W4 |
 | `forge_output/{project}/lessons.json` | Discovery insights (if significant) | W2 |
+| `forge_output/{project}/research/*.md` | Full deep-* analysis outputs (option maps, risk registers, ADRs, feasibility scores) | W7 |
 
 ## Success Criteria
 
@@ -55,6 +57,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 - Findings recorded as OPEN decisions with clear recommendations
 - User has enough information to make a GO / NO-GO decision
 - If GO: output is ready to feed into `/plan`
+- Full analysis outputs persisted to `research/` directory with evidence_refs in decisions
 
 ## References
 
@@ -149,6 +152,28 @@ Skills that must be sequential:
 - deep-feasibility after deep-explore (needs options to evaluate)
 
 3. **Execute** — run each skill per its SKILL.md procedure
+
+After each skill completes, persist its full output (W7):
+
+```bash
+mkdir -p forge_output/{project}/research
+```
+
+Write the complete analysis to `forge_output/{project}/research/{skill-name}-{slug}.md` using this structure:
+
+```
+# {Skill Name} Analysis: {topic}
+Date: {ISO timestamp}
+Skill: {skill-name} v{version}
+Decision: {D-NNN} (linked after Step 5)
+
+---
+
+{Complete analysis output — option map, scoring tables, risk register, ADRs, etc.}
+```
+
+This file persists across sessions. When context compresses, the full analysis is recoverable from disk.
+
 4. **Aggregate** — combine outputs per deep-orchestration Step 4
 
 Track execution:
@@ -195,7 +220,8 @@ python -m core.decisions add {project} --data '[{
   "open_questions": ["{unresolved question}"],
   "confidence": "HIGH|MEDIUM|LOW",
   "decided_by": "claude",
-  "status": "OPEN"
+  "status": "OPEN",
+  "evidence_refs": ["research/{skill-name}-{slug}.md"]
 }]'
 ```
 
@@ -223,7 +249,8 @@ python -m core.decisions add {project} --data '[{
   "mitigation_plan": "{proposed mitigation}",
   "confidence": "MEDIUM",
   "decided_by": "claude",
-  "status": "OPEN"
+  "status": "OPEN",
+  "evidence_refs": ["research/deep-risk-{slug}.md"]
 }]'
 ```
 
@@ -241,7 +268,8 @@ python -m core.decisions add {project} --data '[{
   "alternatives": ["{option B}", "{option C}"],
   "confidence": "MEDIUM",
   "decided_by": "claude",
-  "status": "OPEN"
+  "status": "OPEN",
+  "evidence_refs": ["research/{relevant-skill}-{slug}.md"]
 }]'
 ```
 

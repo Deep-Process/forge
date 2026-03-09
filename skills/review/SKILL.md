@@ -90,7 +90,7 @@ For each perspective, produce a mini-verdict: PASS / CONCERN / FAIL.
 Focus: OWASP Top 10, secrets, attack surface.
 
 - **Injection**: SQL, command injection, XSS, path traversal
-- **Secrets**: Run `python -m core.gates scan-secrets {project}` for automated detection.
+- **Secrets**: Configure secret scanning as a gate (e.g., `gitleaks detect --no-git -v`).
   Also manually check for hardcoded credentials, API keys, tokens.
 - **Auth/AuthZ**: Are authentication and authorization checks in place?
 - **Input validation**: Is user input validated at system boundaries?

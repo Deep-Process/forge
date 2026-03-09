@@ -89,7 +89,7 @@ forge/
 │   ├── changes.py                     # Change records: record, diff, read, summary
 │   ├── contracts.py                   # Contract render + validate (from Skill_v1)
 │   ├── lessons.py                     # Compound learning: add, read, read-all
-│   ├── gates.py                       # Validation gates: config, check, scan-secrets
+│   ├── gates.py                       # Validation gates: config, check
 │   ├── guidelines.py                  # Project standards: add, read, context
 │   └── ideas.py                       # Idea staging: add, read, show, update, commit
 │

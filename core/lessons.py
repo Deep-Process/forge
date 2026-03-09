@@ -207,7 +207,7 @@ def cmd_read(args):
 
 
 def cmd_read_all(args):
-    """Read lessons across all projects."""
+    """Read lessons across all projects (with optional filtering)."""
     output_dir = Path("forge_output")
     if not output_dir.exists():
         print("No projects found.")
@@ -225,11 +225,40 @@ def cmd_read_all(args):
         print("No lessons recorded across any project.")
         return
 
+    # Apply filters
+    if args.severity:
+        all_lessons = [l for l in all_lessons if l.get("severity") == args.severity]
+    if args.category:
+        all_lessons = [l for l in all_lessons if l.get("category") == args.category]
+    if args.tags:
+        filter_tags = {t.strip().lower() for t in args.tags.split(",")}
+        all_lessons = [l for l in all_lessons
+                       if filter_tags & {t.lower() for t in l.get("tags", [])}]
+
     # Sort by severity then timestamp
     severity_order = {"critical": 0, "important": 1, "minor": 2}
     all_lessons.sort(key=lambda l: (severity_order.get(l.get("severity", "minor"), 2), l.get("timestamp", "")))
 
-    print(f"## All Lessons ({len(all_lessons)} total)")
+    # Apply limit
+    limit = args.limit or 0
+    total_before_limit = len(all_lessons)
+    if limit > 0:
+        all_lessons = all_lessons[:limit]
+
+    # Show filters
+    filters = []
+    if args.severity:
+        filters.append(f"severity={args.severity}")
+    if args.category:
+        filters.append(f"category={args.category}")
+    if args.tags:
+        filters.append(f"tags={args.tags}")
+    if limit > 0:
+        filters.append(f"limit={limit}")
+
+    print(f"## All Lessons ({len(all_lessons)}{f'/{total_before_limit}' if limit and total_before_limit > limit else ''} total)")
+    if filters:
+        print(f"Filter: {', '.join(filters)}")
     print()
 
     for l in all_lessons:
@@ -260,7 +289,11 @@ def main():
     p = sub.add_parser("read", help="Read lessons for project")
     p.add_argument("project")
 
-    sub.add_parser("read-all", help="Read lessons across all projects")
+    p = sub.add_parser("read-all", help="Read lessons across all projects")
+    p.add_argument("--severity", help="Filter by severity (critical, important, minor)")
+    p.add_argument("--category", help="Filter by category")
+    p.add_argument("--tags", help="Filter by tags (comma-separated, OR match)")
+    p.add_argument("--limit", type=int, help="Max number of lessons to return")
 
     sub.add_parser("contract", help="Print contract spec")
 

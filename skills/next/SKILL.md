@@ -36,7 +36,6 @@ description: "Get the next task from the pipeline and execute it with full trace
 | W2 | `python -m core.changes record {project} --data '{json}'` | Records file changes | Step 4 — after code changes |
 | W3 | `python -m core.pipeline add-tasks {project} --data '{json}'` | Creates follow-up tasks for major findings | Step 5 — if verification finds big issues |
 | W4 | `python -m core.gates check {project} --task {task_id}` | Runs validation gates | Step 6 — before completion |
-| W4b | `python -m core.gates scan-secrets {project}` | Scans for leaked credentials | Step 6 — before commit |
 | W5 | `git add -A && git commit -m "..."` | Commits changes | Step 6 — after validation |
 | W6 | `python -m core.pipeline complete {project} {task_id}` | Marks task DONE | Step 7 — after all validation |
 | W7 | `python -m core.pipeline fail {project} {task_id} --reason "..."` | Marks task FAILED | On failure |
@@ -246,23 +245,16 @@ If deep-verify finds issues:
 
 ### Step 6 — Validate
 
-Run configured validation gates:
+Run configured validation gates (including secret scanning if configured as a gate):
 
 ```bash
 python -m core.gates check {project} --task {task_id}
-```
-
-Run secret scan to prevent credential leaks:
-
-```bash
-python -m core.gates scan-secrets {project}
 ```
 
 If gates fail:
 - **Required gate fails**: Fix the issue, re-record changes, re-run gates
 - **Advisory gate fails**: Note the failure, proceed if acceptable
 - **No gates configured**: Skip (but warn)
-- **Secrets detected**: Remove them before committing. Never commit credentials.
 
 If git is available and validation passes, commit:
 

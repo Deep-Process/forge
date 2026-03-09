@@ -130,7 +130,7 @@ Updated as assumptions are validated or invalidated.
 - **Added in**: v1.2
 
 ### A-021: Ideas have enforced status transitions
-- **Assumed**: Status can only change via defined transitions (DRAFT→EXPLORING, EXPLORING→READY, READY→APPROVED, etc.). COMMITTED is terminal.
+- **Assumed**: Status can only change via defined transitions (DRAFT→EXPLORING, EXPLORING→APPROVED, APPROVED→REJECTED, etc.). COMMITTED is terminal.
 - **Why**: Prevents accidental skipping of exploration phase. Forces deliberate progression.
 - **Risk**: Too rigid? Mitigated by allowing EXPLORING→DRAFT ("back to drawing board") and REJECTED→DRAFT ("reopen").
 - **Added in**: v1.2

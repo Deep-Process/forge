@@ -72,7 +72,7 @@ CONTRACTS = {
     "record": {
         "required": ["task_id", "file", "action", "summary"],
         "optional": ["reasoning_trace", "decision_ids", "lines_added",
-                      "lines_removed", "group_id"],
+                      "lines_removed", "group_id", "guidelines_checked"],
         "enums": {
             "action": {"create", "edit", "delete", "rename", "move"},
         },
@@ -81,6 +81,7 @@ CONTRACTS = {
             "decision_ids": list,
             "lines_added": int,
             "lines_removed": int,
+            "guidelines_checked": list,
         },
         "invariant_texts": [
             "task_id must reference an existing task in the pipeline",
@@ -88,6 +89,7 @@ CONTRACTS = {
             "reasoning_trace: array of {step, detail} objects explaining the change",
             "decision_ids: list of D-NNN IDs that led to this change",
             "group_id: links related changes across files (e.g. a refactor touching 5 files)",
+            "guidelines_checked: list of G-NNN IDs that were verified during this change",
         ],
         "example": [
             {
@@ -185,6 +187,7 @@ def cmd_record(args):
             "lines_added": c.get("lines_added", 0),
             "lines_removed": c.get("lines_removed", 0),
             "group_id": c.get("group_id", ""),
+            "guidelines_checked": c.get("guidelines_checked", []),
             "timestamp": timestamp,
         }
         data["changes"].append(change)
@@ -369,6 +372,128 @@ def cmd_diff(args):
         print(f"  python -m core.changes record {args.project} --data '...'")
 
 
+def cmd_auto(args):
+    """Auto-detect git changes and record them in one step.
+
+    Combines `diff` + `record` into a single command. The LLM provides
+    a reasoning string and optional decision_ids/guidelines_checked —
+    Python handles the git parsing and record creation.
+    """
+    import subprocess
+
+    task_id = args.task_id
+    reasoning = args.reasoning or ""
+    decision_ids = [d.strip() for d in args.decision_ids.split(",") if d.strip()] if args.decision_ids else []
+    guidelines = [g.strip() for g in args.guidelines.split(",") if g.strip()] if args.guidelines else []
+
+    # Get changes from git
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--numstat", "HEAD"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        numstat = result.stdout.strip()
+    except FileNotFoundError:
+        print("ERROR: git not available. Use `changes record` instead.", file=sys.stderr)
+        sys.exit(1)
+
+    if not numstat:
+        # Try staged only
+        result = subprocess.run(
+            ["git", "diff", "--numstat", "--cached"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        numstat = result.stdout.strip()
+
+    if not numstat:
+        print("No git changes detected. Nothing to record.")
+        return
+
+    # Parse numstat into change records
+    data = load_or_create(args.project)
+    timestamp = now_iso()
+
+    existing_ids = [
+        int(c["id"].split("-")[1]) for c in data.get("changes", [])
+        if c.get("id", "").startswith("C-")
+    ]
+    next_id = max(existing_ids, default=0) + 1
+
+    # Dedup: skip files already recorded for this task (idempotency)
+    existing_files = {c["file"] for c in data.get("changes", [])
+                      if c.get("task_id") == task_id}
+
+    recorded = []
+    skipped = 0
+    for line in numstat.split("\n"):
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        added, removed, filepath = parts
+        added = int(added) if added != "-" else 0
+        removed = int(removed) if removed != "-" else 0
+
+        # Skip if already recorded for this task (idempotency)
+        if filepath in existing_files:
+            skipped += 1
+            continue
+
+        # Detect action
+        action = "edit"
+        if removed == 0 and added > 0:
+            check = subprocess.run(
+                ["git", "diff", "--diff-filter=A", "--name-only", "HEAD", "--", filepath],
+                capture_output=True, text=True, encoding="utf-8"
+            )
+            if filepath in check.stdout:
+                action = "create"
+        elif added == 0 and removed > 0:
+            check = subprocess.run(
+                ["git", "diff", "--diff-filter=D", "--name-only", "HEAD", "--", filepath],
+                capture_output=True, text=True, encoding="utf-8"
+            )
+            if filepath in check.stdout:
+                action = "delete"
+
+        change = {
+            "id": f"C-{next_id:03d}",
+            "task_id": task_id,
+            "file": filepath,
+            "action": action,
+            "summary": reasoning,
+            "reasoning_trace": [{"step": "auto", "detail": reasoning}] if reasoning else [],
+            "decision_ids": decision_ids,
+            "lines_added": added,
+            "lines_removed": removed,
+            "group_id": task_id,
+            "guidelines_checked": guidelines,
+            "timestamp": timestamp,
+        }
+        data["changes"].append(change)
+        recorded.append(f"{change['id']} ({action} {filepath})")
+        next_id += 1
+
+    save_json(args.project, data)
+
+    if not recorded and skipped:
+        print(f"No new changes to record for {task_id} ({skipped} already recorded).")
+        return
+
+    print(f"Changes auto-recorded: {args.project}")
+    print(f"  Task: {task_id}")
+    print(f"  Recorded: {len(recorded)}")
+    if skipped:
+        print(f"  Skipped (already recorded): {skipped}")
+    for r in recorded:
+        print(f"    {r}")
+    if decision_ids:
+        print(f"  Decisions: {', '.join(decision_ids)}")
+    if guidelines:
+        print(f"  Guidelines checked: {', '.join(guidelines)}")
+
+
 def cmd_contract(args):
     """Print contract spec."""
     print(render_contract("record", CONTRACTS["record"]))
@@ -395,12 +520,20 @@ def main():
     p = sub.add_parser("summary", help="Summary statistics")
     p.add_argument("project")
 
+    p = sub.add_parser("auto", help="Auto-detect git changes and record (one-step)")
+    p.add_argument("project")
+    p.add_argument("task_id", help="Task ID to associate changes with")
+    p.add_argument("--reasoning", help="Why these changes were made")
+    p.add_argument("--decision_ids", help="Comma-separated D-NNN IDs")
+    p.add_argument("--guidelines", help="Comma-separated G-NNN IDs checked")
+
     sub.add_parser("contract", help="Print contract spec")
 
     args = parser.parse_args()
 
     commands = {
         "record": cmd_record,
+        "auto": cmd_auto,
         "diff": cmd_diff,
         "read": cmd_read,
         "summary": cmd_summary,
