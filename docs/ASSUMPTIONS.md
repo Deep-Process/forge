@@ -275,5 +275,5 @@ Updated as assumptions are validated or invalidated.
 
 ### ~~A-002: Git is always available~~
 - **Was**: Assumed git is required
-- **Reality**: Git is optional. `core/git_ops.py` provides graceful degradation.
+- **Reality**: Git is optional. `changes diff` requires git, but `changes record` works without it.
 - **Moved**: A-002 now marked RESOLVED in Active section above
