@@ -30,7 +30,9 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 | ID | Command | Effect | When | Contract |
 |----|---------|--------|------|----------|
 | W1 | `python -m core.pipeline init {project} --goal "..."` | Creates tracker.json | Step 3 — create project |
-| W2 | `python -m core.pipeline add-tasks {project} --data '{json}'` | Adds tasks to pipeline | Step 5 — after decomposition |
+| W2 | `python -m core.pipeline draft-plan {project} --data '{json}' [--idea I-NNN]` | Stores draft plan for review | Step 5 — after decomposition |
+| W2b | `python -m core.pipeline approve-plan {project}` | Materializes draft into pipeline | Step 7 — after user approval |
+| W2c | `python -m core.pipeline add-tasks {project} --data '{json}'` | Direct task addition (alternative to draft) | Step 5 — only for recipes |
 | W3 | `python -m core.decisions add {project} --data '{json}'` | Records planning decisions | Step 4 — for architectural choices | `python -m core.decisions contract add` |
 
 ## Output
@@ -133,7 +135,7 @@ python -m core.pipeline init {slug} --goal "{full goal text}"
 If you make any architectural decisions during planning (e.g., choosing a framework,
 deciding on a pattern), record them immediately:
 
-MANDATORY — load contract first (R3):
+MANDATORY — load contract first (R4):
 ```bash
 python -m core.decisions contract add
 ```
@@ -199,10 +201,12 @@ For each task, specify:
 - `parallel`: true if this task can run alongside siblings
 - `conflicts_with`: list of task IDs modifying same files
 
-Add tasks to pipeline (W2):
+Store as draft plan for review (W2):
 ```bash
-python -m core.pipeline add-tasks {project} --data '[...]'
+python -m core.pipeline draft-plan {project} --data '[...]' --idea {idea_id_if_applicable}
 ```
+
+If applying a recipe, use direct `add-tasks` (W2c) instead — recipes bypass draft review.
 
 ---
 
@@ -224,29 +228,42 @@ create an OPEN decision asking the user.
 
 ---
 
-### Step 7 — Present and Confirm
+### Step 7 — Review and Approve
 
-Show the plan:
+The draft plan is displayed automatically by `draft-plan`. Present it to the user:
+
+```
+## Draft Plan: {goal}
+Complexity: {track}
+Tasks: {N}
+
+{task list from draft-plan output}
+
+Review the tasks above. When ready, I'll approve and materialize into the pipeline.
+```
+
+Wait for user approval. Offer:
+- Modify tasks (regenerate draft with `draft-plan`)
+- Add/remove tasks
+- Reorder dependencies
+- Change task granularity
+
+When user approves, materialize (W2b):
+```bash
+python -m core.pipeline approve-plan {project}
+```
+
+This will:
+- Move draft tasks into the pipeline
+- If source idea was specified, mark it as COMMITTED
+- Validate the DAG
+
+Then show the final status:
 ```bash
 python -m core.pipeline status {project}
 ```
 
-Present the plan to the user with a summary:
-```
-## Plan: {goal}
-Complexity: {track}
-Tasks: {N}
-
-{task list with descriptions}
-
-Ready to start? Use /next to begin, or modify the plan first.
-```
-
-Wait for user approval. Offer:
-- Add/remove tasks
-- Reorder dependencies
-- Change task granularity
-- Start execution with `/next`
+Offer: Start execution with `/next`
 
 ---
 
@@ -262,5 +279,5 @@ Wait for user approval. Offer:
 ## Resumability
 
 - If interrupted during planning, project already exists via init (W1)
-- Tasks can be added incrementally via add-tasks (W2)
+- Tasks can be added incrementally via draft-plan (W2) or add-tasks (W2c)
 - Planning decisions are already persisted (W3)

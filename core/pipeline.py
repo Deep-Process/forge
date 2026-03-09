@@ -27,6 +27,9 @@ Commands:
     reset             {project} --from {task_id}    Reset from task onward
     register-subtasks {project} {task_id} --data    Register subtasks
     complete-subtask  {project} {subtask_id}        Mark subtask DONE
+    draft-plan        {project} --data '{json}'     Store draft plan for review
+    show-draft        {project}                     Show current draft plan
+    approve-plan      {project}                     Approve draft → materialize tasks
 """
 
 import argparse
@@ -1168,6 +1171,31 @@ def cmd_context(args):
             for line in lines:
                 print(line)
 
+    # Risks linked to this task
+    risks_file = Path("forge_output") / args.project / "risks.json"
+    if risks_file.exists():
+        risk_data = json.loads(risks_file.read_text(encoding="utf-8"))
+        task_risks = [r for r in risk_data.get("risks", [])
+                      if r.get("linked_entity_type") == "task"
+                      and r.get("linked_entity_id") == args.task_id
+                      and r.get("status") not in ("CLOSED",)]
+        # Also show risks from origin idea
+        if task.get("origin") and task["origin"].startswith("I-"):
+            idea_risks = [r for r in risk_data.get("risks", [])
+                          if r.get("linked_entity_type") == "idea"
+                          and r.get("linked_entity_id") == task["origin"]
+                          and r.get("status") not in ("CLOSED",)]
+            task_risks.extend(idea_risks)
+        if task_risks:
+            print(f"### Active Risks ({len(task_risks)})")
+            print()
+            for r in task_risks:
+                print(f"- **{r['id']}** [{r.get('severity', '')}/{r.get('likelihood', '')}] "
+                      f"({r.get('status', '')}): {r.get('title', '')}")
+                if r.get("mitigation_plan"):
+                    print(f"  Mitigation: {r['mitigation_plan'][:80]}")
+            print()
+
     # Context budget estimate
     all_task_ids = set(deps) | {args.task_id}
     ctx_chars = _estimate_context_size(args.project, all_task_ids)
@@ -1222,6 +1250,194 @@ def cmd_config(args):
 
 
 # -- CLI --
+
+def cmd_draft_plan(args):
+    """Store a draft plan for user review before materializing into pipeline."""
+    tracker = load_tracker(args.project)
+
+    try:
+        draft_tasks = json.loads(args.data)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(draft_tasks, list):
+        print("ERROR: --data must be a JSON array", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate against add-tasks contract
+    errors = validate_contract(CONTRACTS["add-tasks"], draft_tasks)
+    if errors:
+        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        for e in errors[:10]:
+            print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Store draft (overwrite previous draft)
+    tracker["draft_plan"] = {
+        "source_idea_id": args.idea if hasattr(args, "idea") and args.idea else None,
+        "created": now_iso(),
+        "tasks": draft_tasks,
+    }
+
+    save_tracker(args.project, tracker)
+
+    print(f"## Draft Plan: {args.project}")
+    if tracker["draft_plan"]["source_idea_id"]:
+        print(f"Source idea: {tracker['draft_plan']['source_idea_id']}")
+    print(f"Tasks in draft: {len(draft_tasks)}")
+    print()
+
+    _print_draft_tasks(draft_tasks)
+
+    print()
+    print("**This is a DRAFT. Tasks are NOT yet in the pipeline.**")
+    print("Review the plan above, then:")
+    print("  - `python -m core.pipeline approve-plan {project}` — materialize into pipeline")
+    print("  - `python -m core.pipeline show-draft {project}` — view again")
+    print("  - `python -m core.pipeline draft-plan {project} --data '...'` — replace with new draft")
+
+
+def cmd_show_draft(args):
+    """Show the current draft plan."""
+    tracker = load_tracker(args.project)
+    draft = tracker.get("draft_plan")
+
+    if not draft or not draft.get("tasks"):
+        print(f"No draft plan for '{args.project}'.")
+        return
+
+    print(f"## Draft Plan: {args.project}")
+    if draft.get("source_idea_id"):
+        print(f"Source idea: {draft['source_idea_id']}")
+    print(f"Created: {draft.get('created', '')}")
+    print(f"Tasks: {len(draft['tasks'])}")
+    print()
+
+    _print_draft_tasks(draft["tasks"])
+
+    print()
+    print("**DRAFT — not yet in pipeline.**")
+    print("Run `approve-plan` to materialize, or `draft-plan` to replace.")
+
+
+def cmd_approve_plan(args):
+    """Approve draft plan: materialize tasks into pipeline and mark idea COMMITTED."""
+    tracker = load_tracker(args.project)
+    draft = tracker.get("draft_plan")
+
+    if not draft or not draft.get("tasks"):
+        print(f"ERROR: No draft plan for '{args.project}'.", file=sys.stderr)
+        sys.exit(1)
+
+    draft_tasks = draft["tasks"]
+    source_idea_id = draft.get("source_idea_id")
+
+    # Check for duplicate IDs against existing tasks
+    existing_ids = {t["id"] for t in tracker["tasks"]}
+    for t in draft_tasks:
+        if t["id"] in existing_ids:
+            print(f"ERROR: Duplicate task ID '{t['id']}' — already exists in pipeline.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    # Build task entries (same logic as cmd_add_tasks)
+    entries = []
+    for t in draft_tasks:
+        entry = {
+            "id": t["id"],
+            "name": t["name"],
+            "description": t.get("description", ""),
+            "depends_on": t.get("depends_on", []),
+            "parallel": t.get("parallel", False),
+            "conflicts_with": t.get("conflicts_with", []),
+            "skill": t.get("skill"),
+            "instruction": t.get("instruction", ""),
+            "acceptance_criteria": t.get("acceptance_criteria", []),
+            "type": t.get("type", "feature"),
+            "blocked_by_decisions": t.get("blocked_by_decisions", []),
+            "scopes": t.get("scopes", []),
+            "origin": t.get("origin", source_idea_id or ""),
+            "status": "TODO",
+            "started_at": None,
+            "completed_at": None,
+            "failed_reason": None,
+        }
+        # If origin not set but source_idea_id exists, set it
+        if not entry["origin"] and source_idea_id:
+            entry["origin"] = source_idea_id
+        entries.append(entry)
+
+    # Validate DAG
+    all_tasks = tracker["tasks"] + entries
+    dag_errors = validate_dag(all_tasks)
+    if dag_errors:
+        print(f"ERROR: Task graph validation failed:", file=sys.stderr)
+        for e in dag_errors:
+            print(f"  {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Materialize
+    tracker["tasks"].extend(entries)
+
+    # Clear draft
+    tracker.pop("draft_plan", None)
+
+    save_tracker(args.project, tracker)
+
+    # Mark source idea as COMMITTED
+    if source_idea_id:
+        ideas_file = Path("forge_output") / args.project / "ideas.json"
+        if ideas_file.exists():
+            ideas_data = json.loads(ideas_file.read_text(encoding="utf-8"))
+            for idea in ideas_data.get("ideas", []):
+                if idea["id"] == source_idea_id:
+                    if idea["status"] == "APPROVED":
+                        idea["status"] = "COMMITTED"
+                        idea["committed_at"] = now_iso()
+                        idea["updated"] = now_iso()
+                        ideas_data["updated"] = now_iso()
+                        atomic_write_json(ideas_file, ideas_data)
+                        print(f"Idea {source_idea_id} marked as COMMITTED.")
+                    elif idea["status"] == "COMMITTED":
+                        pass  # already committed
+                    else:
+                        print(f"WARNING: Idea {source_idea_id} is {idea['status']}, "
+                              f"expected APPROVED. Not changing status.",
+                              file=sys.stderr)
+                    break
+
+    print(f"## Plan approved: {args.project}")
+    print(f"Materialized {len(entries)} tasks into pipeline.")
+    print()
+    print_task_list(tracker)
+    print(f"\nRun `next {args.project}` to start execution.")
+
+
+def _print_draft_tasks(tasks: list):
+    """Print draft tasks in a readable format."""
+    print("| # | ID | Name | Dependencies | Type | Scopes |")
+    print("|---|-----|------|-------------|------|--------|")
+    for i, t in enumerate(tasks, 1):
+        deps = ", ".join(t.get("depends_on", [])) or "—"
+        task_type = t.get("type", "feature")
+        scopes = ", ".join(t.get("scopes", [])) or "—"
+        print(f"| {i} | {t['id']} | {t['name']} | {deps} | {task_type} | {scopes} |")
+
+    # Show details
+    print()
+    for t in tasks:
+        print(f"### {t['id']}: {t['name']}")
+        if t.get("description"):
+            print(f"  {t['description']}")
+        if t.get("instruction"):
+            print(f"  **Instruction**: {t['instruction'][:100]}...")
+        if t.get("acceptance_criteria"):
+            print(f"  **Acceptance criteria**: {len(t['acceptance_criteria'])} items")
+            for ac in t["acceptance_criteria"]:
+                print(f"    - {ac}")
+        print()
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1283,6 +1499,17 @@ def main():
     p.add_argument("project")
     p.add_argument("--data", default=None, help="JSON object with config keys")
 
+    p = sub.add_parser("draft-plan", help="Store draft plan for review")
+    p.add_argument("project")
+    p.add_argument("--data", required=True, help="JSON array of tasks (same format as add-tasks)")
+    p.add_argument("--idea", default=None, help="Source idea ID (I-NNN)")
+
+    p = sub.add_parser("show-draft", help="Show current draft plan")
+    p.add_argument("project")
+
+    p = sub.add_parser("approve-plan", help="Approve draft plan and materialize into pipeline")
+    p.add_argument("project")
+
     p = sub.add_parser("contract", help="Print contract spec")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
 
@@ -1315,6 +1542,9 @@ def main():
         "remove-task": cmd_remove_task,
         "context": cmd_context,
         "config": cmd_config,
+        "draft-plan": cmd_draft_plan,
+        "show-draft": cmd_show_draft,
+        "approve-plan": cmd_approve_plan,
         "contract": lambda args: print(render_contract(args.name, CONTRACTS[args.name])),
         "register-subtasks": cmd_register_subtasks,
         "complete-subtask": cmd_complete_subtask,

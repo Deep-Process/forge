@@ -130,7 +130,7 @@ Updated as assumptions are validated or invalidated.
 - **Added in**: v1.2
 
 ### A-021: Ideas have enforced status transitions
-- **Assumed**: Status can only change via defined transitions (DRAFT→EXPLORING, EXPLORING→ACCEPTED, etc.). COMMITTED is terminal.
+- **Assumed**: Status can only change via defined transitions (DRAFT→EXPLORING, EXPLORING→READY, READY→APPROVED, etc.). COMMITTED is terminal.
 - **Why**: Prevents accidental skipping of exploration phase. Forces deliberate progression.
 - **Risk**: Too rigid? Mitigated by allowing EXPLORING→DRAFT ("back to drawing board") and REJECTED→DRAFT ("reopen").
 - **Added in**: v1.2
@@ -145,6 +145,66 @@ Updated as assumptions are validated or invalidated.
 - **Assumed**: decisions.py accepts I-NNN as task_id (validated against ideas.json). This links discovery decisions to the idea being explored.
 - **Why**: During `/discover I-001`, findings need a task_id. The idea ID is the natural anchor.
 - **Risk**: Orphaned decisions if idea is deleted. Mitigated by: ideas are never deleted, only REJECTED.
+- **Added in**: v1.2
+
+### A-024: Idea hierarchy uses parent_id with any depth
+- **Assumed**: Ideas form a tree via `parent_id`. No fixed levels (capability/module/workstream) — just parent-child. Depth is unbounded.
+- **Why**: Fixed levels (A-028 considered) add complexity without value. Users can impose their own naming conventions.
+- **Risk**: Very deep hierarchies may be confusing. Mitigated by: `_get_parent_chain()` shows full path.
+- **Added in**: v2.0
+
+### A-025: Relations are append-only on update
+- **Assumed**: When updating idea relations via `cmd_update`, new relations are added to existing ones. Duplicate (type, target_id) pairs are silently deduplicated.
+- **Why**: Prevents accidental deletion of relations. To remove a relation, user would need to reconstruct the full list.
+- **Risk**: No way to remove a single relation via update. Acceptable for MVP — can add `remove_relation` command later.
+- **Added in**: v2.0
+
+### A-026: Explorations are immutable after creation
+- **Assumed**: Explorations have `add`, `read`, `show` but no `update`. Once recorded, they represent a point-in-time analysis snapshot.
+- **Why**: Explorations are artifacts of analysis. Modifying them would break the audit trail. New analysis = new exploration record.
+- **Risk**: Typos in explorations can't be fixed. Low risk — new exploration supersedes old.
+- **Added in**: v2.0
+
+### A-027: Risk cross-validation is WARNING not ERROR
+- **Assumed**: When adding a risk with `linked_entity_id`, the module warns if the entity doesn't exist but still creates the risk.
+- **Why**: Risk may be identified before the idea/task is formally created. Strict validation would block legitimate workflows.
+- **Risk**: Orphaned risks. Mitigated by: risks always visible in `ideas show` and `pipeline context`.
+- **Added in**: v2.0
+
+### A-028: Draft plan replaces previous draft
+- **Assumed**: `draft-plan` overwrites any existing draft. Only one draft per project at a time.
+- **Why**: Multiple drafts would require draft IDs, selection UI, cleanup logic — overengineering for MVP.
+- **Risk**: Accidental overwrite. Low — drafts are transient, the real state is the approved pipeline.
+- **Added in**: v2.0
+
+### A-029: approve-plan marks source idea as COMMITTED
+- **Assumed**: When a draft plan with `source_idea_id` is approved, the idea is automatically marked COMMITTED.
+- **Why**: Two-phase flow: idea APPROVED → plan drafted → user approves plan → idea COMMITTED + tasks materialized. This is the canonical path.
+- **Risk**: If approve-plan fails after marking idea COMMITTED but before saving tracker, state is inconsistent. Mitigated by: idea status change is saved first, then tracker.
+- **Added in**: v2.0
+
+### A-030: Slash commands are thin wrappers
+- **Assumed**: `.claude/commands/*.md` files contain only procedure instructions (which CLI commands to call), no business logic. All logic lives in `core/*.py` modules.
+- **Why**: Keeps slash commands maintainable — they're just orchestration scripts for the LLM. If logic were duplicated in markdown, it would drift from Python.
+- **Risk**: None — this is the standard Claude Code pattern.
+- **Added in**: v1.2
+
+### A-031: Verification is mandatory in /next, optional standalone
+- **Assumed**: Deep-verify + guidelines compliance runs automatically as Step 5 of `/next`. The `/review` command exists only for extra-thorough audits on critical tasks.
+- **Why**: Making verification automatic ensures it's never skipped. Separate `/review` adds overhead for routine tasks.
+- **Risk**: Verification adds latency to every task. Mitigated by: skip for trivial/chore tasks.
+- **Added in**: v1.2
+
+### A-032: Guidelines context loaded via pipeline context, not separately
+- **Assumed**: `pipeline context {task_id}` loads guidelines matching task scopes (via shared `render_guidelines_context()`). No need for separate guidelines fetch during normal task execution.
+- **Why**: Single command provides all context (dependencies + decisions + lessons + guidelines + risks). Reduces ceremony.
+- **Risk**: If task scopes are wrong, wrong guidelines load. Mitigated by: R8 allows direct reload with explicit scopes.
+- **Added in**: v1.2
+
+### A-033: Slash command argument parsing is LLM-driven
+- **Assumed**: Slash commands receive `$ARGUMENTS` as raw text. The LLM parses intent (e.g., `/ideas I-001 approve` → show idea I-001, then approve). No structured argument parsing in markdown.
+- **Why**: Claude Code's slash command system passes arguments as a single string. LLM inference handles ambiguity better than rigid parsing.
+- **Risk**: Misinterpretation of arguments. Low — commands are simple and well-documented with examples.
 - **Added in**: v1.2
 
 ---

@@ -8,10 +8,14 @@ Show and manage ideas in the staging area.
 |------|---------|---------|
 | (empty) | List all ideas | `/ideas` |
 | `{idea_id}` | Show full details for an idea | `/ideas I-001` |
-| `{idea_id} accept` | Mark idea as ACCEPTED | `/ideas I-001 accept` |
-| `{idea_id} reject {reason}` | Reject idea with reason | `/ideas I-001 reject too risky for MVP` |
 | `{idea_id} explore` | Start exploring (set EXPLORING) | `/ideas I-001 explore` |
-| `{idea_id} commit` | Commit ACCEPTED idea for planning | `/ideas I-001 commit` |
+| `{idea_id} ready` | Mark as READY (analysis complete) | `/ideas I-001 ready` |
+| `{idea_id} approve` | Approve for implementation | `/ideas I-001 approve` |
+| `{idea_id} reject {reason}` | Reject idea with reason | `/ideas I-001 reject too risky for MVP` |
+| `{idea_id} park {reason}` | Temporarily shelve idea | `/ideas I-001 park waiting for infra upgrade` |
+| `{idea_id} commit` | Commit APPROVED idea for planning | `/ideas I-001 commit` |
+| `{idea_id} children` | Show child ideas | `/ideas I-001 children` |
+| `root` | Show only root (top-level) ideas | `/ideas root` |
 
 ## Procedure
 
@@ -25,16 +29,37 @@ ls forge_output/ 2>/dev/null
 python -m core.ideas read {project}
 ```
 
+### Root ideas only:
+```bash
+python -m core.ideas read {project} --parent root
+```
+
 ### Show mode (idea_id only):
 ```bash
 python -m core.ideas show {project} {idea_id}
 ```
 
+### Children mode:
+```bash
+python -m core.ideas read {project} --parent {idea_id}
+```
+
 ### Action modes:
 
-**accept:**
+**explore:**
 ```bash
-python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "ACCEPTED"}]'
+python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "EXPLORING"}]'
+```
+Then suggest: `/discover {idea_id}` to run analysis.
+
+**ready:**
+```bash
+python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "READY"}]'
+```
+
+**approve:**
+```bash
+python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "APPROVED"}]'
 ```
 
 **reject:**
@@ -42,11 +67,10 @@ python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "AC
 python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "REJECTED", "rejection_reason": "{reason}"}]'
 ```
 
-**explore:**
+**park:**
 ```bash
-python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "EXPLORING"}]'
+python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "PARKED", "rejection_reason": "{reason}"}]'
 ```
-Then suggest: `/discover {idea_id}` to run analysis.
 
 **commit:**
 ```bash

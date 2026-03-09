@@ -28,6 +28,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | R7 | `python -m core.lessons read-all` | Lessons from past projects | Step 3 — context |
 | R8 | `python -m core.decisions read {project} --status OPEN` | Open decisions (if project exists) | Step 3 — context |
 | R9 | `ls forge_output/ 2>/dev/null` | Existing projects | Step 3 — context |
+| R10 | `python -m core.pipeline status {project}` | Current pipeline state | Step 3 — context (if project exists) |
 
 ## Write Commands
 
@@ -35,6 +36,10 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 |----|---------|--------|------|----------|
 | W1 | `python -m core.decisions add {project} --data '{json}'` | Records discovery findings as decisions | Step 5 — after analysis | `decisions:add` |
 | W2 | `python -m core.lessons add {project} --data '{json}'` | Records discovery insights as lessons | Step 5 — significant learnings | `lessons:add` |
+| W3 | `python -m core.explorations add {project} --data '{json}'` | Records structured exploration artifacts | Step 5 — after each analysis phase | `explorations:add` |
+| W4 | `python -m core.risks add {project} --data '{json}'` | Records identified risks | Step 5 — from risk analysis | `risks:add` |
+| W5 | `python -m core.pipeline init {slug} --goal "..."` | Creates project if none exists | Step 5 — before recording | — |
+| W6 | `python -m core.ideas update {project} --data '{json}'` | Updates idea status to EXPLORING | Step 5 — if idea-scoped | `ideas:update` |
 
 ## Output
 
@@ -42,6 +47,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 |------|----------|------------|
 | `forge_output/{project}/decisions.json` | Discovery findings as OPEN decisions (architecture, risk, feasibility) | W1 |
 | `forge_output/{project}/lessons.json` | Discovery insights (if significant) | W2 |
+| `forge_output/{project}/explorations.json` | Structured exploration artifacts per analysis phase | W3 |
+| `forge_output/{project}/risks.json` | Identified risks with severity and mitigation | W4 |
 
 ## Success Criteria
 
@@ -159,50 +166,80 @@ Track execution:
 
 ### Step 5 — Record Findings in Forge
 
-After orchestration completes, translate findings into Forge decisions:
-
-**From deep-explore:**
-- Each significant option → OPEN decision with `type: "architecture"`, `decided_by: "claude"`, `confidence: "MEDIUM"`
-- Recommended path → decision with recommendation and alternatives
-
-**From deep-feasibility:**
-- Binding constraints → OPEN decision with `type: "constraint"`, highlight blocker
-- CONDITIONAL GO conditions → OPEN decisions that need resolution
-
-**From deep-risk:**
-- Top 3-5 risks → OPEN decisions with `type: "security"` or `type: "architecture"`
-- Each mitigation → part of the recommendation
-
-**From deep-architect:**
-- ADRs → OPEN decisions with `type: "architecture"`, full alternatives and tradeoffs
-- Component boundaries → decision context for future tasks
+After orchestration completes, record findings as structured artifacts.
 
 If no project exists yet, create one with a slug derived from the topic:
 ```bash
 python -m core.pipeline init {slug} --goal "Discovery: {topic}"
 ```
 
-Determine the `task_id` for recording findings:
-- If discovering for a **specific idea** (e.g., `/discover I-001`): use the idea ID as task_id (`"I-001"`). This links decisions to the idea, visible in `ideas show`.
+Determine the context for recording:
+- If discovering for a **specific idea** (e.g., `/discover I-001`): use the idea ID as `idea_id` for explorations and `task_id` for decisions. Also update idea status to EXPLORING if it's still DRAFT (W6):
+```bash
+python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "EXPLORING"}]'
+```
 - If discovering a **general topic** (no idea): use `"DISCOVERY"` as task_id.
 
+**a. Record Exploration artifacts (W3):**
+
+For each analysis phase completed, create an Exploration record:
+
 ```bash
-python -m core.decisions add {project} --data '[
-  {
-    "task_id": "{idea_id or DISCOVERY}",
-    "type": "architecture",
-    "issue": "{finding from deep-explore}",
-    "recommendation": "{recommended option}",
-    "reasoning": "{from analysis}",
-    "alternatives": ["{option B}", "{option C}"],
-    "confidence": "MEDIUM",
-    "decided_by": "claude",
-    "status": "OPEN"
-  }
-]'
+python -m core.explorations add {project} --data '[{
+  "idea_id": "{I-NNN}",
+  "exploration_type": "{domain|architecture|business|risk|feasibility}",
+  "summary": "{key conclusion from this analysis}",
+  "findings": ["{finding 1}", "{finding 2}"],
+  "options": [{"name": "...", "pros": ["..."], "cons": ["..."], "recommendation": "GO|NO-GO"}],
+  "open_questions": ["{unresolved question}"],
+  "recommendation": "{overall recommendation}"
+}]'
 ```
 
-If significant insights emerged, record as lessons:
+For feasibility explorations, add:
+```json
+"blockers": ["{blocking issue}"],
+"confidence": "HIGH|MEDIUM|LOW",
+"ready_for_tracker": true
+```
+
+**b. Record Risks (W4):**
+
+From deep-risk findings, create Risk records:
+
+```bash
+python -m core.risks add {project} --data '[{
+  "title": "{risk name}",
+  "description": "{what could go wrong and impact}",
+  "linked_entity_type": "idea",
+  "linked_entity_id": "{I-NNN}",
+  "severity": "{HIGH|MEDIUM|LOW}",
+  "likelihood": "{HIGH|MEDIUM|LOW}",
+  "mitigation_plan": "{proposed mitigation}"
+}]'
+```
+
+**c. Record Decisions (W1):**
+
+Translate significant findings into Forge decisions:
+
+```bash
+python -m core.decisions add {project} --data '[{
+  "task_id": "{idea_id or DISCOVERY}",
+  "type": "architecture",
+  "issue": "{finding}",
+  "recommendation": "{recommended option}",
+  "reasoning": "{from analysis}",
+  "alternatives": ["{option B}", "{option C}"],
+  "confidence": "MEDIUM",
+  "decided_by": "claude",
+  "status": "OPEN"
+}]'
+```
+
+**d. Record Lessons (W2, optional):**
+
+If significant insights emerged:
 ```bash
 python -m core.lessons add {project} --data '[{
   "category": "pattern-discovered",

@@ -18,12 +18,16 @@ Most AI coding assistants generate code without structure. Forge adds:
 
 ```bash
 # Inside Claude Code, use slash commands:
-/discover authentication for the API        # Explore options, assess risks, design architecture
-/plan Add JWT authentication to the API     # Decompose goal into task graph
-/next                                       # Execute next task with traceability
+/idea Add Redis caching to API              # Capture idea in staging
+/idea Signal Generator --parent I-001       # Sub-idea with hierarchy
+/discover I-001                             # Explore → creates Explorations + Risks
+/risk                                       # View and manage identified risks
+/ideas I-001 ready                          # Mark analysis complete
+/ideas I-001 approve                        # Approve for implementation
+/plan I-001                                 # Draft plan → review → approve → tracker
+/guideline use Repository Pattern --scope backend  # Set project standards
+/next                                       # Execute next task (with verification)
 /status                                     # Show project dashboard + DAG
-/decide                                     # Review open decisions
-/log                                        # Full audit trail
 ```
 
 For existing codebases, start with `/onboard {path}` to import project knowledge before planning.
@@ -32,13 +36,18 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 
 | Command | Description |
 |---------|-------------|
-| `/discover {topic}` | Explore options, assess risks, design architecture before planning |
-| `/plan {goal}` | Decompose a goal into a tracked task graph |
-| `/next` | Get and execute the next task with full traceability |
+| `/idea {title}` | Add idea to staging area (supports hierarchy and relations) |
+| `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
+| `/discover {topic\|idea_id}` | Explore options, assess risks → creates Explorations + Risks |
+| `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
+| `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
+| `/guideline {text}` | Add project guideline |
+| `/guidelines [scope]` | List/manage guidelines |
+| `/next` | Execute next task (includes verification + guidelines check) |
 | `/run [tasks]` | Continuous execution (`/run`, `/run 3`, `/run T-003..T-007`) |
 | `/status` | Show project state, decisions, and change summary |
 | `/decide` | Review and resolve open decisions (accept/override/defer) |
-| `/review {task_id}` | Structured code review (5 perspectives) |
+| `/review {task_id}` | Deep code review (optional — basic built into `/next`) |
 | `/log` | Full audit trail: decisions + changes + narrative |
 | `/compound` | Extract lessons learned from project execution |
 | `/onboard {path}` | Import brownfield project knowledge into Forge |
@@ -48,7 +57,7 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 ```
 forge/
   core/                  # Domain-agnostic Python engine
-    pipeline.py          # Task graph state machine (DAG with dependencies)
+    pipeline.py          # Task graph state machine (DAG with dependencies, two-phase planning)
     decisions.py         # Decision log with provenance
     changes.py           # Change tracking with reasoning traces
     contracts.py         # Contract-first validation (render + validate)
@@ -56,7 +65,9 @@ forge/
     lessons.py           # Compound learning across projects
     git_ops.py           # Optional git integration (branch, commit)
     guidelines.py        # Project standards and conventions registry
-    ideas.py             # Staging area for proposals and plans
+    ideas.py             # Hierarchical idea staging with relations
+    explorations.py      # Structured exploration artifacts
+    risks.py             # Risk tracking with lifecycle management
     recipes.py           # Task graph templates
   skills/                # Built-in skill definitions (SKILL.md format)
     discover/            #   Explore, assess, design before planning
@@ -115,7 +126,15 @@ Project-wide coding standards, architectural conventions, and rules. Scoped (bac
 
 ### Ideas (Staging)
 
-Proposals and plans that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → ACCEPTED → COMMITTED`. During EXPLORING, run `/discover` or deep-* analysis skills to assess feasibility, risks, and architecture. ACCEPTED ideas are committed to the task pipeline via `/plan`. REJECTED ideas are preserved with reasoning. Decisions created during exploration reference the idea ID for full traceability.
+Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → READY → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create structured Explorations and identify Risks. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED and PARKED ideas are preserved with reasoning. Can be resumed from PARKED.
+
+### Explorations
+
+Structured artifacts from idea analysis. Each exploration has a type (domain, architecture, business, risk, feasibility) and captures findings, options, recommendations, and open questions. Multiple explorations per idea — one per analysis phase. Feasibility explorations include blockers, confidence level, and tracker-readiness assessment.
+
+### Risks
+
+Threats identified during exploration or execution, tracked with their own lifecycle: `OPEN → ANALYZING → MITIGATED / ACCEPTED / CLOSED`. Each risk has severity, likelihood, mitigation plan, and resolution notes. Linked to ideas (exploration phase) or tasks (execution phase). Risks flow into task context during `/next`.
 
 ### Recipes
 
@@ -150,11 +169,22 @@ python -m core.gates scan-secrets myproject
 python -m core.lessons add myproject --data '[...]'
 python -m core.lessons read-all
 
-# Ideas
-python -m core.ideas add myproject --data '[...]'
-python -m core.ideas read myproject --status EXPLORING
+# Ideas (hierarchical)
+python -m core.ideas add myproject --data '[{"title": "...", "parent_id": "I-001", "relations": [...]}]'
+python -m core.ideas read myproject --status EXPLORING --parent root
 python -m core.ideas show myproject I-001
 python -m core.ideas commit myproject I-001
+
+# Explorations
+python -m core.explorations add myproject --data '[...]'
+python -m core.explorations read myproject --idea I-001 --type architecture
+python -m core.explorations show myproject E-001
+
+# Risks
+python -m core.risks add myproject --data '[...]'
+python -m core.risks read myproject --status OPEN
+python -m core.risks update myproject --data '[{"id": "R-001", "status": "MITIGATED"}]'
+python -m core.risks show myproject R-001
 
 # Guidelines
 python -m core.guidelines add myproject --data '[...]'

@@ -17,7 +17,10 @@ You do NOT just write code. You:
 ### Pipeline (task graph)
 ```
 python -m core.pipeline init {project} --goal "..."      Create project
-python -m core.pipeline add-tasks {project} --data '...' Add tasks
+python -m core.pipeline add-tasks {project} --data '...' Add tasks (direct, bypasses draft)
+python -m core.pipeline draft-plan {project} --data '...' [--idea I-NNN]  Store draft plan for review
+python -m core.pipeline show-draft {project}             Show current draft plan
+python -m core.pipeline approve-plan {project}           Approve draft → materialize tasks
 python -m core.pipeline update-task {project} --data '{...}' Update existing task
 python -m core.pipeline remove-task {project} {task_id}  Remove TODO task
 python -m core.pipeline next {project} [--agent name]    Get next task (two-phase claim)
@@ -26,7 +29,7 @@ python -m core.pipeline contract add-tasks               Show task contract
 python -m core.pipeline contract update-task             Show update contract
 python -m core.pipeline contract register-subtasks       Show subtask contract
 python -m core.pipeline status {project}                 Dashboard + DAG
-python -m core.pipeline context {project} {task_id}      Context from dependencies
+python -m core.pipeline context {project} {task_id}      Context from deps + risks
 python -m core.pipeline config {project} --data '{...}'  Set project config
 ```
 
@@ -56,14 +59,31 @@ python -m core.lessons read-all                         View lessons across all 
 python -m core.lessons contract                         See expected format
 ```
 
-### Ideas (staging area)
+### Ideas (staging area — hierarchical, with relations)
 ```
-python -m core.ideas add {project} --data '[...]'              Add ideas
-python -m core.ideas read {project} [--status X] [--category X]  Read ideas
-python -m core.ideas show {project} {idea_id}                  Show full idea details
-python -m core.ideas update {project} --data '[...]'           Update idea status/fields
-python -m core.ideas commit {project} {idea_id}                Mark ACCEPTED → COMMITTED
-python -m core.ideas contract add                              Show idea contract
+python -m core.ideas add {project} --data '[...]'                      Add ideas (supports parent_id, relations)
+python -m core.ideas read {project} [--status X] [--category X] [--parent X]  Read ideas (--parent root for top-level)
+python -m core.ideas show {project} {idea_id}                          Show full details (hierarchy, explorations, risks, decisions)
+python -m core.ideas update {project} --data '[...]'                   Update status/fields (relations append-merged)
+python -m core.ideas commit {project} {idea_id}                        Mark APPROVED → COMMITTED (validates depends_on)
+python -m core.ideas contract add                                      Show idea contract
+```
+
+### Explorations (structured analysis artifacts)
+```
+python -m core.explorations add {project} --data '[...]'               Add explorations linked to ideas
+python -m core.explorations read {project} [--idea X] [--type X]       Read explorations
+python -m core.explorations show {project} {exploration_id}            Show full details
+python -m core.explorations contract add                               Show contract
+```
+
+### Risks (risk tracking with lifecycle)
+```
+python -m core.risks add {project} --data '[...]'                      Add risks linked to ideas/tasks
+python -m core.risks read {project} [--status X] [--entity X]          Read risks
+python -m core.risks update {project} --data '[...]'                   Update risk status/fields
+python -m core.risks show {project} {risk_id}                          Show full details
+python -m core.risks contract add                                      Show contract
 ```
 
 ### Guidelines (project standards)
@@ -103,13 +123,18 @@ python -m core.git_ops status                                   Show git state
 
 | Command | Description |
 |---------|-------------|
-| `/discover {topic}` | Explore options, assess risks, design architecture before planning |
-| `/plan {goal}` | Decompose a goal into a tracked task graph |
+| `/idea {title}` | Add an idea to staging area (supports --parent, --relates-to) |
+| `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
+| `/discover {topic\|idea_id}` | Explore options, assess risks, design architecture → creates Explorations + Risks |
+| `/plan {goal\|idea_id}` | Decompose into task graph (two-phase: draft → approve) |
+| `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
+| `/guideline {text}` | Add a project guideline (standard, convention, rule) |
+| `/guidelines [scope]` | List/manage guidelines |
 | `/status` | Show current project status |
-| `/next` | Get and start the next task (see `skills/next/SKILL.md`) |
-| `/run [tasks]` | Execute tasks continuously: `/run`, `/run 3`, `/run T-003`, `/run T-003..T-007`, `/run T-003,T-005` |
+| `/next` | Get and execute next task (includes verification + guidelines check) |
+| `/run [tasks]` | Execute tasks continuously: `/run`, `/run 3`, `/run T-003..T-007` |
 | `/decide` | Review and resolve open decisions |
-| `/review {task_id}` | Structured code review (see `skills/review/SKILL.md`) |
+| `/review {task_id}` | Deep code review (optional — basic verification built into `/next`) |
 | `/log` | Show full audit trail (changes + decisions) |
 | `/compound` | Extract lessons learned from project execution |
 | `/onboard` | Import brownfield project knowledge into Forge (see `skills/onboard/SKILL.md`) |
@@ -144,26 +169,28 @@ For brownfield projects (existing codebase):
 2. Then continue with `/plan {goal}` for specific work
 
 When user gives a goal:
-1. Optionally capture as idea: `ideas add {project} --data '[...]'` — staging before commitment
-   - Explore with `/discover {idea_id}` — risk, feasibility, architecture analysis
-   - Update idea status: DRAFT → EXPLORING → ACCEPTED
-   - Commit: `ideas commit {project} {idea_id}` when ready
-2. Run `/plan {goal}` (or `/plan {idea_id}` for committed ideas) — creates tasks informed by discovery decisions and guidelines
-3. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
-4. Define project guidelines: `guidelines add {project} --data '[...]'` — coding standards, conventions, architectural rules
-5. Check lessons from past projects: `python -m core.lessons read-all`
-6. Run `/next` — get first task (follows `skills/next/SKILL.md`)
-5. For each task:
-   a. Gather context: `pipeline context {project} {task_id}`
+1. Capture as idea: `/idea {title}` — add to staging area
+   - Ideas support hierarchy: `/idea {title} --parent I-001` for sub-ideas
+   - Ideas support relations: depends_on, related_to, supersedes, duplicates
+2. Explore: `/discover {idea_id}` — creates Explorations + Risks + Decisions
+   - Status flow: DRAFT → EXPLORING → READY → APPROVED
+   - Use `/risk` to track and mitigate identified risks
+3. When ready: `/ideas {idea_id} approve` then `/plan {idea_id}`
+4. `/plan` creates a **draft plan** — review, modify, then approve to materialize
+5. Configure project: `pipeline config` (test_cmd, lint_cmd) and `gates config`
+6. Define project guidelines: `/guideline {text}` — coding standards, conventions
+7. Run `/next` — get first task (follows `skills/next/SKILL.md`)
+8. For each task:
+   a. Gather context: `pipeline context {project} {task_id}` (deps + guidelines + risks)
    b. Record any significant decisions via `decisions add`
    c. Make the code changes
    d. Record changes via `changes diff` then `changes record`
-   e. Run gates: `gates check {project} --task {task_id}`
-   f. Commit: `git_ops commit {project} {task_id} -m "..."`
-   g. Mark task complete via `pipeline complete`
-6. Optionally run `/review {task_id}` for critical tasks
-7. When all tasks done, run `/compound` to extract lessons
-8. Show summary
+   e. Verify: deep-verify + guidelines compliance (built into `/next` Step 5)
+   f. Run gates: `gates check {project} --task {task_id}`
+   g. Commit: `git_ops commit {project} {task_id} -m "..."`
+   h. Mark task complete via `pipeline complete`
+9. Optionally run `/review {task_id}` for critical tasks
+10. When all tasks done, run `/compound` to extract lessons
 
 ## Rules
 
@@ -220,9 +247,11 @@ If `.claude/forge.local.md` exists, read it for user preferences.
 ## Output Location
 
 All Forge state goes to `forge_output/{project}/`:
-- `tracker.json` — pipeline state
+- `tracker.json` — pipeline state (tasks + optional draft_plan)
 - `decisions.json` — decision log
 - `changes.json` — change records
 - `lessons.json` — lessons learned (compound learning)
 - `guidelines.json` — project standards and conventions
-- `ideas.json` — idea staging area (proposals, plans)
+- `ideas.json` — idea staging area (hierarchical, with relations)
+- `explorations.json` — structured exploration artifacts
+- `risks.json` — risk tracking with lifecycle

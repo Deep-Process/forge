@@ -24,7 +24,9 @@ description: "Get the next task from the pipeline and execute it with full trace
 | R3 | `python -m core.decisions read {project} --task {task_id}` | Existing decisions for this task | Step 2 — check prior decisions |
 | R4 | `python -m core.decisions contract add` | Contract for recording decisions | Before recording |
 | R5 | `python -m core.changes contract` | Contract for recording changes | Before recording |
-| R6 | `python -m core.gates show {project}` | Configured validation gates | Step 5 — before validation |
+| R6 | `python -m core.gates show {project}` | Configured validation gates | Step 6 — before validation |
+| R7 | `skills/deep-verify/SKILL.md` | Verification procedure | Step 5 — verify changes |
+| R8 | `python -m core.guidelines context {project} --scopes "{scopes}"` | Active guidelines for task scopes | Step 5 — guidelines compliance |
 
 ## Write Commands
 
@@ -32,11 +34,12 @@ description: "Get the next task from the pipeline and execute it with full trace
 |----|---------|--------|------|
 | W1 | `python -m core.decisions add {project} --data '{json}'` | Records decisions | Step 3 — for significant choices |
 | W2 | `python -m core.changes record {project} --data '{json}'` | Records file changes | Step 4 — after code changes |
-| W3 | `python -m core.gates check {project} --task {task_id}` | Runs validation gates | Step 5 — before completion |
-| W3b | `python -m core.gates scan-secrets {project}` | Scans for leaked credentials | Step 5 — before commit |
-| W4 | `python -m core.git_ops commit {project} {task_id} -m "..."` | Commits with metadata | Step 5 — after validation |
-| W5 | `python -m core.pipeline complete {project} {task_id}` | Marks task DONE | Step 6 — after all validation |
-| W6 | `python -m core.pipeline fail {project} {task_id} --reason "..."` | Marks task FAILED | On failure |
+| W3 | `python -m core.pipeline add-tasks {project} --data '{json}'` | Creates follow-up tasks for major findings | Step 5 — if verification finds big issues |
+| W4 | `python -m core.gates check {project} --task {task_id}` | Runs validation gates | Step 6 — before completion |
+| W4b | `python -m core.gates scan-secrets {project}` | Scans for leaked credentials | Step 6 — before commit |
+| W5 | `python -m core.git_ops commit {project} {task_id} -m "..."` | Commits with metadata | Step 6 — after validation |
+| W6 | `python -m core.pipeline complete {project} {task_id}` | Marks task DONE | Step 7 — after all validation |
+| W7 | `python -m core.pipeline fail {project} {task_id} --reason "..."` | Marks task FAILED | On failure |
 
 ## Output
 
@@ -51,8 +54,10 @@ description: "Get the next task from the pipeline and execute it with full trace
 - Task instruction fully executed
 - All significant decisions recorded with reasoning
 - All file changes recorded with reasoning_trace
+- Changes verified: deep-verify passed, guidelines compliance checked
+- Minor findings fixed in-place, major findings created as new TODO tasks
 - Validation gates pass (or failures explicitly acknowledged)
-- Task marked DONE only after validation
+- Task marked DONE only after verification AND validation
 
 ---
 
@@ -89,23 +94,29 @@ its procedure instead of this generic flow.
 
 Before writing any code, understand the full context:
 
-a. **Read context from dependencies and guidelines** (what previous tasks produced + applicable standards):
+a. **Read context from dependencies, guidelines, and risks** (what previous tasks produced + applicable standards + active risks):
 ```bash
 python -m core.pipeline context {project} {task_id}
 ```
-This includes: dependency outputs, decisions, lessons, AND applicable guidelines (based on task's `scopes`). **Follow all MUST guidelines strictly. Follow SHOULD guidelines unless there's a documented reason not to.**
+This includes: dependency outputs, decisions, lessons, applicable guidelines (based on task's `scopes`), AND active risks (linked to this task or its source idea). **Follow all MUST guidelines strictly. Follow SHOULD guidelines unless there's a documented reason not to.**
 
-b. **Check existing decisions** for this task:
+b. **If task has origin from an idea** (origin starts with `I-`), load the idea context:
+```bash
+python -m core.ideas show {project} {origin_id}
+```
+This shows the idea's explorations, risks, and decisions — full context from the exploration phase.
+
+c. **Check existing decisions** for this task:
 ```bash
 python -m core.decisions read {project} --task {task_id}
 ```
 
-c. **Read the codebase** — understand files you'll modify:
+d. **Read the codebase** — understand files you'll modify:
    - Read the task instruction carefully
    - Open and read every file mentioned in the instruction
    - Understand the existing code patterns before changing anything
 
-d. **Check open decisions** that might affect this task:
+e. **Check open decisions** that might affect this task:
 ```bash
 python -m core.decisions read {project} --status OPEN
 ```
@@ -181,7 +192,59 @@ python -m core.changes record {project} --data '[{
 
 ---
 
-### Step 5 — Validate
+### Step 5 — Verify Changes
+
+Before validation gates, verify the quality and correctness of your changes.
+
+**a. Guidelines compliance check:**
+
+Review the guidelines loaded in Step 2 context (R8). For each MUST guideline, verify your changes comply. For SHOULD guidelines, verify where practical. If you need to reload guidelines for specific scopes:
+```bash
+python -m core.guidelines context {project} --scopes "{scopes}"
+```
+
+If a guideline was violated:
+- **Minor fix** (< 5 minutes): fix it now, update change records
+- **Major fix** (new feature/refactor needed): create a follow-up TODO task:
+```bash
+python -m core.pipeline add-tasks {project} --data '[{
+  "id": "T-{next}",
+  "name": "fix-{description}",
+  "description": "Guideline {G-NNN} violated in {task_id}: {what needs fixing}",
+  "type": "chore",
+  "depends_on": ["{task_id}"]
+}]'
+```
+Record the violation as a decision:
+```bash
+python -m core.decisions add {project} --data '[{
+  "task_id": "{task_id}",
+  "type": "convention",
+  "issue": "Guideline {G-NNN} not fully met: {details}",
+  "recommendation": "Created follow-up task T-{next}",
+  "confidence": "HIGH",
+  "decided_by": "claude"
+}]'
+```
+
+**b. Deep-verify (for non-trivial changes):**
+
+For tasks that create or modify significant logic (not simple config/docs changes), run a lightweight verification using the deep-verify procedure (`skills/deep-verify/SKILL.md`):
+
+- Scope the verification to FILES CHANGED in this task only
+- Check for: logical errors, missed edge cases, security issues, inconsistencies with existing code
+- Scoring: CRITICAL findings must be fixed. IMPORTANT findings should be fixed or tracked. MINOR findings are optional.
+
+If deep-verify finds issues:
+- **Fix immediately** if the fix is small and within scope
+- **Create TODO task** if the fix is large or out of scope
+- **Record** all findings and fixes as decisions
+
+**Skip deep-verify when:** task is trivial (config change, typo fix, docs-only), or task type is `chore`.
+
+---
+
+### Step 6 — Validate
 
 Run configured validation gates:
 
@@ -209,7 +272,7 @@ python -m core.git_ops commit {project} {task_id} -m "descriptive message"
 
 ---
 
-### Step 6 — Complete
+### Step 7 — Complete
 
 Mark the task as DONE:
 
