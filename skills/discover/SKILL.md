@@ -36,8 +36,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 |----|---------|--------|------|----------|
 | W1 | `python -m core.decisions add {project} --data '{json}'` | Records discovery findings as decisions | Step 5 — after analysis | `decisions:add` |
 | W2 | `python -m core.lessons add {project} --data '{json}'` | Records discovery insights as lessons | Step 5 — significant learnings | `lessons:add` |
-| W3 | `python -m core.explorations add {project} --data '{json}'` | Records structured exploration artifacts | Step 5 — after each analysis phase | `explorations:add` |
-| W4 | `python -m core.risks add {project} --data '{json}'` | Records identified risks | Step 5 — from risk analysis | `risks:add` |
+| W3 | `python -m core.decisions add {project} --data '{json}'` | Records exploration decisions (type=exploration) | Step 5 — after each analysis phase | `decisions:add` |
+| W4 | `python -m core.decisions add {project} --data '{json}'` | Records risk decisions (type=risk) | Step 5 — from risk analysis | `decisions:add` |
 | W5 | `python -m core.pipeline init {slug} --goal "..."` | Creates project if none exists | Step 5 — before recording | — |
 | W6 | `python -m core.ideas update {project} --data '{json}'` | Updates idea status to EXPLORING | Step 5 — if idea-scoped | `ideas:update` |
 
@@ -45,10 +45,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 
 | File | Contains | Written by |
 |------|----------|------------|
-| `forge_output/{project}/decisions.json` | Discovery findings as OPEN decisions (architecture, risk, feasibility) | W1 |
+| `forge_output/{project}/decisions.json` | All discovery findings: standard decisions (W1), exploration decisions (W3), and risk decisions (W4) | W1, W3, W4 |
 | `forge_output/{project}/lessons.json` | Discovery insights (if significant) | W2 |
-| `forge_output/{project}/explorations.json` | Structured exploration artifacts per analysis phase | W3 |
-| `forge_output/{project}/risks.json` | Identified risks with severity and mitigation | W4 |
 
 ## Success Criteria
 
@@ -174,48 +172,58 @@ python -m core.pipeline init {slug} --goal "Discovery: {topic}"
 ```
 
 Determine the context for recording:
-- If discovering for a **specific idea** (e.g., `/discover I-001`): use the idea ID as `idea_id` for explorations and `task_id` for decisions. Also update idea status to EXPLORING if it's still DRAFT (W6):
+- If discovering for a **specific idea** (e.g., `/discover I-001`): use the idea ID as `task_id` for all decisions (exploration, risk, and standard). Also update idea status to EXPLORING if it's still DRAFT (W6):
 ```bash
 python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "EXPLORING"}]'
 ```
 - If discovering a **general topic** (no idea): use `"DISCOVERY"` as task_id.
 
-**a. Record Exploration artifacts (W3):**
+**a. Record exploration decisions (W3):**
 
-For each analysis phase completed, create an Exploration record:
+For each analysis phase completed, create an exploration decision:
 
 ```bash
-python -m core.explorations add {project} --data '[{
-  "idea_id": "{I-NNN}",
+python -m core.decisions add {project} --data '[{
+  "task_id": "{idea_id or DISCOVERY}",
+  "type": "exploration",
   "exploration_type": "{domain|architecture|business|risk|feasibility}",
-  "summary": "{key conclusion from this analysis}",
+  "issue": "{key question being explored}",
+  "recommendation": "{overall recommendation}",
+  "reasoning": "{key conclusion from this analysis}",
   "findings": ["{finding 1}", "{finding 2}"],
   "options": [{"name": "...", "pros": ["..."], "cons": ["..."], "recommendation": "GO|NO-GO"}],
   "open_questions": ["{unresolved question}"],
-  "recommendation": "{overall recommendation}"
+  "confidence": "HIGH|MEDIUM|LOW",
+  "decided_by": "claude",
+  "status": "OPEN"
 }]'
 ```
 
-For feasibility explorations, add:
+For feasibility exploration decisions, add:
 ```json
 "blockers": ["{blocking issue}"],
-"confidence": "HIGH|MEDIUM|LOW",
 "ready_for_tracker": true
 ```
 
-**b. Record Risks (W4):**
+**b. Record risk decisions (W4):**
 
-From deep-risk findings, create Risk records:
+From deep-risk findings, create risk decisions:
 
 ```bash
-python -m core.risks add {project} --data '[{
-  "title": "{risk name}",
-  "description": "{what could go wrong and impact}",
+python -m core.decisions add {project} --data '[{
+  "task_id": "{idea_id or DISCOVERY}",
+  "type": "risk",
+  "issue": "{risk name}",
+  "recommendation": "{proposed mitigation}",
+  "reasoning": "{what could go wrong and impact}",
   "linked_entity_type": "idea",
   "linked_entity_id": "{I-NNN}",
   "severity": "{HIGH|MEDIUM|LOW}",
   "likelihood": "{HIGH|MEDIUM|LOW}",
-  "mitigation_plan": "{proposed mitigation}"
+  "mitigation_plan": "{proposed mitigation}",
+  "confidence": "MEDIUM",
+  "decided_by": "claude",
+  "status": "OPEN"
 }]'
 ```
 

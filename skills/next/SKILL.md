@@ -37,7 +37,7 @@ description: "Get the next task from the pipeline and execute it with full trace
 | W3 | `python -m core.pipeline add-tasks {project} --data '{json}'` | Creates follow-up tasks for major findings | Step 5 — if verification finds big issues |
 | W4 | `python -m core.gates check {project} --task {task_id}` | Runs validation gates | Step 6 — before completion |
 | W4b | `python -m core.gates scan-secrets {project}` | Scans for leaked credentials | Step 6 — before commit |
-| W5 | `python -m core.git_ops commit {project} {task_id} -m "..."` | Commits with metadata | Step 6 — after validation |
+| W5 | `git add -A && git commit -m "..."` | Commits changes | Step 6 — after validation |
 | W6 | `python -m core.pipeline complete {project} {task_id}` | Marks task DONE | Step 7 — after all validation |
 | W7 | `python -m core.pipeline fail {project} {task_id} --reason "..."` | Marks task FAILED | On failure |
 
@@ -94,17 +94,17 @@ its procedure instead of this generic flow.
 
 Before writing any code, understand the full context:
 
-a. **Read context from dependencies, guidelines, and risks** (what previous tasks produced + applicable standards + active risks):
+a. **Read context from dependencies, guidelines, and risk decisions** (what previous tasks produced + applicable standards + active risk decisions):
 ```bash
 python -m core.pipeline context {project} {task_id}
 ```
-This includes: dependency outputs, decisions, lessons, applicable guidelines (based on task's `scopes`), AND active risks (linked to this task or its source idea). **Follow all MUST guidelines strictly. Follow SHOULD guidelines unless there's a documented reason not to.**
+This includes: dependency outputs, decisions, lessons, applicable guidelines (based on task's `scopes`), AND active risk decisions (linked to this task or its source idea). **Follow all MUST guidelines strictly. Follow SHOULD guidelines unless there's a documented reason not to.**
 
 b. **If task has origin from an idea** (origin starts with `I-`), load the idea context:
 ```bash
 python -m core.ideas show {project} {origin_id}
 ```
-This shows the idea's explorations, risks, and decisions — full context from the exploration phase.
+This shows the idea's exploration decisions, risk decisions, and other decisions — full context from the exploration phase.
 
 c. **Check existing decisions** for this task:
 ```bash
@@ -267,7 +267,7 @@ If gates fail:
 If git is available and validation passes, commit:
 
 ```bash
-python -m core.git_ops commit {project} {task_id} -m "descriptive message"
+git add -A && git commit -m "descriptive message"
 ```
 
 ---

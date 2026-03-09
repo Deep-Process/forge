@@ -20,7 +20,7 @@ Most AI coding assistants generate code without structure. Forge adds:
 # Inside Claude Code, use slash commands:
 /idea Add Redis caching to API              # Capture idea in staging
 /idea Signal Generator --parent I-001       # Sub-idea with hierarchy
-/discover I-001                             # Explore → creates Explorations + Risks
+/discover I-001                             # Explore → creates exploration + risk decisions
 /risk                                       # View and manage identified risks
 /ideas I-001 ready                          # Mark analysis complete
 /ideas I-001 approve                        # Approve for implementation
@@ -38,7 +38,7 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 |---------|-------------|
 | `/idea {title}` | Add idea to staging area (supports hierarchy and relations) |
 | `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
-| `/discover {topic\|idea_id}` | Explore options, assess risks → creates Explorations + Risks |
+| `/discover {topic\|idea_id}` | Explore options, assess risks → creates exploration + risk decisions |
 | `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
 | `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
 | `/guideline {text}` | Add project guideline |
@@ -58,17 +58,13 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 forge/
   core/                  # Domain-agnostic Python engine
     pipeline.py          # Task graph state machine (DAG with dependencies, two-phase planning)
-    decisions.py         # Decision log with provenance
+    decisions.py         # Unified decision log (standard + exploration + risk)
     changes.py           # Change tracking with reasoning traces
     contracts.py         # Contract-first validation (render + validate)
     gates.py             # Validation gates (test, lint, secrets)
     lessons.py           # Compound learning across projects
-    git_ops.py           # Optional git integration (branch, commit)
     guidelines.py        # Project standards and conventions registry
     ideas.py             # Hierarchical idea staging with relations
-    explorations.py      # Structured exploration artifacts
-    risks.py             # Risk tracking with lifecycle management
-    recipes.py           # Task graph templates
   skills/                # Built-in skill definitions (SKILL.md format)
     discover/            #   Explore, assess, design before planning
     plan/                #   Decompose goal into task graph
@@ -83,10 +79,6 @@ forge/
     deep-verify/         #   Artifact verification with scoring
     deep-requirements/   #   Requirements extraction
     deep-aggregate/      #   Combine analysis outputs
-  recipes/               # Reusable task graph templates
-    api-endpoint.json    #   5-task template for adding API endpoints
-    bug-fix.json         #   3-task template: investigate → fix → regression test
-    refactor.json        #   4-task template: audit → tests → change → verify
   docs/                  # Design documentation
     DESIGN.md            #   Architecture, concepts, Python/LLM boundary
     ASSUMPTIONS.md       #   Active assumptions and deferred decisions
@@ -104,9 +96,12 @@ forge/
 
 Tasks form a DAG with explicit dependencies. States: `TODO → IN_PROGRESS → DONE` (or `FAILED`/`SKIPPED`). Supports parallel execution, conflict detection, and subtask decomposition.
 
-### Decision Log
+### Decision Log (Unified)
 
-Every non-trivial choice is recorded with: issue, recommendation, reasoning, alternatives, confidence level, and who decided (human vs AI). Statuses: `OPEN`, `CLOSED`, `DEFERRED`, `OVERRIDE`.
+Every non-trivial choice is recorded with: issue, recommendation, reasoning, alternatives, confidence level, and who decided (human vs AI). Three types:
+- **Standard** decisions: architecture, implementation, security, etc. Statuses: `OPEN`, `CLOSED`, `DEFERRED`, `OVERRIDE`.
+- **Exploration** decisions (type=exploration): findings, options, open questions from `/discover`. Carries `exploration_type`, `findings`, `options`.
+- **Risk** decisions (type=risk): severity, likelihood, mitigation plan. Lifecycle: `OPEN → ANALYZING → MITIGATED/ACCEPTED → CLOSED`.
 
 ### Change Records
 
@@ -126,19 +121,7 @@ Project-wide coding standards, architectural conventions, and rules. Scoped (bac
 
 ### Ideas (Staging)
 
-Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → READY → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create structured Explorations and identify Risks. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED and PARKED ideas are preserved with reasoning. Can be resumed from PARKED.
-
-### Explorations
-
-Structured artifacts from idea analysis. Each exploration has a type (domain, architecture, business, risk, feasibility) and captures findings, options, recommendations, and open questions. Multiple explorations per idea — one per analysis phase. Feasibility explorations include blockers, confidence level, and tracker-readiness assessment.
-
-### Risks
-
-Threats identified during exploration or execution, tracked with their own lifecycle: `OPEN → ANALYZING → MITIGATED / ACCEPTED / CLOSED`. Each risk has severity, likelihood, mitigation plan, and resolution notes. Linked to ideas (exploration phase) or tasks (execution phase). Risks flow into task context during `/next`.
-
-### Recipes
-
-JSON templates for common task patterns. Apply with variable substitution to quickly scaffold familiar workflows.
+Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → READY → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create exploration and risk decisions. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED and PARKED ideas are preserved with reasoning. Can be resumed from PARKED.
 
 ## CLI Usage (standalone, without Claude Code)
 
@@ -175,29 +158,16 @@ python -m core.ideas read myproject --status EXPLORING --parent root
 python -m core.ideas show myproject I-001
 python -m core.ideas commit myproject I-001
 
-# Explorations
-python -m core.explorations add myproject --data '[...]'
-python -m core.explorations read myproject --idea I-001 --type architecture
-python -m core.explorations show myproject E-001
-
-# Risks
-python -m core.risks add myproject --data '[...]'
-python -m core.risks read myproject --status OPEN
-python -m core.risks update myproject --data '[{"id": "R-001", "status": "MITIGATED"}]'
-python -m core.risks show myproject R-001
+# Decisions (explorations + risks)
+python -m core.decisions read myproject --type exploration
+python -m core.decisions read myproject --type risk --status OPEN
+python -m core.decisions show myproject D-001
 
 # Guidelines
 python -m core.guidelines add myproject --data '[...]'
 python -m core.guidelines read myproject --scope backend
 python -m core.guidelines context myproject --scopes "backend,database"
 
-# Recipes
-python -m core.recipes list
-python -m core.recipes apply myproject api-endpoint --vars '{"component_name": "users"}'
-
-# Git
-python -m core.git_ops branch-create myproject T-001
-python -m core.git_ops commit myproject T-001 -m "Add user endpoint"
 ```
 
 Use `contract` subcommand on any module to see the expected data format (e.g. `python -m core.pipeline contract add-tasks`).

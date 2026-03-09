@@ -24,8 +24,8 @@ Lifecycle:
 
 Decisions created during exploration reference the idea via task_id: "I-NNN".
 When committed, tasks in the pipeline carry origin: "I-NNN" for traceability.
-Explorations are stored separately in explorations.json, linked by idea_id.
-Risks are stored separately in risks.json, linked by entity_id.
+Explorations and risks are stored as decisions (type=exploration, type=risk)
+in decisions.json, linked via task_id or linked_entity_id.
 
 Usage:
     python -m core.ideas <command> <project> [options]
@@ -367,6 +367,7 @@ def cmd_show(args):
 
     data = json.loads(path.read_text(encoding="utf-8"))
     idea = find_idea(data, args.idea_id)
+    dec_data = None  # loaded on demand below
 
     print(f"## Idea {idea['id']}: {idea['title']}")
     print()
@@ -431,32 +432,37 @@ def cmd_show(args):
         print(idea["exploration_notes"])
         print()
 
-    # Show explorations from explorations.json
-    explorations_file = Path("forge_output") / args.project / "explorations.json"
-    if explorations_file.exists():
-        exp_data = json.loads(explorations_file.read_text(encoding="utf-8"))
-        related_exps = [e for e in exp_data.get("explorations", [])
-                        if e.get("idea_id") == idea["id"]]
+    # Show explorations and risks from decisions.json (type=exploration, type=risk)
+    decisions_file = Path("forge_output") / args.project / "decisions.json"
+    if decisions_file.exists():
+        dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+        all_decisions = dec_data.get("decisions", [])
+
+        # Explorations: type=exploration with task_id or linked_entity_id matching idea
+        related_exps = [d for d in all_decisions
+                        if d.get("type") == "exploration"
+                        and (d.get("task_id") == idea["id"]
+                             or d.get("linked_entity_id") == idea["id"])]
         if related_exps:
             print(f"### Explorations ({len(related_exps)})")
             print()
             for e in related_exps:
-                print(f"- **{e['id']}** ({e.get('exploration_type', '')}): {e.get('summary', '')[:60]}")
+                etype = e.get("exploration_type", "")
+                summary = e.get("recommendation", "") or e.get("issue", "")
+                print(f"- **{e['id']}** ({etype}): {summary[:60]}")
             print()
 
-    # Show risks from risks.json
-    risks_file = Path("forge_output") / args.project / "risks.json"
-    if risks_file.exists():
-        risk_data = json.loads(risks_file.read_text(encoding="utf-8"))
-        related_risks = [r for r in risk_data.get("risks", [])
-                         if r.get("linked_entity_type") == "idea"
-                         and r.get("linked_entity_id") == idea["id"]]
+        # Risks: type=risk with linked_entity_id matching idea
+        related_risks = [d for d in all_decisions
+                         if d.get("type") == "risk"
+                         and (d.get("linked_entity_id") == idea["id"]
+                              or d.get("task_id") == idea["id"])]
         if related_risks:
             print(f"### Risks ({len(related_risks)})")
             print()
             for r in related_risks:
                 print(f"- **{r['id']}** [{r.get('severity', '')}/{r.get('likelihood', '')}] "
-                      f"({r.get('status', '')}): {r.get('title', '')}")
+                      f"({r.get('status', '')}): {r.get('issue', '')}")
             print()
 
     if idea.get("rejection_reason"):
@@ -472,16 +478,17 @@ def cmd_show(args):
         print(f"**Committed at**: {idea['committed_at']}")
         print()
 
-    # Show related decisions (task_id = idea ID)
-    decisions_file = Path("forge_output") / args.project / "decisions.json"
+    # Show other related decisions (not exploration/risk, those are shown above)
     if decisions_file.exists():
-        dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
-        related_decisions = [d for d in dec_data.get("decisions", [])
-                             if d.get("task_id") == idea["id"]]
-        if related_decisions:
-            print(f"### Related Decisions ({len(related_decisions)})")
+        if not dec_data:
+            dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+        other_decisions = [d for d in dec_data.get("decisions", [])
+                           if d.get("task_id") == idea["id"]
+                           and d.get("type") not in ("exploration", "risk")]
+        if other_decisions:
+            print(f"### Related Decisions ({len(other_decisions)})")
             print()
-            for d in related_decisions:
+            for d in other_decisions:
                 print(f"- **{d['id']}** ({d.get('status', '')}): {d.get('issue', '')}")
                 if d.get("recommendation"):
                     print(f"  → {d['recommendation']}")

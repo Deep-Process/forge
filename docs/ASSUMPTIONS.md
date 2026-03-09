@@ -15,8 +15,8 @@ Updated as assumptions are validated or invalidated.
 
 ### A-002: ~~Git is always available~~ RESOLVED
 - **Decision**: Git is recommended but optional. Forge works without git (with warnings).
-- **Why resolved**: `core/git_ops.py` implements graceful degradation — all git operations are optional. `changes diff` requires git, but `changes record` works without it.
-- **Resolved in**: v1.0, `core/git_ops.py`
+- **Why resolved**: `changes diff` requires git, but `changes record` works without it. No dedicated git wrapper needed — standard git CLI is used directly.
+- **Resolved in**: v1.0
 
 ### A-003: Python 3.8+ available
 - **Assumed**: Target runtime is Python 3.8 or later
@@ -222,9 +222,9 @@ Updated as assumptions are validated or invalidated.
 - **Decide when**: When implementing the first real skill execution
 
 ### DD-003: ~~Should Forge manage git branches~~ RESOLVED
-- **Decision**: Forge provides optional git integration (`core/git_ops.py`)
-- **Approach**: Hybrid — Forge can create branches (`branch-create`) and commit with metadata (`commit`), but never force-pushes or deletes branches. User retains full control. All git ops are optional — Forge works without git.
-- **Resolved in**: v1.0, `core/git_ops.py`
+- **Decision**: No dedicated git wrapper. Users and Claude Code use standard git commands directly.
+- **Approach**: Forge records changes via `changes diff` (which uses git) and `changes record` (manual). Branch management is left to the user/LLM — Forge doesn't abstract over git.
+- **Resolved in**: v1.0 (original git_ops.py), simplified in v2.0 (removed git_ops.py)
 
 ### DD-004: ~~How to handle failed gates~~ RESOLVED
 - **Decision**: Gates report pass/fail, required gates block completion advisory (LLM decides)

@@ -23,8 +23,8 @@ python -m core.pipeline show-draft {project}             Show current draft plan
 python -m core.pipeline approve-plan {project}           Approve draft → materialize tasks
 python -m core.pipeline update-task {project} --data '{...}' Update existing task
 python -m core.pipeline remove-task {project} {task_id}  Remove TODO task
-python -m core.pipeline next {project} [--agent name]    Get next task (two-phase claim)
-python -m core.pipeline complete {project} {task_id}     Mark done
+python -m core.pipeline next {project} [--agent name]    Get next task
+python -m core.pipeline complete {project} {task_id} [--force]  Mark done (checks changes + gates)
 python -m core.pipeline contract add-tasks               Show task contract
 python -m core.pipeline contract update-task             Show update contract
 python -m core.pipeline contract register-subtasks       Show subtask contract
@@ -33,14 +33,25 @@ python -m core.pipeline context {project} {task_id}      Context from deps + ris
 python -m core.pipeline config {project} --data '{...}'  Set project config
 ```
 
-### Decisions (why things are done)
+### Decisions (unified: decisions + explorations + risks)
 ```
-python -m core.decisions add {project} --data '...'    Record a decision
-python -m core.decisions read {project}                 View all decisions
-python -m core.decisions read {project} --status OPEN   Open decisions
-python -m core.decisions update {project} --data '...'  Close/defer
-python -m core.decisions contract add                   See expected format
+python -m core.decisions add {project} --data '...'                     Record decisions
+python -m core.decisions read {project}                                  View all decisions
+python -m core.decisions read {project} --status OPEN                    Open decisions
+python -m core.decisions read {project} --type exploration               Explorations only
+python -m core.decisions read {project} --type risk                      Risks only
+python -m core.decisions read {project} --entity I-001                   By linked entity
+python -m core.decisions update {project} --data '...'                   Close/defer/mitigate
+python -m core.decisions show {project} {decision_id}                    Full details
+python -m core.decisions contract add                                    See expected format
 ```
+
+Decision types:
+- **Standard**: architecture, implementation, dependency, security, performance, testing, naming, convention, constraint, business, strategy, other
+- **Exploration** (type=exploration): carries findings, options, open_questions, blockers, exploration_type (domain/architecture/business/risk/feasibility)
+- **Risk** (type=risk): carries severity, likelihood, linked_entity_type/id, mitigation_plan, resolution_notes
+
+Risk status lifecycle: OPEN → ANALYZING → MITIGATED/ACCEPTED → CLOSED (can reopen)
 
 ### Changes (what was modified)
 ```
@@ -69,23 +80,6 @@ python -m core.ideas commit {project} {idea_id}                        Mark APPR
 python -m core.ideas contract add                                      Show idea contract
 ```
 
-### Explorations (structured analysis artifacts)
-```
-python -m core.explorations add {project} --data '[...]'               Add explorations linked to ideas
-python -m core.explorations read {project} [--idea X] [--type X]       Read explorations
-python -m core.explorations show {project} {exploration_id}            Show full details
-python -m core.explorations contract add                               Show contract
-```
-
-### Risks (risk tracking with lifecycle)
-```
-python -m core.risks add {project} --data '[...]'                      Add risks linked to ideas/tasks
-python -m core.risks read {project} [--status X] [--entity X]          Read risks
-python -m core.risks update {project} --data '[...]'                   Update risk status/fields
-python -m core.risks show {project} {risk_id}                          Show full details
-python -m core.risks contract add                                      Show contract
-```
-
 ### Guidelines (project standards)
 ```
 python -m core.guidelines add {project} --data '[...]'         Add guidelines
@@ -105,29 +99,15 @@ python -m core.gates scan-secrets {project}            Scan for leaked credentia
 python -m core.gates contract config                   Show gate contract
 ```
 
-### Recipes (task graph templates)
-```
-python -m core.recipes list                            List available recipes
-python -m core.recipes show {name}                     Show recipe details
-python -m core.recipes apply {project} {name} --vars   Apply recipe to project
-```
-
-### Git Operations
-```
-python -m core.git_ops branch-create {project} {task_id}        Create task branch
-python -m core.git_ops commit {project} {task_id} -m "..."      Commit with metadata
-python -m core.git_ops status                                   Show git state
-```
-
 ## Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/idea {title}` | Add an idea to staging area (supports --parent, --relates-to) |
 | `/ideas [id] [action]` | List/show/manage ideas (explore, ready, approve, reject, park, commit) |
-| `/discover {topic\|idea_id}` | Explore options, assess risks, design architecture → creates Explorations + Risks |
+| `/discover {topic\|idea_id}` | Explore options, assess risks, design architecture → creates exploration + risk decisions |
 | `/plan {goal\|idea_id}` | Decompose into task graph (two-phase: draft → approve) |
-| `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
+| `/risk [title\|id] [action]` | Manage risks (add type=risk decisions, analyze, mitigate, accept, close) |
 | `/guideline {text}` | Add a project guideline (standard, convention, rule) |
 | `/guidelines [scope]` | List/manage guidelines |
 | `/status` | Show current project status |
@@ -162,6 +142,13 @@ Tasks with `blocked_by_decisions` will NOT be picked up by `next` (or `/run`) un
 This ensures architectural/design decisions are resolved before implementation begins.
 Use `/decide` to review and close OPEN decisions.
 
+### Completion Enforcement
+
+`pipeline complete` checks before marking DONE:
+- Changes must be recorded for the task (at least one entry in changes.json)
+- Gates must have passed (if gates were run)
+- Use `--force` to bypass these checks when appropriate (e.g., investigation tasks with no code changes)
+
 ## Workflow
 
 For brownfield projects (existing codebase):
@@ -172,7 +159,7 @@ When user gives a goal:
 1. Capture as idea: `/idea {title}` — add to staging area
    - Ideas support hierarchy: `/idea {title} --parent I-001` for sub-ideas
    - Ideas support relations: depends_on, related_to, supersedes, duplicates
-2. Explore: `/discover {idea_id}` — creates Explorations + Risks + Decisions
+2. Explore: `/discover {idea_id}` — creates exploration + risk decisions
    - Status flow: DRAFT → EXPLORING → READY → APPROVED
    - Use `/risk` to track and mitigate identified risks
 3. When ready: `/ideas {idea_id} approve` then `/plan {idea_id}`
@@ -187,8 +174,8 @@ When user gives a goal:
    d. Record changes via `changes diff` then `changes record`
    e. Verify: deep-verify + guidelines compliance (built into `/next` Step 5)
    f. Run gates: `gates check {project} --task {task_id}`
-   g. Commit: `git_ops commit {project} {task_id} -m "..."`
-   h. Mark task complete via `pipeline complete`
+   g. Commit changes via git
+   h. Mark task complete via `pipeline complete` (enforces changes + gates)
 9. Optionally run `/review {task_id}` for critical tasks
 10. When all tasks done, run `/compound` to extract lessons
 
@@ -201,6 +188,7 @@ When user gives a goal:
 - **Contracts are the source of truth** — run `contract` before producing structured output.
 - **When unsure, create an OPEN decision** — let the human decide.
 - **Tests before completion** — run tests/lint before marking a task DONE.
+- **Use --force on complete** only for tasks that genuinely have no code changes (e.g., investigation, planning).
 
 ## Multi-Agent Support
 
@@ -208,8 +196,8 @@ Forge supports multiple agents working on the same project in parallel.
 
 ### How it works
 - Each agent identifies itself with `--agent {name}` on `next` and `complete`
-- `next` uses **two-phase claim**: CLAIMING → wait → verify → IN_PROGRESS
-- If two agents claim the same task simultaneously, one wins, the other backs off
+- Single-agent mode skips the claim wait (no 1.5s delay)
+- Multi-agent mode uses **two-phase claim**: CLAIMING → wait → verify → IN_PROGRESS (max 5 retries)
 - `conflicts_with` is enforced: if task A conflicts with task B, they cannot be active at the same time
 
 ### Usage
@@ -248,10 +236,8 @@ If `.claude/forge.local.md` exists, read it for user preferences.
 
 All Forge state goes to `forge_output/{project}/`:
 - `tracker.json` — pipeline state (tasks + optional draft_plan)
-- `decisions.json` — decision log
+- `decisions.json` — unified decision log (includes explorations and risks)
 - `changes.json` — change records
 - `lessons.json` — lessons learned (compound learning)
 - `guidelines.json` — project standards and conventions
 - `ideas.json` — idea staging area (hierarchical, with relations)
-- `explorations.json` — structured exploration artifacts
-- `risks.json` — risk tracking with lifecycle

@@ -407,6 +407,69 @@ def _blocked_by_open_decisions(task: dict, open_decision_ids: set) -> list:
     return sorted(required & open_decision_ids)
 
 
+def _claim_with_retry(args, candidate, agent, max_retries=5):
+    """Two-phase claim protocol with retry limit for multi-agent mode."""
+    for attempt in range(max_retries):
+        tracker = load_tracker(args.project)
+        task = find_task(tracker, candidate["id"])
+
+        # Phase 1: CLAIMING
+        task["status"] = "CLAIMING"
+        task["agent"] = agent
+        task["claimed_at"] = now_iso()
+        save_tracker(args.project, tracker)
+
+        # Wait
+        time.sleep(CLAIM_WAIT_SECONDS)
+
+        # Phase 2: Verify claim
+        tracker = load_tracker(args.project)
+        task = find_task(tracker, candidate["id"])
+
+        if task["status"] == "CLAIMING" and task.get("agent") == agent:
+            # Claim won — promote to IN_PROGRESS
+            task["status"] = "IN_PROGRESS"
+            task["started_at"] = now_iso()
+            save_tracker(args.project, tracker)
+
+            print(f"## Next task: {task['id']} — {task['name']}")
+            print(f"Agent: {agent}")
+            print(f"Status: TODO -> CLAIMING -> **IN_PROGRESS**")
+            print()
+            print_task_detail(task)
+            return
+
+        # Claim lost — find next candidate
+        print(f"  Claim conflict on {candidate['id']} (attempt {attempt + 1}/{max_retries})",
+              file=sys.stderr)
+
+        done_ids = {t["id"] for t in tracker["tasks"]
+                    if t["status"] in ("DONE", "SKIPPED")}
+        active_ids = _get_active_ids(tracker)
+        open_decisions = _load_open_decision_ids(args.project)
+
+        candidate = None
+        for t in tracker["tasks"]:
+            if t["status"] != "TODO":
+                continue
+            if not all(dep in done_ids for dep in t["depends_on"]):
+                continue
+            if _has_conflict(t, active_ids):
+                continue
+            if _blocked_by_open_decisions(t, open_decisions):
+                continue
+            candidate = t
+            break
+
+        if not candidate:
+            print(f"No available tasks after claim conflict.", file=sys.stderr)
+            return
+
+    print(f"All tasks contended after {max_retries} attempts. Try again later.",
+          file=sys.stderr)
+    sys.exit(1)
+
+
 def cmd_next(args):
     """Get next TODO task with two-phase claim for multi-agent safety.
 
@@ -512,38 +575,27 @@ def cmd_next(args):
                 print_status(args.project, tracker)
         return
 
-    # --- Phase 1: CLAIMING ---
-    candidate["status"] = "CLAIMING"
-    candidate["agent"] = agent
-    candidate["claimed_at"] = now_iso()
-    save_tracker(args.project, tracker)
+    # --- Check if other agents are active ---
+    other_agents = {t.get("agent") for t in tracker["tasks"]
+                    if t["status"] in ("CLAIMING", "IN_PROGRESS")
+                    and t["id"] != candidate["id"]
+                    and t.get("agent") and t.get("agent") != agent}
 
-    # --- Wait ---
-    time.sleep(CLAIM_WAIT_SECONDS)
+    if not other_agents:
+        # Single agent — skip claim protocol, go directly to IN_PROGRESS
+        candidate["status"] = "IN_PROGRESS"
+        candidate["agent"] = agent
+        candidate["started_at"] = now_iso()
+        save_tracker(args.project, tracker)
 
-    # --- Phase 2: Verify claim ---
-    tracker = load_tracker(args.project)
-    task = find_task(tracker, candidate["id"])
-
-    if task["status"] != "CLAIMING" or task.get("agent") != agent:
-        # Another agent claimed it — back off
-        print(f"## Claim conflict on {candidate['id']}")
-        print(f"Agent '{agent}' lost claim to agent '{task.get('agent', '?')}'.")
-        print(f"Retrying with next available task...")
-        # Recursive retry — will find the next candidate
-        cmd_next(args)
-        return
-
-    # Claim won — promote to IN_PROGRESS
-    task["status"] = "IN_PROGRESS"
-    task["started_at"] = now_iso()
-    save_tracker(args.project, tracker)
-
-    print(f"## Next task: {task['id']} — {task['name']}")
-    print(f"Agent: {agent}")
-    print(f"Status: TODO -> CLAIMING -> **IN_PROGRESS**")
-    print()
-    print_task_detail(task)
+        print(f"## Next task: {candidate['id']} — {candidate['name']}")
+        print(f"Agent: {agent}")
+        print(f"Status: TODO -> **IN_PROGRESS**")
+        print()
+        print_task_detail(candidate)
+    else:
+        # Multi-agent — use two-phase claim protocol
+        _claim_with_retry(args, candidate, agent, max_retries=5)
 
 
 def cmd_complete(args):
@@ -551,11 +603,35 @@ def cmd_complete(args):
     tracker = load_tracker(args.project)
     task = find_task(tracker, args.task_id)
     agent = getattr(args, "agent", None)
+    force = getattr(args, "force", False)
 
     # Verify agent ownership if task was claimed
     if task.get("agent") and agent and task["agent"] != agent:
         print(f"WARNING: Task {args.task_id} is owned by agent '{task['agent']}', "
               f"not '{agent}'. Completing anyway.", file=sys.stderr)
+
+    # Check that changes were recorded for this task
+    if not force:
+        changes_file = Path("forge_output") / args.project / "changes.json"
+        task_changes = []
+        if changes_file.exists():
+            changes_data = json.loads(changes_file.read_text(encoding="utf-8"))
+            task_changes = [c for c in changes_data.get("changes", [])
+                            if c.get("task_id") == args.task_id]
+        if not task_changes:
+            print(f"WARNING: No changes recorded for {args.task_id}. "
+                  f"Use --force to complete anyway.", file=sys.stderr)
+            sys.exit(1)
+
+    # Check that gates passed
+    if not force:
+        gate_results = task.get("gate_results", {})
+        if gate_results and not gate_results.get("all_passed", True):
+            failed = [g["name"] for g in gate_results.get("results", [])
+                      if not g.get("passed")]
+            print(f"WARNING: Gates failed: {', '.join(failed)}. "
+                  f"Use --force to complete anyway.", file=sys.stderr)
+            sys.exit(1)
 
     task["status"] = "DONE"
     task["completed_at"] = now_iso()
@@ -1079,6 +1155,12 @@ def cmd_context(args):
     print(f"## Context for {args.task_id}: {task['name']}")
     print()
 
+    # Pre-load decisions (used in multiple sections below)
+    decisions_file = Path("forge_output") / args.project / "decisions.json"
+    dec_data = None
+    if decisions_file.exists():
+        dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+
     # Task details
     if task.get("description"):
         print(f"**Description**: {task['description']}")
@@ -1115,9 +1197,7 @@ def cmd_context(args):
                 print()
 
         # Show decisions from dependency tasks
-        decisions_file = Path("forge_output") / args.project / "decisions.json"
-        if decisions_file.exists():
-            dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+        if dec_data:
             dep_decisions = [d for d in dec_data.get("decisions", [])
                              if d.get("task_id") in deps]
             if dep_decisions:
@@ -1134,9 +1214,7 @@ def cmd_context(args):
         print()
 
     # Show open decisions for this task
-    decisions_file = Path("forge_output") / args.project / "decisions.json"
-    if decisions_file.exists():
-        dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+    if dec_data:
         task_decisions = [d for d in dec_data.get("decisions", [])
                           if d.get("task_id") == args.task_id]
         if task_decisions:
@@ -1171,27 +1249,28 @@ def cmd_context(args):
             for line in lines:
                 print(line)
 
-    # Risks linked to this task
-    risks_file = Path("forge_output") / args.project / "risks.json"
-    if risks_file.exists():
-        risk_data = json.loads(risks_file.read_text(encoding="utf-8"))
-        task_risks = [r for r in risk_data.get("risks", [])
-                      if r.get("linked_entity_type") == "task"
-                      and r.get("linked_entity_id") == args.task_id
-                      and r.get("status") not in ("CLOSED",)]
+    # Risks (type=risk decisions) linked to this task or origin idea
+    if decisions_file.exists():
+        if not dec_data:
+            dec_data = json.loads(decisions_file.read_text(encoding="utf-8"))
+        risk_decisions = [d for d in dec_data.get("decisions", [])
+                          if d.get("type") == "risk"
+                          and d.get("status") not in ("CLOSED",)]
+        task_risks = [d for d in risk_decisions
+                      if d.get("linked_entity_type") == "task"
+                      and d.get("linked_entity_id") == args.task_id]
         # Also show risks from origin idea
         if task.get("origin") and task["origin"].startswith("I-"):
-            idea_risks = [r for r in risk_data.get("risks", [])
-                          if r.get("linked_entity_type") == "idea"
-                          and r.get("linked_entity_id") == task["origin"]
-                          and r.get("status") not in ("CLOSED",)]
+            idea_risks = [d for d in risk_decisions
+                          if d.get("linked_entity_type") == "idea"
+                          and d.get("linked_entity_id") == task["origin"]]
             task_risks.extend(idea_risks)
         if task_risks:
             print(f"### Active Risks ({len(task_risks)})")
             print()
             for r in task_risks:
                 print(f"- **{r['id']}** [{r.get('severity', '')}/{r.get('likelihood', '')}] "
-                      f"({r.get('status', '')}): {r.get('title', '')}")
+                      f"({r.get('status', '')}): {r.get('issue', '')}")
                 if r.get("mitigation_plan"):
                     print(f"  Mitigation: {r['mitigation_plan'][:80]}")
             print()
@@ -1462,6 +1541,7 @@ def main():
     p.add_argument("project")
     p.add_argument("task_id")
     p.add_argument("--agent", default=None, help="Agent name (verified against claim)")
+    p.add_argument("--force", action="store_true", help="Complete even without changes or with failed gates")
 
     p = sub.add_parser("fail", help="Mark task FAILED")
     p.add_argument("project")

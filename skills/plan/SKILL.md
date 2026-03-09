@@ -32,7 +32,7 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 | W1 | `python -m core.pipeline init {project} --goal "..."` | Creates tracker.json | Step 3 — create project |
 | W2 | `python -m core.pipeline draft-plan {project} --data '{json}' [--idea I-NNN]` | Stores draft plan for review | Step 5 — after decomposition |
 | W2b | `python -m core.pipeline approve-plan {project}` | Materializes draft into pipeline | Step 7 — after user approval |
-| W2c | `python -m core.pipeline add-tasks {project} --data '{json}'` | Direct task addition (alternative to draft) | Step 5 — only for recipes |
+| W2c | `python -m core.pipeline add-tasks {project} --data '{json}'` | Direct task addition (alternative to draft) | Step 5 — when bypassing draft review |
 | W3 | `python -m core.decisions add {project} --data '{json}'` | Records planning decisions | Step 4 — for architectural choices | `python -m core.decisions contract add` |
 
 ## Output
@@ -158,23 +158,7 @@ Use `task_id: "PLANNING"` for decisions made before tasks exist.
 
 ---
 
-### Step 5 — Check Recipes and Decompose
-
-Before decomposing from scratch, check if a recipe matches the goal:
-
-```bash
-python -m core.recipes list
-```
-
-If a recipe fits, apply it:
-```bash
-python -m core.recipes show {recipe-name}
-python -m core.recipes apply {project} {recipe-name} --vars '{...}'
-```
-
-Then customize the generated tasks for the specific goal. Skip to Step 6.
-
-If no recipe fits, decompose manually:
+### Step 5 — Decompose
 
 Apply these decomposition rules:
 
@@ -205,8 +189,6 @@ Store as draft plan for review (W2):
 ```bash
 python -m core.pipeline draft-plan {project} --data '[...]' --idea {idea_id_if_applicable}
 ```
-
-If applying a recipe, use direct `add-tasks` (W2c) instead — recipes bypass draft review.
 
 ---
 

@@ -85,26 +85,21 @@ User Intent (high-level goal)
 forge/
 ├── core/                              # Reusable engine (domain-agnostic)
 │   ├── pipeline.py                    # Task graph: init, add-tasks, next, complete, context, config
-│   ├── decisions.py                   # Decision log: add, read, update
+│   ├── decisions.py                   # Unified log: decisions + explorations + risks
 │   ├── changes.py                     # Change records: record, diff, read, summary
 │   ├── contracts.py                   # Contract render + validate (from Skill_v1)
 │   ├── lessons.py                     # Compound learning: add, read, read-all
 │   ├── gates.py                       # Validation gates: config, check, scan-secrets
-│   ├── git_ops.py                     # Git integration: branch-create, commit, status
-│   └── recipes.py                     # Task graph templates: list, show, apply
+│   ├── guidelines.py                  # Project standards: add, read, context
+│   └── ideas.py                       # Idea staging: add, read, show, update, commit
 │
 ├── skills/                            # Pluggable skill definitions
-│   ├── plan/                          # Decompose goal into task graph
-│   │   └── SKILL.md
-│   ├── next/                          # Execute next task with full traceability
-│   │   └── SKILL.md
-│   └── review/                        # Multi-perspective code review
-│       └── SKILL.md
-│
-├── recipes/                           # Reusable task graph templates
-│   ├── api-endpoint.json              # Add API endpoint (5 tasks)
-│   ├── bug-fix.json                   # Bug fix with regression test (3 tasks)
-│   └── refactor.json                  # Safe refactor (4 tasks)
+│   ├── plan/SKILL.md                  # Decompose goal into task graph
+│   ├── next/SKILL.md                  # Execute next task with full traceability
+│   ├── discover/SKILL.md             # Exploration orchestrator
+│   ├── review/SKILL.md               # Multi-perspective code review
+│   ├── onboard/SKILL.md              # Import brownfield project
+│   └── deep-*/SKILL.md               # Deep analysis skills (orchestration, explore, risk, etc.)
 │
 ├── docs/                              # Documentation
 │   ├── DESIGN.md                      # This file
@@ -113,22 +108,17 @@ forge/
 │
 ├── .claude/                           # Claude Code integration
 │   ├── CLAUDE.md                      # Agent instructions
-│   ├── commands/                      # Slash commands
-│   │   ├── plan.md                    # /plan {goal}
-│   │   ├── status.md                  # /status
-│   │   ├── next.md                    # /next
-│   │   ├── decide.md                  # /decide — review open decisions
-│   │   ├── review.md                  # /review {task_id}
-│   │   ├── log.md                     # /log — show audit trail
-│   │   └── compound.md               # /compound — extract lessons
+│   ├── commands/                      # Slash commands (15+ commands)
 │   └── settings.json                  # Hooks
 │
 └── forge_output/                      # Runtime output (gitignored)
     └── {project}/
         ├── tracker.json               # Pipeline state + config + gates
-        ├── decisions.json             # Decision log
+        ├── decisions.json             # Unified: decisions + explorations + risks
         ├── changes.json               # Change records
-        └── lessons.json               # Lessons learned
+        ├── lessons.json               # Lessons learned
+        ├── guidelines.json            # Project standards
+        └── ideas.json                 # Idea staging area
 ```
 
 ### Core Concepts

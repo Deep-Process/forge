@@ -470,16 +470,22 @@ python -m core.ideas add {project} --data '[{
 ```
 Note: `business-opportunity` and `research` are valid idea categories in Forge.
 
-**Record risks:**
+**Record risk decisions:**
 ```bash
-python -m core.risks add {project} --data '[{
-  "title": "{risk name}",
-  "description": "{what could go wrong}",
+python -m core.decisions add {project} --data '[{
+  "task_id": "DISCOVERY",
+  "type": "risk",
+  "issue": "{risk name}",
+  "recommendation": "{proposed mitigation}",
+  "reasoning": "{what could go wrong}",
   "linked_entity_type": "idea",
   "linked_entity_id": "{I-NNN}",
   "severity": "HIGH|MEDIUM|LOW",
   "likelihood": "HIGH|MEDIUM|LOW",
-  "mitigation_plan": "{proposed mitigation}"
+  "mitigation_plan": "{proposed mitigation}",
+  "confidence": "MEDIUM",
+  "decided_by": "claude",
+  "status": "OPEN"
 }]'
 ```
 
@@ -498,16 +504,21 @@ python -m core.decisions add {project} --data '[{
 }]'
 ```
 
-**Record exploration artifacts:**
+**Record exploration decisions:**
 ```bash
-python -m core.explorations add {project} --data '[{
-  "idea_id": "{I-NNN}",
+python -m core.decisions add {project} --data '[{
+  "task_id": "DISCOVERY",
+  "type": "exploration",
   "exploration_type": "business",
-  "summary": "{key conclusion}",
+  "issue": "{key question being explored}",
+  "recommendation": "{overall}",
+  "reasoning": "{key conclusion}",
   "findings": ["{signal 1}", "{signal 2}"],
   "options": [{"name": "...", "pros": ["..."], "cons": ["..."], "recommendation": "GO|NO-GO"}],
   "open_questions": ["{unresolved}"],
-  "recommendation": "{overall}"
+  "confidence": "MEDIUM",
+  "decided_by": "claude",
+  "status": "OPEN"
 }]'
 ```
 
