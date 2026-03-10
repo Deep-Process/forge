@@ -6,13 +6,16 @@ from contextlib import asynccontextmanager
 
 import asyncpg
 import redis.asyncio as aioredis
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.auth import get_current_user
+from app.events import EventBus
 from app.routers import (
     ac_templates,
+    auth,
     changes,
     decisions,
     gates,
@@ -23,6 +26,7 @@ from app.routers import (
     objectives,
     projects,
     tasks,
+    ws,
 )
 
 
@@ -48,8 +52,16 @@ async def lifespan(app: FastAPI):
         decode_responses=True,
     )
 
-    # Storage adapter placeholder — will be set by PG or JSON adapter
-    app.state.storage = None
+    # Storage adapter
+    if settings.storage_mode == "json":
+        from core.storage import JSONFileStorage
+        app.state.storage = JSONFileStorage(settings.json_data_dir)
+    else:
+        # PostgreSQL adapter will be initialized when available
+        app.state.storage = None
+
+    # Event bus (Redis Pub/Sub)
+    app.state.event_bus = EventBus(app.state.redis)
 
     yield
 
@@ -123,14 +135,20 @@ async def health_v1():
 
 PREFIX = "/api/v1"
 
-app.include_router(projects.router, prefix=PREFIX)
-app.include_router(objectives.router, prefix=PREFIX)
-app.include_router(ideas.router, prefix=PREFIX)
-app.include_router(tasks.router, prefix=PREFIX)
-app.include_router(decisions.router, prefix=PREFIX)
-app.include_router(knowledge.router, prefix=PREFIX)
-app.include_router(guidelines.router, prefix=PREFIX)
-app.include_router(changes.router, prefix=PREFIX)
-app.include_router(lessons.router, prefix=PREFIX)
-app.include_router(ac_templates.router, prefix=PREFIX)
-app.include_router(gates.router, prefix=PREFIX)
+# Auth router — no auth required (login endpoint)
+app.include_router(auth.router, prefix=PREFIX)
+
+# Entity routers — protected by auth dependency
+auth_deps = [Depends(get_current_user)]
+app.include_router(projects.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(objectives.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(ideas.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(tasks.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(decisions.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(knowledge.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(guidelines.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(changes.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(lessons.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(ac_templates.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(gates.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(ws.router)

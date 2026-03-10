@@ -13,7 +13,7 @@ CREATE TABLE knowledge_links (
     knowledge_id    INT NOT NULL REFERENCES knowledge(id) ON DELETE CASCADE,
     entity_type     TEXT NOT NULL,      -- 'objective', 'idea', 'task', 'decision', 'guideline'
     entity_id       INT NOT NULL,       -- ID of the linked entity
-    relation        TEXT NOT NULL DEFAULT 'references', -- references, derived-from, supports, contradicts
+    relation        TEXT NOT NULL DEFAULT 'reference', -- required, context, reference (from core/knowledge.py VALID_LINK_RELATIONS)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (knowledge_id, entity_type, entity_id)
 );

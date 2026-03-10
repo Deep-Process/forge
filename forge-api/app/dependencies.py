@@ -42,4 +42,17 @@ async def get_storage(request: Request):
 
     The actual adapter is created during app lifespan and stored on app.state.
     """
-    return request.app.state.storage
+    storage = request.app.state.storage
+    if storage is None:
+        from fastapi import HTTPException
+        raise HTTPException(503, "Storage adapter not configured")
+    return storage
+
+
+# ---------------------------------------------------------------------------
+# Event bus
+# ---------------------------------------------------------------------------
+
+async def get_event_bus(request: Request):
+    """Return the app-wide EventBus (set during lifespan)."""
+    return getattr(request.app.state, "event_bus", None)
