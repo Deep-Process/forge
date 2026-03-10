@@ -48,9 +48,10 @@ async function request<T>(
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
   const hasBody = init?.body != null;
+  const initHeaders = init?.headers as Record<string, string> | undefined;
   const res = await fetch(url, {
     ...init,
-    headers: buildHeaders(hasBody),
+    headers: buildHeaders(hasBody, initHeaders),
   });
 
   if (!res.ok) {
@@ -122,6 +123,10 @@ export function logout(): void {
   setToken(null);
 }
 
+export async function me(): Promise<{ sub: string; auth_method: string; role: string }> {
+  return request("/auth/me");
+}
+
 // ---------------------------------------------------------------------------
 // Entity helpers
 // ---------------------------------------------------------------------------
@@ -142,24 +147,24 @@ export async function health(): Promise<{ status: string; version: string }> {
 // ---------------------------------------------------------------------------
 
 import type {
-  Project, ProjectCreate, ProjectStatus,
+  ProjectDetail, ProjectCreate, ProjectStatus,
   Task, TaskCreate, TaskUpdate,
   Decision, DecisionCreate, DecisionUpdate,
-  Objective, ObjectiveCreate,
+  Objective, ObjectiveCreate, ObjectiveUpdate,
   Idea, IdeaCreate, IdeaUpdate,
   ChangeRecord, ChangeCreate,
   Guideline, GuidelineCreate, GuidelineUpdate,
   Knowledge, KnowledgeCreate, KnowledgeUpdate, KnowledgeLink,
-  Lesson, LessonCreate,
-  ACTemplate, ACTemplateCreate,
+  Lesson, LessonCreate, LessonPromote,
+  ACTemplate, ACTemplateCreate, ACTemplateUpdate,
   Gate, GateCreate,
 } from "./types";
 
 // -- Projects --
 export const projects = {
-  list: () => list<{ projects: Project[] }>("/projects"),
-  create: (data: ProjectCreate) => create<Project>("/projects", data),
-  get: (slug: string) => get<Project>(`/projects/${slug}`),
+  list: () => list<{ projects: string[] }>("/projects"),
+  create: (data: ProjectCreate) => create<{ project: string; goal: string }>("/projects", data),
+  get: (slug: string) => get<ProjectDetail>(`/projects/${slug}`),
   status: (slug: string) => get<ProjectStatus>(`/projects/${slug}/status`),
 };
 
@@ -168,21 +173,23 @@ export const tasks = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ tasks: Task[]; count: number }>(projectPath(slug, "tasks"), params),
   create: (slug: string, data: TaskCreate[]) =>
-    create<{ added: Task[] }>(projectPath(slug, "tasks"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "tasks"), data),
   get: (slug: string, id: string) =>
     get<Task>(projectPath(slug, "tasks", id)),
   update: (slug: string, id: string, data: TaskUpdate) =>
     update<Task>(projectPath(slug, "tasks", id), data),
   remove: (slug: string, id: string) =>
     remove<{ removed: string }>(projectPath(slug, "tasks", id)),
-  claimNext: (slug: string, agent?: string) =>
-    create<{ task: Task }>(projectPath(slug, "tasks") + "/next",
-      agent ? { agent } : {}),
+  claimNext: (slug: string, agent?: string) => {
+    const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";
+    return create<Task>(projectPath(slug, "tasks") + "/next" + qs, {});
+  },
   complete: (slug: string, id: string, reasoning?: string) =>
     create<Task>(projectPath(slug, "tasks", id) + "/complete",
       { reasoning: reasoning ?? "" }),
   context: (slug: string, id: string) =>
-    get<Record<string, unknown>>(projectPath(slug, "tasks", id) + "/context"),
+    get<{ task: Record<string, unknown>; dependencies: Array<Record<string, unknown>>; scopes: string[] }>(
+      projectPath(slug, "tasks", id) + "/context"),
 };
 
 // -- Decisions --
@@ -190,7 +197,7 @@ export const decisions = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ decisions: Decision[]; count: number }>(projectPath(slug, "decisions"), params),
   create: (slug: string, data: DecisionCreate[]) =>
-    create<{ added: Decision[] }>(projectPath(slug, "decisions"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "decisions"), data),
   get: (slug: string, id: string) =>
     get<Decision>(projectPath(slug, "decisions", id)),
   update: (slug: string, id: string, data: DecisionUpdate) =>
@@ -202,11 +209,13 @@ export const objectives = {
   list: (slug: string) =>
     list<{ objectives: Objective[]; count: number }>(projectPath(slug, "objectives")),
   create: (slug: string, data: ObjectiveCreate[]) =>
-    create<{ added: Objective[] }>(projectPath(slug, "objectives"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "objectives"), data),
   get: (slug: string, id: string) =>
     get<Objective>(projectPath(slug, "objectives", id)),
+  update: (slug: string, id: string, data: ObjectiveUpdate) =>
+    update<Objective>(projectPath(slug, "objectives", id), data),
   status: (slug: string) =>
-    get<Record<string, unknown>>(projectPath(slug, "objectives") + "/status"),
+    get<{ objectives: Objective[]; count: number }>(projectPath(slug, "objectives") + "/status"),
 };
 
 // -- Ideas --
@@ -214,9 +223,9 @@ export const ideas = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ ideas: Idea[]; count: number }>(projectPath(slug, "ideas"), params),
   create: (slug: string, data: IdeaCreate[]) =>
-    create<{ added: Idea[] }>(projectPath(slug, "ideas"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "ideas"), data),
   get: (slug: string, id: string) =>
-    get<Idea>(projectPath(slug, "ideas", id)),
+    get<Idea & { children: Idea[]; related_decisions: Decision[] }>(projectPath(slug, "ideas", id)),
   update: (slug: string, id: string, data: IdeaUpdate) =>
     update<Idea>(projectPath(slug, "ideas", id), data),
   commit: (slug: string, id: string) =>
@@ -228,9 +237,12 @@ export const changes = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ changes: ChangeRecord[]; count: number }>(projectPath(slug, "changes"), params),
   create: (slug: string, data: ChangeCreate[]) =>
-    create<{ added: ChangeRecord[] }>(projectPath(slug, "changes"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "changes"), data),
   get: (slug: string, id: string) =>
     get<ChangeRecord>(projectPath(slug, "changes", id)),
+  autoDetect: (slug: string, taskId?: string) =>
+    create<{ message: string; task_id: string; changes: Array<Record<string, unknown>> }>(
+      projectPath(slug, "changes") + "/auto" + (taskId ? `?task_id=${taskId}` : ""), {}),
 };
 
 // -- Guidelines --
@@ -238,13 +250,13 @@ export const guidelines = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ guidelines: Guideline[]; count: number }>(projectPath(slug, "guidelines"), params),
   create: (slug: string, data: GuidelineCreate[]) =>
-    create<{ added: Guideline[] }>(projectPath(slug, "guidelines"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "guidelines"), data),
   get: (slug: string, id: string) =>
     get<Guideline>(projectPath(slug, "guidelines", id)),
   update: (slug: string, id: string, data: GuidelineUpdate) =>
     update<Guideline>(projectPath(slug, "guidelines", id), data),
   context: (slug: string, scopes?: string) =>
-    get<{ guidelines: Guideline[] }>(
+    get<{ must: Guideline[]; should: Guideline[]; may: Guideline[]; total: number }>(
       projectPath(slug, "guidelines") + "/context" + (scopes ? `?scopes=${scopes}` : ""),
     ),
 };
@@ -254,19 +266,24 @@ export const knowledge = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ knowledge: Knowledge[]; count: number }>(projectPath(slug, "knowledge"), params),
   create: (slug: string, data: KnowledgeCreate[]) =>
-    create<{ added: Knowledge[] }>(projectPath(slug, "knowledge"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "knowledge"), data),
   get: (slug: string, id: string) =>
     get<Knowledge>(projectPath(slug, "knowledge", id)),
   update: (slug: string, id: string, data: KnowledgeUpdate) =>
     update<Knowledge>(projectPath(slug, "knowledge", id), data),
   versions: (slug: string, id: string) =>
-    get<{ versions: unknown[] }>(projectPath(slug, "knowledge", id) + "/versions"),
+    get<{ versions: Array<Record<string, unknown>>; count: number }>(
+      projectPath(slug, "knowledge", id) + "/versions"),
+  getVersion: (slug: string, id: string, version: number) =>
+    get<Record<string, unknown>>(
+      projectPath(slug, "knowledge", id) + `/versions/${version}`),
   impact: (slug: string, id: string) =>
-    get<{ affected: unknown[] }>(projectPath(slug, "knowledge", id) + "/impact"),
+    get<{ knowledge_id: string; title: string; total_affected: number; affected_entities: Array<Record<string, unknown>> }>(
+      projectPath(slug, "knowledge", id) + "/impact"),
   link: (slug: string, id: string, data: KnowledgeLink) =>
-    create<unknown>(projectPath(slug, "knowledge", id) + "/link", data),
+    create<Record<string, unknown>>(projectPath(slug, "knowledge", id) + "/link", data),
   unlink: (slug: string, id: string, linkId: number) =>
-    remove<unknown>(projectPath(slug, "knowledge", id) + `/link/${linkId}`),
+    remove<{ removed: number }>(projectPath(slug, "knowledge", id) + `/link/${linkId}`),
 };
 
 // -- Lessons --
@@ -274,11 +291,12 @@ export const lessons = {
   list: (slug: string) =>
     list<{ lessons: Lesson[]; count: number }>(projectPath(slug, "lessons")),
   create: (slug: string, data: LessonCreate[]) =>
-    create<{ added: Lesson[] }>(projectPath(slug, "lessons"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "lessons"), data),
   get: (slug: string, id: string) =>
     get<Lesson>(projectPath(slug, "lessons", id)),
-  promote: (slug: string, id: string, target: "guideline" | "knowledge") =>
-    create<unknown>(projectPath(slug, "lessons", id) + "/promote", { target }),
+  promote: (slug: string, id: string, data: LessonPromote) =>
+    create<{ promoted_to: string; guideline_id?: string; knowledge_id?: string }>(
+      projectPath(slug, "lessons", id) + "/promote", data),
 };
 
 // -- AC Templates --
@@ -286,17 +304,23 @@ export const acTemplates = {
   list: (slug: string, params?: Record<string, string>) =>
     list<{ templates: ACTemplate[]; count: number }>(projectPath(slug, "ac-templates"), params),
   create: (slug: string, data: ACTemplateCreate[]) =>
-    create<{ added: ACTemplate[] }>(projectPath(slug, "ac-templates"), data),
+    create<{ added: string[]; total: number }>(projectPath(slug, "ac-templates"), data),
   get: (slug: string, id: string) =>
     get<ACTemplate>(projectPath(slug, "ac-templates", id)),
-  instantiate: (slug: string, id: string, params?: Record<string, unknown>) =>
-    create<{ text: string }>(projectPath(slug, "ac-templates", id) + "/instantiate", params ?? {}),
+  update: (slug: string, id: string, data: ACTemplateUpdate) =>
+    update<ACTemplate>(projectPath(slug, "ac-templates", id), data),
+  instantiate: (slug: string, id: string, params?: Record<string, string | number | boolean>) =>
+    create<{ template_id: string; criterion: string }>(
+      projectPath(slug, "ac-templates", id) + "/instantiate", { params: params ?? {} }),
 };
 
 // -- Gates --
 export const gates = {
   list: (slug: string) =>
-    list<{ gates: Gate[] }>(projectPath(slug, "gates")),
+    list<{ gates: Gate[]; count: number }>(projectPath(slug, "gates")),
   create: (slug: string, data: GateCreate[]) =>
-    create<{ configured: Gate[] }>(projectPath(slug, "gates"), data),
+    create<{ configured: number }>(projectPath(slug, "gates"), data),
+  check: (slug: string, taskId?: string) =>
+    create<{ message: string; task: string; gates: Array<Record<string, unknown>> }>(
+      projectPath(slug, "gates") + "/check" + (taskId ? `?task=${taskId}` : ""), {}),
 };

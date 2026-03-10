@@ -1,5 +1,9 @@
 *.pyc
 __pycache__/
+*.pyo
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
 
 # Runtime output (per-project state, not tracked)
 forge_output/
@@ -11,5 +15,24 @@ forge_output/
 # Plugin registry (per-machine paths, rebuilt by scan)
 forge_plugins.json
 
-
 deep-process/
+
+# Dependencies
+node_modules/
+
+# Next.js build
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

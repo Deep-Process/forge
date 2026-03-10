@@ -31,32 +31,42 @@ export type LessonCategory =
   | "process-improvement" | "market-insight";
 export type LessonSeverity = "critical" | "important" | "minor";
 export type ChangeAction = "create" | "edit" | "delete" | "rename" | "move";
+export type ObjectiveStatus = "ACTIVE" | "ACHIEVED" | "ABANDONED" | "PAUSED";
+export type ACTemplateCategory =
+  | "performance" | "security" | "quality" | "functionality"
+  | "accessibility" | "reliability" | "data-integrity" | "ux";
+export type KnowledgeLinkEntityType =
+  | "task" | "idea" | "objective" | "knowledge" | "guideline" | "lesson";
+export type KnowledgeLinkRelation =
+  | "required" | "context" | "reference" | "depends_on"
+  | "references" | "derived-from" | "supports" | "contradicts";
 
 // ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
 
-export interface Project {
-  slug: string;
+export interface ProjectDetail {
+  project: string;
   goal: string;
-  created_at: string;
-  config?: Record<string, unknown>;
+  config: Record<string, unknown>;
+  created: string;
+  updated: string;
+  task_count: number;
 }
 
 export interface ProjectCreate {
   slug: string;
   goal: string;
+  config?: Record<string, unknown>;
 }
 
 export interface ProjectStatus {
   project: string;
   goal: string;
-  total: number;
-  done: number;
-  in_progress: number;
-  todo: number;
-  failed: number;
-  skipped: number;
+  total_tasks: number;
+  progress_pct: number;
+  status_counts: Record<string, number>;
+  blockers: Array<{ id: string; name: string; reason: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +134,19 @@ export interface Decision {
   file: string;
   scope: string;
   tags: string[];
+  exploration_type?: string;
+  findings?: unknown[];
+  options?: unknown[];
+  open_questions?: string[];
+  blockers?: string[];
+  ready_for_tracker?: boolean;
+  evidence_refs?: string[];
+  severity?: string;
+  likelihood?: string;
+  mitigation_plan?: string;
+  resolution_notes?: string;
+  linked_entity_type?: string;
+  linked_entity_id?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -138,7 +161,22 @@ export interface DecisionCreate {
   confidence?: Confidence;
   status?: DecisionStatus;
   decided_by?: "claude" | "user" | "imported";
+  file?: string;
+  scope?: string;
   tags?: string[];
+  exploration_type?: string;
+  findings?: unknown[];
+  options?: unknown[];
+  open_questions?: string[];
+  blockers?: string[];
+  ready_for_tracker?: boolean;
+  evidence_refs?: string[];
+  severity?: string;
+  likelihood?: string;
+  mitigation_plan?: string;
+  resolution_notes?: string;
+  linked_entity_type?: string;
+  linked_entity_id?: string;
 }
 
 export interface DecisionUpdate {
@@ -165,10 +203,14 @@ export interface Objective {
   title: string;
   description: string;
   key_results: KeyResult[];
-  appetite?: "small" | "medium" | "large";
-  scope?: "project" | "cross-project";
+  appetite: "small" | "medium" | "large";
+  scope: "project" | "cross-project";
+  assumptions: string[];
   tags: string[];
-  status: string;
+  scopes: string[];
+  derived_guidelines: string[];
+  knowledge_ids: string[];
+  status: ObjectiveStatus;
   created_at: string;
 }
 
@@ -178,7 +220,24 @@ export interface ObjectiveCreate {
   key_results: KeyResult[];
   appetite?: "small" | "medium" | "large";
   scope?: "project" | "cross-project";
+  assumptions?: string[];
   tags?: string[];
+  scopes?: string[];
+  derived_guidelines?: string[];
+  knowledge_ids?: string[];
+}
+
+export interface ObjectiveUpdate {
+  title?: string;
+  description?: string;
+  status?: ObjectiveStatus;
+  appetite?: "small" | "medium" | "large";
+  assumptions?: string[];
+  tags?: string[];
+  key_results?: KeyResult[];
+  scopes?: string[];
+  derived_guidelines?: string[];
+  knowledge_ids?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -194,16 +253,28 @@ export interface Idea {
   status: IdeaStatus;
   tags: string[];
   parent_id: string | null;
+  related_ideas: string[];
+  guidelines: string[];
+  relations: Array<Record<string, unknown>>;
+  scopes: string[];
+  advances_key_results: string[];
+  knowledge_ids: string[];
   created_at: string;
 }
 
 export interface IdeaCreate {
   title: string;
-  description: string;
+  description?: string;
   category?: IdeaCategory;
   priority?: "HIGH" | "MEDIUM" | "LOW";
   tags?: string[];
   parent_id?: string;
+  related_ideas?: string[];
+  guidelines?: string[];
+  relations?: Array<Record<string, unknown>>;
+  scopes?: string[];
+  advances_key_results?: string[];
+  knowledge_ids?: string[];
 }
 
 export interface IdeaUpdate {
@@ -212,6 +283,17 @@ export interface IdeaUpdate {
   status?: IdeaStatus;
   category?: IdeaCategory;
   priority?: "HIGH" | "MEDIUM" | "LOW";
+  rejection_reason?: string;
+  merged_into?: string;
+  tags?: string[];
+  related_ideas?: string[];
+  guidelines?: string[];
+  exploration_notes?: string;
+  parent_id?: string;
+  relations?: Array<Record<string, unknown>>;
+  scopes?: string[];
+  advances_key_results?: string[];
+  knowledge_ids?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +310,8 @@ export interface ChangeRecord {
   decision_ids?: string[];
   lines_added?: number;
   lines_removed?: number;
+  group_id?: string;
+  guidelines_checked?: string[];
   recorded_at: string;
 }
 
@@ -240,6 +324,8 @@ export interface ChangeCreate {
   decision_ids?: string[];
   lines_added?: number;
   lines_removed?: number;
+  group_id?: string;
+  guidelines_checked?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +338,7 @@ export interface Guideline {
   scope: string;
   content: string;
   rationale?: string;
+  examples: string[];
   weight: GuidelineWeight;
   status: GuidelineStatus;
   tags: string[];
@@ -263,16 +350,21 @@ export interface GuidelineCreate {
   scope: string;
   content: string;
   rationale?: string;
-  weight?: GuidelineWeight;
+  examples?: string[];
   tags?: string[];
+  weight?: GuidelineWeight;
 }
 
 export interface GuidelineUpdate {
   title?: string;
   content?: string;
   status?: GuidelineStatus;
-  weight?: GuidelineWeight;
+  rationale?: string;
   scope?: string;
+  examples?: string[];
+  tags?: string[];
+  weight?: GuidelineWeight;
+  derived_from?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +379,11 @@ export interface Knowledge {
   status: KnowledgeStatus;
   scopes: string[];
   tags: string[];
-  version: number;
+  source?: Record<string, unknown> | null;
+  linked_entities: Array<Record<string, unknown>>;
+  dependencies: string[];
+  review_interval_days: number;
+  created_by: "user" | "ai";
   created_at: string;
   updated_at?: string;
 }
@@ -298,6 +394,11 @@ export interface KnowledgeCreate {
   content: string;
   scopes?: string[];
   tags?: string[];
+  source?: Record<string, unknown> | null;
+  linked_entities?: Array<Record<string, unknown>>;
+  dependencies?: string[];
+  review_interval_days?: number;
+  created_by?: "user" | "ai";
 }
 
 export interface KnowledgeUpdate {
@@ -305,13 +406,19 @@ export interface KnowledgeUpdate {
   content?: string;
   status?: KnowledgeStatus;
   category?: KnowledgeCategory;
+  scopes?: string[];
+  tags?: string[];
+  source?: Record<string, unknown> | null;
+  dependencies?: string[];
+  review_interval_days?: number;
   change_reason?: string;
+  changed_by?: "user" | "ai";
 }
 
 export interface KnowledgeLink {
-  entity_type: string;
+  entity_type: KnowledgeLinkEntityType;
   entity_id: string;
-  relation: string;
+  relation: KnowledgeLinkRelation;
 }
 
 // ---------------------------------------------------------------------------
@@ -324,8 +431,11 @@ export interface Lesson {
   title: string;
   detail: string;
   task_id?: string;
+  decision_ids?: string[];
   severity?: LessonSeverity;
+  applies_to?: string;
   tags: string[];
+  project?: string;
   created_at: string;
 }
 
@@ -336,7 +446,16 @@ export interface LessonCreate {
   task_id?: string;
   decision_ids?: string[];
   severity?: LessonSeverity;
+  applies_to?: string;
   tags?: string[];
+}
+
+export interface LessonPromote {
+  target: "guideline" | "knowledge";
+  scope?: string;
+  weight?: GuidelineWeight;
+  category?: string;
+  scopes?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -347,9 +466,13 @@ export interface ACTemplate {
   id: string;
   title: string;
   template: string;
-  category: string;
+  category: ACTemplateCategory;
   description?: string;
   parameters?: Array<{ name: string; type: string; default?: unknown; description?: string }>;
+  scopes: string[];
+  tags: string[];
+  verification_method?: string;
+  usage_count?: number;
   status: "ACTIVE" | "DEPRECATED";
   created_at: string;
 }
@@ -357,9 +480,24 @@ export interface ACTemplate {
 export interface ACTemplateCreate {
   title: string;
   template: string;
-  category: string;
+  category: ACTemplateCategory;
   description?: string;
   parameters?: Array<{ name: string; type: string; default?: unknown; description?: string }>;
+  scopes?: string[];
+  tags?: string[];
+  verification_method?: string;
+}
+
+export interface ACTemplateUpdate {
+  title?: string;
+  template?: string;
+  description?: string;
+  category?: string;
+  parameters?: Array<{ name: string; type: string; default?: unknown; description?: string }>;
+  scopes?: string[];
+  tags?: string[];
+  verification_method?: string;
+  status?: "ACTIVE" | "DEPRECATED";
 }
 
 // ---------------------------------------------------------------------------
