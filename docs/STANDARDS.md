@@ -12,13 +12,17 @@ Evolved from Skill_v1's STANDARDS.MD — same rigor, broader scope.
 forge/
   core/                     # Domain-agnostic engine (no SKILL.md)
     {module}.py              # Python CLI with --help via argparse
-  skills/                   # Pluggable skill definitions
+  skills/                   # Core skill definitions (always available)
     {skill-name}/
       SKILL.md              # Procedure + commands (pure Markdown)
       {tool}.py             # Python CLI (optional, for skills with tools)
       contracts/            # JSON schema contracts (if structured output)
       examples/             # Few-shot examples (if structured output)
       references/           # Static reference data
+    optional/               # Additional skills (usable but not core workflow)
+      {skill-name}/
+        SKILL.md
+  tests/                    # Pytest test suite
   config/                   # Shared JSON configuration
 ```
 
@@ -135,6 +139,16 @@ Every non-trivial choice MUST be recorded via `core.decisions add` with:
 - `reasoning` explaining the rationale
 - `alternatives` listing what was considered
 - `confidence` level
+
+### Quick Track minimum traceability (`/do`)
+Even the quick path MUST provide:
+- Pipeline task tracking (task exists, status tracked)
+- Auto-recorded changes (via `pipeline complete --reasoning`)
+- Gates execution (if configured)
+- Global + general guidelines loaded and respected
+- Reasoning on complete (WHY recorded)
+
+Quick path MAY skip: objectives, ideas, discovery, deep-verify, multi-perspective review.
 
 ### Audit trail invariant
 - **Reset does NOT delete** decisions or changes — audit trail is append-only

@@ -140,8 +140,11 @@ python -m core.changes contract                         See expected format
 python -m core.lessons add {project} --data '...'      Record lessons learned
 python -m core.lessons read {project}                   View project lessons
 python -m core.lessons read-all [--severity X] [--tags "a,b"] [--category X] [--limit N]  View lessons across all projects
+python -m core.lessons promote {lesson_id} [--scope X] [--weight X]  Promote lesson to global guideline
 python -m core.lessons contract                         See expected format
 ```
+
+Promoting lessons: `lessons promote L-001 --scope backend --weight must` creates a global guideline from a lesson. Severity maps to weight: critical→must, important→should, minor→may.
 
 ### Objectives (business goals with measurable key results)
 ```
@@ -184,11 +187,13 @@ python -m core.guidelines read {project} [--scope X] [--weight X]  Read guidelin
 python -m core.guidelines update {project} --data '[...]'      Update guideline status
 python -m core.guidelines context {project} --scopes "a,b"     Guidelines for LLM context
 python -m core.guidelines scopes {project}                     List unique scopes
+python -m core.guidelines import {project} --source {other} [--scope X]  Import from another project
 python -m core.guidelines contract add                         Show guideline contract
 ```
 
 - `derived_from`: objective ID this guideline was created because of (e.g., `"O-001"`)
 - When an objective is ACHIEVED/ABANDONED, review its derived guidelines
+- `guidelines import`: copy guidelines from one project to another (dedup by title, tracks source)
 
 ### Gates (validation checks)
 ```
@@ -201,6 +206,14 @@ python -m core.gates contract config                   Show gate contract
 Tip: Configure secret scanning as a gate: `{"name": "secrets", "command": "gitleaks detect --no-git -v", "required": true}`
 
 ## Slash Commands
+
+### Quick Path (80% of tasks)
+
+| Command | Description |
+|---------|-------------|
+| `/do {task}` | **Quick path** — execute a single task start-to-finish with minimum ceremony. For simple bugs, small features, refactors. |
+
+### Full Workflow (complex work)
 
 | Command | Description |
 |---------|-------------|
@@ -260,12 +273,48 @@ For brownfield projects (existing codebase):
 1. Run `/onboard` — discover project, import decisions/conventions, configure gates
 2. Then continue with `/plan {goal}` for specific work
 
-When user gives a goal:
+When user gives a goal, **choose the right track**:
+
+### Quick Track (simple tasks — 80% of work)
+
+```
+/do {task}    ← single task, start to finish, minimum ceremony
+```
+
+Use when: simple bug fix, small feature, refactor, chore, one-off task.
+Provides: pipeline tracking, auto-recorded changes, gates, global guidelines, reasoning.
+
+### Standard Track (multi-task work)
+
+```
+/plan {goal}  ──→  /next|/run  ──→  /compound
+  (how)            (execute)        (learn)
+```
+
+Use when: 3-8 tasks, medium complexity, clear goal.
+Provides: full task graph with dependencies, guidelines per scope, verification, gates.
+
+### Full Track (complex/risky work)
 
 ```
 /objective ──→ /idea ──→ /discover ──→ /plan ──→ /next|/run ──→ /compound
   (why)        (what)     (assess)     (how)    (execute)      (learn)
 ```
+
+Use when: 9+ tasks, architectural decisions, high risk, needs exploration.
+Provides: everything — objectives, ideas, discovery, risk assessment, full traceability.
+
+### How to choose
+
+| Signal | Track |
+|--------|-------|
+| "Fix this bug", "Rename X", "Add a test" | **Quick** (`/do`) |
+| "Add feature X with Y and Z" | **Standard** (`/plan`) |
+| "We need to redesign the auth system" | **Full** (`/objective` → ...) |
+| User explicitly asks for quick/simple | **Quick** (`/do`) |
+| User explicitly asks for full analysis | **Full** |
+
+### Full Track Details
 
 0. (Optional) Define north star: `/objective {title}` — business goal with measurable KRs
    - Provides "why" context for all downstream work

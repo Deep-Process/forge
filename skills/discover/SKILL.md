@@ -24,8 +24,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | R3 | `skills/deep-explore/SKILL.md` | Exploration procedure | Step 3 — resolve skills |
 | R4 | `skills/deep-risk/SKILL.md` | Risk analysis procedure | Step 3 |
 | R5 | `skills/deep-architect/SKILL.md` | Architecture procedure | Step 3 |
-| R6 | `skills/deep-feasibility/SKILL.md` | Feasibility procedure | Step 3 |
-| R7 | `skills/deep-requirements/SKILL.md` | Requirements procedure | Step 3 (optional) |
+| R6 | `skills/optional/deep-feasibility/SKILL.md` | Feasibility procedure | Step 3 |
+| R7 | `skills/optional/deep-requirements/SKILL.md` | Requirements procedure | Step 3 (optional) |
 | R8 | `python -m core.lessons read-all` | Lessons from past projects | Step 4 — context |
 | R9 | `python -m core.decisions read {project} --status OPEN` | Open decisions (if project exists) | Step 4 — context |
 | R10 | `ls forge_output/ 2>/dev/null` | Existing projects | Step 4 — context |
@@ -65,7 +65,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 
 - `docs/DESIGN.md` — Architecture overview
 - `docs/STANDARDS.md` — Skill standards
-- External: deep-orchestration, deep-explore, deep-risk, deep-architect, deep-feasibility SKILLs
+- External: deep-orchestration, deep-explore, deep-risk, deep-architect SKILLs (in `skills/`)
+- Optional: deep-feasibility, deep-requirements SKILLs (in `skills/optional/`)
 
 ---
 
@@ -80,7 +81,7 @@ This skill is the bridge between Forge (execution engine) and deep-process-skill
 - User has a topic, question, or proposed direction to explore
 - If exploring within an existing project: project exists in forge_output/
 
-Note: All required deep-* analysis skills are built into Forge under `skills/deep-*`.
+Note: Core deep-* analysis skills are built into Forge under `skills/deep-*`. Optional skills (deep-feasibility, deep-requirements) are under `skills/optional/deep-*`.
 Provenance: [Deep-Process](https://github.com/Deep-Process/deep-process).
 
 ---
@@ -122,7 +123,7 @@ Based on the confirmed scope (or explicit flags), determine which analysis skill
 | "Is X risky?" / `--risk-only` | deep-risk | deep-explore, deep-feasibility |
 | "Full analysis" / `--full` | deep-explore, deep-feasibility, deep-risk, deep-architect | deep-requirements |
 
-Read each needed skill from `skills/deep-{name}/SKILL.md` and its `references/` directory (if present).
+Read each needed skill from `skills/deep-{name}/SKILL.md` (or `skills/optional/deep-{name}/SKILL.md` for deep-feasibility and deep-requirements) and its `references/` directory (if present).
 
 ---
 

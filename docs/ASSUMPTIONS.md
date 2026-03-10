@@ -18,15 +18,11 @@ Updated as assumptions are validated or invalidated.
 - **Why resolved**: `changes diff` requires git, but `changes record` works without it. No dedicated git wrapper needed — standard git CLI is used directly.
 - **Resolved in**: v1.0
 
-### A-003: Python 3.8+ available
-- **Assumed**: Target runtime is Python 3.8 or later
-- **Why**: Using type hints, pathlib, f-strings. No match/case used anywhere.
-- **Risk**: Low — Claude Code environments typically have modern Python
+### ~~A-003: Python 3.8+ available~~ MOVED TO REQUIREMENTS
+- **Decision**: This is a requirement, not an assumption. Documented in README.md.
 
-### A-004: Claude Code is the primary (but not only) consumer
-- **Assumed**: SKILL.md files are read by Claude Code, but core/ tools work standalone
-- **Why**: Core tools are plain CLI — any LLM or human can use them
-- **Risk**: None — this is a feature, not a limitation
+### ~~A-004: Claude Code is the primary (but not only) consumer~~ MOVED TO REQUIREMENTS
+- **Decision**: This is a design principle, not an assumption. Documented in DESIGN.md.
 
 ### A-005: Task graph is a DAG (no cycles)
 - **Assumed**: Tasks can depend on other tasks, but no circular dependencies
@@ -40,10 +36,8 @@ Updated as assumptions are validated or invalidated.
 - **Risk**: Doesn't scale to hundreds of skills
 - **Mitigation**: All analysis skills (deep-*) are bundled directly in `skills/`. No external plugin system needed.
 
-### A-007: Output format is JSON for machines, Markdown for LLM
-- **Assumed**: Python CLI commands output Markdown (for LLM consumption), internal state is JSON
-- **Why**: Proven in Skill_v1 — LLM reads Markdown better than raw JSON
-- **Risk**: None — well-proven pattern
+### ~~A-007: Output format is JSON for machines, Markdown for LLM~~ MOVED TO REQUIREMENTS
+- **Decision**: This is a design principle (S3 standard), not an assumption.
 
 ### A-008: Windows compatibility required
 - **Assumed**: Must work on Windows (user's environment is Windows 11)
@@ -90,18 +84,12 @@ Updated as assumptions are validated or invalidated.
 - **Risk**: Edge cases like "bug that requires investigation" — user picks the dominant type
 - **Added in**: v1.1
 
-### A-015: Guidelines scope is open string (not enum)
-- **Assumed**: Scope is a free-form string, normalized to lowercase. No closed enum.
-- **Why**: Projects vary — "ml-pipeline", "mobile", "devops" can't be predicted. Suggested scopes in contract example.
-- **Risk**: Inconsistent naming ("backend" vs "back-end") — mitigated by normalization and `scopes` command showing existing scopes.
-- **Added in**: v1.2
-
-### A-016: Guidelines weight controls context injection priority
-- **Assumed**: `must` = always loaded to LLM context, `should` = loaded when total ≤10, `may` = titles only.
-- **Why**: Prevents context window explosion while ensuring critical standards are always visible.
-- **Risk**: Important `should` guidelines may be truncated in large projects
-- **Mitigation**: User can promote to `must` via `guidelines update`
-- **Added in**: v1.2
+### A-015: Guidelines scoping and context injection
+- **Assumed**: Scope is a free-form string (normalized to lowercase, supports hierarchy up to 3 levels: `domain/area/detail`). Weight controls context injection: `must` = always loaded, `should` = loaded when total ≤10, `may` = titles only.
+- **Why**: Projects vary — can't predict all scopes. Weight prevents context window explosion while ensuring critical standards visible.
+- **Risk**: Inconsistent naming — mitigated by normalization and `scopes` command. Truncated `should` guidelines — mitigated by promotion to `must`.
+- **Consolidates**: Former A-015 (open scope) + A-016 (weight priority)
+- **Added in**: v1.2, updated v2.1
 
 ### A-017: Guidelines are not versioned
 - **Assumed**: No version history per guideline. To change: deprecate old + create new.
@@ -117,11 +105,8 @@ Updated as assumptions are validated or invalidated.
 - **Mitigation**: `/plan` can warn if a related idea exists in EXPLORING status.
 - **Added in**: v1.2 (design), not yet implemented
 
-### A-019: 'general' scope always included automatically
-- **Assumed**: When loading guidelines for a task, scope "general" is always added regardless of task's explicit scopes.
-- **Why**: General guidelines (error handling, naming, etc.) apply everywhere.
-- **Risk**: None — user can avoid by not creating "general" scope guidelines.
-- **Added in**: v1.2
+### ~~A-019: 'general' scope always included automatically~~ CONSOLIDATED
+- **Merged into**: A-015 (guidelines scoping). General scope auto-inclusion is part of scoping behavior.
 
 ### A-020: DONE tasks don't reference guidelines
 - **Assumed**: Guidelines are execution context, not part of the result. DONE tasks don't track which guidelines applied.
@@ -206,6 +191,18 @@ Updated as assumptions are validated or invalidated.
 - **Why**: Claude Code's slash command system passes arguments as a single string. LLM inference handles ambiguity better than rigid parsing.
 - **Risk**: Misinterpretation of arguments. Low — commands are simple and well-documented with examples.
 - **Added in**: v1.2
+
+### A-034: Three workflow tracks (Quick / Standard / Full)
+- **Assumed**: `/do` (quick track) provides minimum traceability: pipeline tracking, auto-recorded changes, gates, global guidelines. It skips: objectives, ideas, discovery, deep-verify, review.
+- **Why**: 80% of tasks are simple (bug fix, small feature) and don't need 6-step ceremony. Quick track reduces barrier to entry.
+- **Risk**: Users may use `/do` for complex tasks that need full traceability. Mitigated by: `/do` procedure includes escape hatch ("if >5 files, stop and suggest /plan").
+- **Added in**: v2.1
+
+### A-035: Optional skills live in skills/optional/
+- **Assumed**: Skills that are useful but not core to the main workflow live in `skills/optional/`. Currently: deep-feasibility, deep-requirements, niche-scout. They remain usable via explicit path reference.
+- **Why**: Reduces cognitive load — core skills/ has 12 entries instead of 15. Optional skills are still accessible when needed.
+- **Risk**: Users may not discover optional skills. Mitigated by: `/help` mentions them.
+- **Added in**: v2.1
 
 ---
 

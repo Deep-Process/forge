@@ -20,6 +20,7 @@ Commands:
     add       {project} --data '{json}'     Add lessons learned
     read      {project}                      Read lessons for project
     read-all                                 Read lessons across all projects
+    promote   {lesson_id} [--scope X] [--weight X]  Promote lesson to global guideline
     contract                                 Print contract spec
 """
 
@@ -271,6 +272,87 @@ def cmd_read_all(args):
         print()
 
 
+def cmd_promote(args):
+    """Promote a lesson to a global guideline."""
+    # Load lesson
+    all_lessons = []
+    output_dir = Path("forge_output")
+    if not output_dir.exists():
+        print("No projects found.", file=sys.stderr)
+        sys.exit(1)
+
+    found = None
+    for project_dir in sorted(output_dir.iterdir()):
+        if project_dir.is_dir():
+            lpath = project_dir / "lessons.json"
+            if lpath.exists():
+                data = json.loads(lpath.read_text(encoding="utf-8"))
+                for l in data.get("lessons", []):
+                    if l.get("id") == args.lesson_id:
+                        found = l
+                        break
+        if found:
+            break
+
+    if not found:
+        print(f"ERROR: Lesson {args.lesson_id} not found", file=sys.stderr)
+        sys.exit(1)
+
+    # Load global guidelines
+    global_path = Path("forge_output") / "_global" / "guidelines.json"
+    if global_path.exists():
+        global_data = json.loads(global_path.read_text(encoding="utf-8"))
+    else:
+        global_path.parent.mkdir(parents=True, exist_ok=True)
+        global_data = {"scope": "_global", "updated": now_iso(), "guidelines": []}
+
+    # Check for duplicate
+    for g in global_data.get("guidelines", []):
+        if g.get("title", "").lower() == found["title"].lower():
+            print(f"WARNING: Guideline with similar title already exists: {g['id']}")
+            print(f"  Title: {g['title']}")
+            print("Skipping promotion.")
+            return
+
+    # Generate next ID
+    existing_ids = [
+        int(g["id"].split("-")[1]) for g in global_data.get("guidelines", [])
+        if g.get("id", "").startswith("G-")
+    ]
+    next_id = max(existing_ids, default=0) + 1
+
+    # Map severity to weight
+    weight_map = {"critical": "must", "important": "should", "minor": "may"}
+    weight = weight_map.get(found.get("severity", "important"), "should")
+    if args.weight:
+        weight = args.weight
+
+    scope = args.scope or "general"
+
+    guideline = {
+        "id": f"G-{next_id:03d}",
+        "title": found["title"],
+        "scope": scope,
+        "content": found["detail"],
+        "rationale": f"Promoted from lesson {found['id']} (project: {found.get('project', '?')}). Category: {found['category']}. Applies to: {found.get('applies_to', 'general')}.",
+        "weight": weight,
+        "tags": found.get("tags", []),
+        "status": "ACTIVE",
+        "promoted_from": found["id"],
+        "timestamp": now_iso(),
+    }
+
+    global_data["guidelines"].append(guideline)
+    global_data["updated"] = now_iso()
+    atomic_write_json(global_path, global_data)
+
+    print(f"Lesson promoted to global guideline:")
+    print(f"  {found['id']} → {guideline['id']}")
+    print(f"  Title: {guideline['title']}")
+    print(f"  Scope: {scope} | Weight: {weight}")
+    print(f"  Source: {found.get('project', '?')}/{found['id']}")
+
+
 def cmd_contract(args):
     """Print contract spec."""
     print(render_contract("add", CONTRACTS["add"]))
@@ -295,6 +377,11 @@ def main():
     p.add_argument("--tags", help="Filter by tags (comma-separated, OR match)")
     p.add_argument("--limit", type=int, help="Max number of lessons to return")
 
+    p = sub.add_parser("promote", help="Promote a lesson to a global guideline")
+    p.add_argument("lesson_id", help="Lesson ID (e.g. L-001)")
+    p.add_argument("--scope", help="Guideline scope (default: general)")
+    p.add_argument("--weight", choices=["must", "should", "may"], help="Override weight (default: based on severity)")
+
     sub.add_parser("contract", help="Print contract spec")
 
     args = parser.parse_args()
@@ -303,6 +390,7 @@ def main():
         "add": cmd_add,
         "read": cmd_read,
         "read-all": cmd_read_all,
+        "promote": cmd_promote,
         "contract": cmd_contract,
     }
 

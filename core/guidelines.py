@@ -17,6 +17,7 @@ Commands:
     update   {project} --data '{json}'         Update guideline status/content
     context  {project} --scopes "backend,db"   Formatted guidelines for LLM context
     scopes   {project}                         List unique scopes in project
+    import   {project} --source {other}        Import guidelines from another project
     contract {name}                            Print contract spec
 """
 
@@ -455,6 +456,75 @@ def cmd_scopes(args):
         print(f"| {scope} | {count} |")
 
 
+def cmd_import(args):
+    """Import guidelines from another project into this one."""
+    source_path = guidelines_path(args.source)
+    if not source_path.exists():
+        print(f"ERROR: No guidelines found in project '{args.source}'", file=sys.stderr)
+        sys.exit(1)
+
+    source_data = json.loads(source_path.read_text(encoding="utf-8"))
+    source_guidelines = [g for g in source_data.get("guidelines", []) if g.get("status") == "ACTIVE"]
+
+    if not source_guidelines:
+        print(f"No active guidelines in '{args.source}'.")
+        return
+
+    # Filter by scope if specified
+    if args.scope:
+        scope_filter = args.scope.lower()
+        source_guidelines = [g for g in source_guidelines if g.get("scope", "").lower() == scope_filter]
+        if not source_guidelines:
+            print(f"No active guidelines with scope '{args.scope}' in '{args.source}'.")
+            return
+
+    # Load target project
+    target_data = load_or_create(args.project)
+    target_titles = {g.get("title", "").lower() for g in target_data.get("guidelines", [])}
+
+    # Generate next ID
+    existing_ids = [
+        int(g["id"].split("-")[1]) for g in target_data.get("guidelines", [])
+        if g.get("id", "").startswith("G-")
+    ]
+    next_id = max(existing_ids, default=0) + 1
+
+    imported = []
+    skipped = []
+    timestamp = now_iso()
+
+    for g in source_guidelines:
+        if g.get("title", "").lower() in target_titles:
+            skipped.append(g.get("id", "?"))
+            continue
+
+        new_guideline = {
+            "id": f"G-{next_id:03d}",
+            "title": g["title"],
+            "scope": g.get("scope", "general"),
+            "content": g.get("content", ""),
+            "rationale": g.get("rationale", "") + f" (imported from {args.source}/{g.get('id', '?')})",
+            "weight": g.get("weight", "should"),
+            "tags": g.get("tags", []),
+            "examples": g.get("examples", []),
+            "status": "ACTIVE",
+            "imported_from": f"{args.source}/{g.get('id', '?')}",
+            "timestamp": timestamp,
+        }
+        target_data["guidelines"].append(new_guideline)
+        imported.append(new_guideline["id"])
+        next_id += 1
+
+    if imported:
+        save_json(args.project, target_data)
+
+    print(f"Guidelines imported: {args.source} → {args.project}")
+    print(f"  Imported: {len(imported)} ({', '.join(imported)})")
+    if skipped:
+        print(f"  Skipped (duplicate titles): {len(skipped)} ({', '.join(skipped)})")
+    print(f"  Total in {args.project}: {len(target_data['guidelines'])}")
+
+
 def cmd_contract(args):
     """Print contract spec for a command."""
     if args.name not in CONTRACTS:
@@ -491,6 +561,11 @@ def main():
     p = sub.add_parser("scopes", help="List unique scopes")
     p.add_argument("project")
 
+    p = sub.add_parser("import", help="Import guidelines from another project")
+    p.add_argument("project", help="Target project")
+    p.add_argument("--source", required=True, help="Source project to import from")
+    p.add_argument("--scope", help="Only import guidelines with this scope")
+
     p = sub.add_parser("contract", help="Print contract spec")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
 
@@ -502,6 +577,7 @@ def main():
         "update": cmd_update,
         "context": cmd_context,
         "scopes": cmd_scopes,
+        "import": cmd_import,
         "contract": cmd_contract,
     }
 

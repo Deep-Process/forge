@@ -10,7 +10,13 @@ Print the following guide:
 
 ## Forge Commands
 
-### Business Goals & Planning
+### Quick Path (start here for simple tasks)
+
+| Command | When to use |
+|---------|-------------|
+| `/do {task}` | **80% of tasks.** Simple bug fix, small feature, refactor, chore. One task, start to finish, minimum ceremony. |
+
+### Business Goals & Planning (complex work)
 
 | Command | When to use |
 |---------|-------------|
@@ -68,14 +74,21 @@ Print the following guide:
 - **`/status` vs `/log`** — `/status` is a quick dashboard, `/log` is the full audit trail
 - **`/review` vs `/next`** — `/next` includes basic verification; `/review` is a deep optional audit
 
-### Typical Workflow
+### Choose Your Track
 
-0. `/objective` → (optional) define the business goal with measurable KRs
-1. `/idea` → capture what you want to build (link to KRs)
-2. `/discover` → explore feasibility and risks
-3. `/plan` → decompose into tasks
-4. `/status` → see the plan
-5. `/run` or `/next` → execute tasks
-6. `/decide` → resolve any decisions that come up
-7. `/objectives O-001 update` → track KR progress
-8. `/compound` → extract lessons when done
+**Quick** (simple tasks — 80% of work):
+```
+/do {task}                          ← done
+```
+
+**Standard** (multi-task work):
+```
+/plan {goal} → /run → /compound
+```
+
+**Full** (complex/risky work):
+```
+/objective → /idea → /discover → /decide → /plan → /run → /compound
+```
+
+When in doubt, start with `/do`. Escalate to `/plan` if it gets complex.

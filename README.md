@@ -2,7 +2,9 @@
 
 Structured change orchestrator for Claude Code. Turns high-level goals into tracked, dependency-aware tasks with full traceability and observability.
 
-Every code change goes through: **Idea → Discover → Plan → Track → Decide → Execute → Record → Validate**
+Every code change goes through: **Plan → Track → Decide → Execute → Record → Validate**
+
+Three tracks: **`/do`** (quick — 80% of tasks) | **`/plan`** (standard) | **full workflow** (objective → idea → discover → plan)
 
 ## Why Forge
 
@@ -17,15 +19,24 @@ Most AI coding assistants generate code without structure. Forge adds:
 ## Quick Start
 
 ```bash
-# Inside Claude Code, use slash commands:
-/idea Add Redis caching to API              # Capture idea in staging
-/idea Signal Generator --parent I-001       # Sub-idea with hierarchy
-/discover I-001                             # Explore → creates exploration + risk decisions
-/risk                                       # View and manage identified risks
-/ideas I-001 approve                        # Approve for implementation
-/plan I-001                                 # Draft plan → review → approve → tracker
+# Quick path — simple tasks (bug fix, refactor, small feature):
+/do Fix the login timeout bug in auth.py    # One task, start to finish
+
+# Standard path — multi-task work:
+/plan Add Redis caching to API              # Decompose → execute → done
+
+# Full path — complex/risky work:
+/objective Reduce API response time         # Define business goal
+/idea Redis caching                         # Capture proposal
+/discover I-001                             # Explore risks & options
+/plan I-001                                 # Draft plan → approve → execute
+```
+
+```bash
+# Other useful commands:
 /guideline use Repository Pattern --scope backend  # Set project standards
 /next                                       # Execute next task (with verification)
+/run                                        # Execute all tasks continuously
 /status                                     # Show project dashboard + DAG
 ```
 
@@ -35,10 +46,11 @@ For existing codebases, start with `/onboard {path}` to import project knowledge
 
 | Command | Description |
 |---------|-------------|
+| **`/do {task}`** | **Quick path — single task, start to finish, minimum ceremony** |
+| `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
 | `/idea {title}` | Add idea to staging area (supports hierarchy and relations) |
 | `/ideas [id] [action]` | List/show/manage ideas (explore, approve, reject, commit) |
 | `/discover {topic\|idea_id}` | Explore options, assess risks → creates exploration + risk decisions |
-| `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
 | `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
 | `/guideline {text}` | Add project guideline |
 | `/guidelines [scope]` | List/manage guidelines |
@@ -69,15 +81,15 @@ forge/
     plan/                #   Decompose goal into task graph
     next/                #   Execute task with full traceability
     onboard/             #   Import brownfield project knowledge
-    review/              #   Structured 5-perspective code review
+    review/              #   Structured 6-perspective code review
     deep-orchestration/  #   Coordinate analysis workflows
     deep-explore/        #   Structured option exploration
     deep-risk/           #   5D risk assessment
-    deep-feasibility/    #   10D feasibility with GO/NO-GO
     deep-architect/      #   Architecture with adversarial testing
     deep-verify/         #   Artifact verification with scoring
-    deep-requirements/   #   Requirements extraction
     deep-aggregate/      #   Combine analysis outputs
+    deep-align/          #   Goal alignment before analysis
+    optional/            #   Additional skills (deep-feasibility, deep-requirements, niche-scout)
   docs/                  # Design documentation
     DESIGN.md            #   Architecture, concepts, Python/LLM boundary
     ASSUMPTIONS.md       #   Active assumptions and deferred decisions
