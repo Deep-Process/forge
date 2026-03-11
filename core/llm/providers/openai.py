@@ -79,14 +79,20 @@ def _convert_tools(tools: list[ToolDefinition] | None) -> list[dict] | None:
 
 
 def _convert_messages(messages: list[Message], config: CompletionConfig) -> list[dict]:
-    """Convert to OpenAI message format."""
-    api_msgs: list[dict] = []
+    """Convert to OpenAI message format.
 
+    System messages in the message list are merged with config.system_prompt
+    into a single system message to avoid duplicates.
+    """
+    system_parts: list[str] = []
     if config.system_prompt:
-        api_msgs.append({"role": "system", "content": config.system_prompt})
+        system_parts.append(config.system_prompt)
 
+    api_msgs: list[dict] = []
     for msg in messages:
-        if msg.role == "tool":
+        if msg.role == "system":
+            system_parts.append(msg.content)
+        elif msg.role == "tool":
             api_msgs.append({
                 "role": "tool",
                 "tool_call_id": msg.tool_call_id or "",
@@ -97,6 +103,9 @@ def _convert_messages(messages: list[Message], config: CompletionConfig) -> list
                 "role": msg.role,
                 "content": msg.content,
             })
+
+    if system_parts:
+        api_msgs.insert(0, {"role": "system", "content": "\n\n".join(system_parts)})
 
     return api_msgs
 

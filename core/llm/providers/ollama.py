@@ -15,7 +15,6 @@ from typing import Any, AsyncIterator
 from core.llm.provider import (
     CompletionConfig,
     CompletionResult,
-    LLMProvider,
     Message,
     ProviderCapabilities,
     ProviderError,
