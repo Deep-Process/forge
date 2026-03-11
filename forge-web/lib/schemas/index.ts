@@ -27,3 +27,6 @@ export type { ACTemplateCreateForm, ACTemplateUpdateForm } from "./ac-template";
 
 export { gateCreateSchema } from "./gate";
 export type { GateCreateForm } from "./gate";
+
+export { skillCreateSchema, skillUpdateSchema } from "./skill";
+export type { SkillCreateForm, SkillUpdateForm } from "./skill";

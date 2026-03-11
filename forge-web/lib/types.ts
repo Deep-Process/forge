@@ -738,6 +738,96 @@ export interface AssessImpactResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Skills
+// ---------------------------------------------------------------------------
+
+export type SkillStatus = "DRAFT" | "ACTIVE" | "DEPRECATED" | "ARCHIVED";
+export type SkillCategory =
+  | "workflow" | "analysis" | "generation" | "validation"
+  | "integration" | "refactoring" | "testing" | "deployment"
+  | "documentation" | "custom";
+
+export interface TESLintFinding {
+  rule_id: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  line: number | null;
+  column: number | null;
+}
+
+export interface PromotionHistoryEntry {
+  promoted_at: string;
+  error_count: number;
+  warning_count: number;
+  forced: boolean;
+  gates: Array<{ gate: string; passed: boolean; detail: string }>;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  status: SkillStatus;
+  skill_md_content: string | null;
+  evals_json: Array<Record<string, unknown>>;
+  resources: Record<string, unknown>;
+  teslint_config: Record<string, unknown> | null;
+  tags: string[];
+  scopes: string[];
+  promoted_with_warnings: boolean;
+  promotion_history: PromotionHistoryEntry[];
+  usage_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillCreate {
+  name: string;
+  description?: string;
+  category?: SkillCategory;
+  skill_md_content?: string | null;
+  evals_json?: Array<Record<string, unknown>>;
+  resources?: Record<string, unknown>;
+  teslint_config?: Record<string, unknown> | null;
+  tags?: string[];
+  scopes?: string[];
+  created_by?: string | null;
+}
+
+export interface SkillUpdate {
+  name?: string;
+  description?: string;
+  category?: SkillCategory;
+  status?: SkillStatus;
+  skill_md_content?: string | null;
+  evals_json?: Array<Record<string, unknown>>;
+  resources?: Record<string, unknown>;
+  teslint_config?: Record<string, unknown> | null;
+  tags?: string[];
+  scopes?: string[];
+}
+
+export interface LintResult {
+  skill_id: string;
+  success: boolean;
+  passed: boolean;
+  error_count: number;
+  warning_count: number;
+  info_count: number;
+  findings: TESLintFinding[];
+  error_message: string | null;
+}
+
+export interface PromoteResult {
+  skill_id: string;
+  status: string;
+  promoted_with_warnings: boolean;
+  gates: Array<{ gate: string; passed: boolean; detail: string }>;
+}
+
+// ---------------------------------------------------------------------------
 // Debug Monitor
 // ---------------------------------------------------------------------------
 

@@ -228,6 +228,7 @@ import type {
   EvaluateLessonResponse,
   AssessImpactResponse,
   DebugStatus, DebugSessionSummary, DebugSession,
+  Skill, SkillCreate, SkillUpdate, LintResult, PromoteResult,
 } from "./types";
 
 // -- Projects --
@@ -457,6 +458,24 @@ export const ai = {
       `/projects/${slug}/ai/suggest-kr`,
       { objective_id: objectiveId, ...(context ? { context } : {}) },
     ),
+};
+
+// -- Skills (global, no project slug) --
+export const skills = {
+  list: (params?: Record<string, string>) =>
+    list<{ skills: Skill[]; count: number }>("/skills", params),
+  create: (data: SkillCreate[]) =>
+    create<{ added: string[]; total: number }>("/skills", data),
+  get: (id: string) =>
+    get<Skill>(`/skills/${id}`),
+  update: (id: string, data: SkillUpdate) =>
+    update<Skill>(`/skills/${id}`, data),
+  remove: (id: string) =>
+    remove<{ removed: string }>(`/skills/${id}`),
+  lint: (id: string) =>
+    create<LintResult>(`/skills/${id}/lint`, {}),
+  promote: (id: string, force: boolean = false) =>
+    create<PromoteResult>(`/skills/${id}/promote`, { force }),
 };
 
 // -- Debug Monitor --
