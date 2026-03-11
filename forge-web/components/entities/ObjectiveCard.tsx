@@ -33,6 +33,16 @@ export function ObjectiveCard({ objective, slug, onEdit }: ObjectiveCardProps) {
       {objective.key_results.length > 0 && (
         <div className="mt-2 space-y-1">
           {objective.key_results.map((kr, i) => {
+            const hasNumericTarget = kr.target != null && kr.baseline != null;
+            if (!hasNumericTarget) {
+              // Descriptive KR — show status badge instead of progress bar
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-500 flex-1 truncate">{kr.metric || kr.description || `KR-${i + 1}`}</span>
+                  <span className="text-gray-400">{kr.status || "NOT_STARTED"}</span>
+                </div>
+              );
+            }
             const baseline = kr.baseline ?? 0;
             const span = (kr.target ?? 0) - baseline;
             const pct = span !== 0 ? Math.min(100, Math.max(0, Math.round(((kr.current ?? baseline) - baseline) / span * 100))) : 0;

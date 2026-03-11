@@ -44,6 +44,12 @@ export const decisionUpdateSchema = z.object({
   reasoning: z.string().optional(),
   decided_by: z.enum(["claude", "user", "imported"]).optional(),
   resolution_notes: z.string().optional(),
+  // Risk fields
+  severity: z.string().optional(),
+  likelihood: z.string().optional(),
+  mitigation_plan: z.string().optional(),
+  // Exploration fields
+  exploration_type: z.string().optional(),
 });
 
 export type DecisionCreateForm = z.infer<typeof decisionCreateSchema>;

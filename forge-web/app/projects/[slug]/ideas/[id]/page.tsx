@@ -48,7 +48,7 @@ export default function IdeaDetailPage() {
 
   // Fetch linked objectives for KR progress display
   useEffect(() => {
-    if (!idea || idea.advances_key_results.length === 0) return;
+    if (!idea || !idea.advances_key_results?.length) return;
     const fetchObjectives = async () => {
       try {
         // Extract unique objective IDs from "O-001/KR-1" format
@@ -133,7 +133,7 @@ export default function IdeaDetailPage() {
             </div>
           )}
         </div>
-        {idea.scopes.length > 0 && (
+        {idea.scopes?.length > 0 && (
           <div className="flex gap-1 mt-2">
             {idea.scopes.map((s) => (
               <span key={s} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{s}</span>
@@ -267,7 +267,7 @@ export default function IdeaDetailPage() {
       )}
 
       {/* Relations */}
-      {idea.relations.length > 0 && (
+      {idea.relations?.length > 0 && (
         <section className="mb-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">
             Relations ({idea.relations.length})
@@ -295,7 +295,7 @@ export default function IdeaDetailPage() {
       )}
 
       {/* Tags */}
-      {idea.tags.length > 0 && (
+      {idea.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-4">
           {idea.tags.map((t) => (
             <span key={t} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{t}</span>

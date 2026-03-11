@@ -10,6 +10,7 @@ import { FormDrawer } from "./FormDrawer";
 import { TextField } from "./TextField";
 import { TextAreaField } from "./TextAreaField";
 import { SelectField, type SelectOption } from "./SelectField";
+import { DynamicListField } from "./DynamicListField";
 import { FormErrorSummary } from "./FormErrorSummary";
 import type { FieldError } from "@/lib/utils/apiErrors";
 
@@ -37,6 +38,8 @@ function getDefaults(): LessonCreateForm {
     category: "pattern-discovered",
     severity: "minor",
     task_id: "",
+    decision_ids: [],
+    applies_to: "",
     tags: [],
   };
 }
@@ -104,6 +107,8 @@ export function LessonForm({ slug, open, onClose, onSuccess }: LessonFormProps) 
       <SelectField name="category" control={control} label="Category" options={CATEGORY_OPTIONS} />
       <SelectField name="severity" control={control} label="Severity" options={SEVERITY_OPTIONS} />
       <TextField name="task_id" control={control} label="Related Task" placeholder="T-001 (optional)" />
+      <DynamicListField name="decision_ids" control={control} label="Related Decisions" addLabel="Add decision" placeholder="D-001" />
+      <TextField name="applies_to" control={control} label="Applies To" placeholder="When is this lesson relevant?" />
     </FormDrawer>
   );
 }

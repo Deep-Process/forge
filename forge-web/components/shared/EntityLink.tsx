@@ -35,7 +35,8 @@ function parseEntityId(id: string) {
   return ENTITY_MAP[prefix] || null;
 }
 
-// Simple entity cache to avoid refetching
+// Simple entity cache to avoid refetching (bounded to prevent memory leaks)
+const MAX_PREVIEW_CACHE = 200;
 const previewCache = new Map<string, EntityPreviewData>();
 
 interface EntityPreviewData {
@@ -91,7 +92,14 @@ async function fetchPreview(slug: string, entityId: string): Promise<EntityPrevi
         break;
       }
     }
-    if (data) previewCache.set(`${slug}/${entityId}`, data);
+    if (data) {
+      if (previewCache.size >= MAX_PREVIEW_CACHE) {
+        // Evict oldest entry
+        const firstKey = previewCache.keys().next().value;
+        if (firstKey) previewCache.delete(firstKey);
+      }
+      previewCache.set(`${slug}/${entityId}`, data);
+    }
     return data;
   } catch {
     return null;

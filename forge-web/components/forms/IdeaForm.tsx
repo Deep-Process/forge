@@ -12,6 +12,7 @@ import { TextAreaField } from "./TextAreaField";
 import { SelectField, type SelectOption } from "./SelectField";
 import { MultiSelectField } from "./MultiSelectField";
 import { EntityRefField } from "./EntityRefField";
+import { DynamicListField } from "./DynamicListField";
 import { FormErrorSummary } from "./FormErrorSummary";
 import type { Idea } from "@/lib/types";
 import type { FieldError } from "@/lib/utils/apiErrors";
@@ -143,6 +144,8 @@ export function IdeaForm({ slug, open, onClose, idea, onSuccess }: IdeaFormProps
       <SelectField name="category" control={control} label="Category" options={CATEGORY_OPTIONS} />
       <SelectField name="priority" control={control} label="Priority" options={PRIORITY_OPTIONS} />
       <MultiSelectField name="scopes" control={control} label="Scopes" options={SCOPE_OPTIONS} />
+      <DynamicListField name="advances_key_results" control={control} label="Advances Key Results" addLabel="Add KR ref" placeholder="O-001/KR-1" />
+      <DynamicListField name="tags" control={control} label="Tags" addLabel="Add tag" placeholder="e.g., backend" />
       <EntityRefField name="parent_id" control={control} label="Parent Idea" entityTypes={["idea"]} multiple={false} placeholder="Search parent idea..." />
     </FormDrawer>
   );

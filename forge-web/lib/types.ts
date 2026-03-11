@@ -202,6 +202,12 @@ export interface DecisionUpdate {
   reasoning?: string;
   decided_by?: "claude" | "user" | "imported";
   resolution_notes?: string;
+  // Risk fields
+  severity?: string;
+  likelihood?: string;
+  mitigation_plan?: string;
+  // Exploration fields
+  exploration_type?: string;
 }
 
 // ---------------------------------------------------------------------------

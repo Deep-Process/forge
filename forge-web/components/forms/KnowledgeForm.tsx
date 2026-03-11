@@ -11,6 +11,7 @@ import { TextField } from "./TextField";
 import { TextAreaField } from "./TextAreaField";
 import { SelectField, type SelectOption } from "./SelectField";
 import { MultiSelectField } from "./MultiSelectField";
+import { DynamicListField } from "./DynamicListField";
 import { FormErrorSummary } from "./FormErrorSummary";
 import type { Knowledge } from "@/lib/types";
 import type { FieldError } from "@/lib/utils/apiErrors";
@@ -168,6 +169,7 @@ export function KnowledgeForm({ slug, open, onClose, knowledge, onSuccess }: Kno
         <SelectField name="status" control={editForm.control} label="Status" options={STATUS_OPTIONS} />
         <TextAreaField name="content" control={editForm.control} label="Content" placeholder="Knowledge content (Markdown supported)" rows={10} />
         <MultiSelectField name="scopes" control={editForm.control} label="Scopes" options={SCOPE_OPTIONS} />
+        <DynamicListField name="tags" control={editForm.control} label="Tags" addLabel="Add tag" placeholder="e.g., api, auth" />
         <TextField name="change_reason" control={editForm.control} label="Change Reason" placeholder="Why is this being updated?" />
       </FormDrawer>
     );
@@ -187,6 +189,7 @@ export function KnowledgeForm({ slug, open, onClose, knowledge, onSuccess }: Kno
       <SelectField name="category" control={createForm.control} label="Category" options={CATEGORY_OPTIONS} />
       <TextAreaField name="content" control={createForm.control} label="Content" required placeholder="Knowledge content (Markdown supported)" rows={10} />
       <MultiSelectField name="scopes" control={createForm.control} label="Scopes" options={SCOPE_OPTIONS} />
+      <DynamicListField name="tags" control={createForm.control} label="Tags" addLabel="Add tag" placeholder="e.g., api, auth" />
     </FormDrawer>
   );
 }

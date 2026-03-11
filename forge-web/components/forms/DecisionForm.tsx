@@ -5,6 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { decisionCreateSchema, type DecisionCreateForm } from "@/lib/schemas/decision";
 import { createDecision, updateDecision } from "@/stores/decisionStore";
+import type { DecisionUpdate } from "@/lib/types";
 import { parseValidationErrors, fieldErrorsToRecord } from "@/lib/utils/apiErrors";
 import { FormDrawer } from "./FormDrawer";
 import { TextField } from "./TextField";
@@ -132,12 +133,21 @@ export function DecisionForm({ slug, open, onClose, decision, defaultTaskId, onS
     setApiErrors([]);
     try {
       if (isEdit) {
-        await updateDecision(slug, decision.id, {
+        const updatePayload: DecisionUpdate = {
           status: data.status,
           recommendation: data.recommendation,
           reasoning: data.reasoning,
           resolution_notes: data.resolution_notes,
-        });
+        };
+        if (decision.type === "risk") {
+          if (data.severity) updatePayload.severity = data.severity;
+          if (data.likelihood) updatePayload.likelihood = data.likelihood;
+          if (data.mitigation_plan) updatePayload.mitigation_plan = data.mitigation_plan;
+        }
+        if (decision.type === "exploration") {
+          if (data.exploration_type) updatePayload.exploration_type = data.exploration_type;
+        }
+        await updateDecision(slug, decision.id, updatePayload);
       } else {
         await createDecision(slug, [data]);
       }
@@ -182,6 +192,19 @@ export function DecisionForm({ slug, open, onClose, decision, defaultTaskId, onS
           <SelectField name="status" control={control} label="Status" options={STATUS_OPTIONS} />
           <TextAreaField name="recommendation" control={control} label="Recommendation" required placeholder="What do you recommend?" rows={3} />
           <TextAreaField name="reasoning" control={control} label="Reasoning" placeholder="Why this recommendation?" rows={3} />
+
+          {decision.type === "risk" && (
+            <>
+              <SelectField name="severity" control={control} label="Severity" options={SEVERITY_OPTIONS} />
+              <SelectField name="likelihood" control={control} label="Likelihood" options={LIKELIHOOD_OPTIONS} />
+              <TextAreaField name="mitigation_plan" control={control} label="Mitigation Plan" placeholder="How to mitigate this risk?" rows={3} />
+            </>
+          )}
+
+          {decision.type === "exploration" && (
+            <SelectField name="exploration_type" control={control} label="Exploration Type" options={EXPLORATION_TYPE_OPTIONS} />
+          )}
+
           <TextAreaField name="resolution_notes" control={control} label="Resolution Notes" placeholder="Notes on resolution..." rows={3} />
         </>
       ) : (
