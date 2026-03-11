@@ -109,6 +109,26 @@ class EvaluateLessonResponse(BaseModel):
     mode: str = "mock"
 
 
+class SuggestKRRequest(BaseModel):
+    """Suggest key results for an objective."""
+    objective_id: str
+    context: str | None = None
+
+
+class KRSuggestion(BaseModel):
+    description: str
+    metric: str | None = None
+    metric_hint: str | None = None
+    rationale: str
+    relevance_score: float
+
+
+class SuggestKRResponse(BaseModel):
+    objective_id: str
+    suggestions: list[KRSuggestion]
+    mode: str = "mock"
+
+
 class AssessImpactRequest(BaseModel):
     """Assess impact of a knowledge change on linked entities."""
     knowledge_id: str
@@ -754,3 +774,141 @@ def _impact_level(directly_linked: bool, text_sim: float, scope_sim: float) -> s
     if combined > 0.25:
         return "medium"
     return "low"
+
+
+# ---------------------------------------------------------------------------
+# Endpoint 6: Suggest Key Results for Objective
+# ---------------------------------------------------------------------------
+
+# Heuristic KR templates by scope — used when no knowledge matches well
+_KR_TEMPLATES: dict[str, list[dict]] = {
+    "backend": [
+        {"description": "All API endpoints have comprehensive error handling", "metric_hint": "Measure endpoint coverage %"},
+        {"description": "Performance benchmarks documented and baselined", "metric": "p95 response time (ms)", "metric_hint": "Set baseline from current measurements"},
+        {"description": "Integration tests cover critical paths", "metric_hint": "Measure test coverage %"},
+    ],
+    "frontend": [
+        {"description": "All pages accessible and functional on mobile", "metric_hint": "Test on 3+ screen sizes"},
+        {"description": "Loading states implemented for all async operations", "metric_hint": "Count components with proper loading states"},
+        {"description": "Form validation provides clear user feedback", "metric_hint": "Audit all form fields"},
+    ],
+    "database": [
+        {"description": "Migration scripts are idempotent and reversible", "metric_hint": "Test rollback for each migration"},
+        {"description": "Indexes cover all frequent query patterns", "metric": "Slow query count per day", "metric_hint": "Monitor pg_stat_statements"},
+    ],
+    "ai": [
+        {"description": "LLM suggestions have relevance scoring and user feedback loop", "metric_hint": "Track acceptance rate"},
+        {"description": "Fallback behavior defined for LLM failures", "metric_hint": "Test offline/degraded mode"},
+    ],
+    "performance": [
+        {"description": "Response times meet SLA targets", "metric": "p95 latency (ms)", "metric_hint": "Measure before and after"},
+        {"description": "No memory leaks under sustained load", "metric_hint": "Profile with 1000+ requests"},
+    ],
+    "security": [
+        {"description": "Authentication covers all endpoints", "metric_hint": "Audit endpoint access controls"},
+        {"description": "No sensitive data in logs or error responses", "metric_hint": "Review log output patterns"},
+    ],
+}
+
+_GENERIC_KR_TEMPLATES = [
+    {"description": "Documentation updated to reflect changes", "metric_hint": "Check README and API docs"},
+    {"description": "All acceptance criteria from linked tasks are met", "metric_hint": "Cross-reference task tracker"},
+    {"description": "No regressions in existing functionality", "metric_hint": "Run full test suite"},
+]
+
+
+@router.post("/suggest-kr", response_model=SuggestKRResponse)
+async def suggest_kr(
+    slug: str,
+    body: SuggestKRRequest,
+    storage=Depends(get_storage),
+):
+    """Suggest key results for an objective based on its context.
+
+    Uses heuristic scoring against knowledge objects and scope-based templates.
+    """
+    await check_project_exists(storage, slug)
+
+    # Load objective
+    obj_data = await load_entity(storage, slug, "objectives")
+    obj = find_item_or_404(obj_data.get("objectives", []), body.objective_id, "Objective")
+
+    obj_text = _entity_text(obj)
+    obj_scopes = obj.get("scopes", [])
+    obj_tags = obj.get("tags", [])
+    existing_krs = {kr.get("metric", "") + kr.get("description", "")
+                    for kr in obj.get("key_results", [])}
+
+    # Score knowledge objects for relevant KR suggestions
+    k_data = await load_entity(storage, slug, "knowledge")
+    knowledge_items = [k for k in k_data.get("knowledge", []) if k.get("status") == "ACTIVE"]
+
+    scored: list[dict] = []
+
+    # Knowledge-based suggestions
+    for k in knowledge_items:
+        text_sim = _token_overlap(obj_text, _entity_text(k))
+        scope_sim = _scope_overlap(obj_scopes, k.get("scopes", k.get("scope", "")))
+        tag_sim = _tag_overlap(obj_tags, _entity_tags(k))
+        score = _combined_score(text_sim, tag_sim, scope_sim)
+
+        if score > 0.1:
+            k_title = k.get("title", "")
+            suggestion = {
+                "description": f"Address '{k_title}' requirements as defined in {k['id']}",
+                "metric_hint": f"Reference {k['id']} for measurable criteria",
+                "rationale": f"Knowledge {k['id']} ({k_title}) is relevant to this objective (score: {score})",
+                "relevance_score": round(score, 3),
+            }
+            # Deduplicate against existing KRs
+            sig = suggestion["description"]
+            if sig not in existing_krs:
+                scored.append(suggestion)
+
+    # Scope-based template suggestions
+    for scope in obj_scopes:
+        templates = _KR_TEMPLATES.get(scope, [])
+        for tmpl in templates:
+            # Check text similarity to avoid duplicates of existing KRs
+            desc = tmpl["description"]
+            if desc in existing_krs:
+                continue
+            text_sim = _token_overlap(obj_text, desc)
+            scope_score = 0.3 + text_sim * 0.4  # baseline 0.3 for scope match
+            suggestion = {
+                "description": desc,
+                "metric_hint": tmpl.get("metric_hint"),
+                "rationale": f"Recommended for '{scope}' scope objectives",
+                "relevance_score": round(min(1.0, scope_score), 3),
+            }
+            if tmpl.get("metric"):
+                suggestion["metric"] = tmpl["metric"]
+            scored.append(suggestion)
+
+    # Add generic suggestions if we don't have enough
+    if len(scored) < 3:
+        for tmpl in _GENERIC_KR_TEMPLATES:
+            desc = tmpl["description"]
+            if desc not in existing_krs:
+                scored.append({
+                    "description": desc,
+                    "metric_hint": tmpl.get("metric_hint"),
+                    "rationale": "General best practice",
+                    "relevance_score": 0.2,
+                })
+
+    # Sort by relevance, take top 5
+    scored.sort(key=lambda x: x["relevance_score"], reverse=True)
+    top = scored[:5]
+
+    # Ensure at least 3 suggestions
+    while len(top) < 3 and len(scored) > len(top):
+        top.append(scored[len(top)])
+
+    result = _mock_llm_call("suggest-kr", {"mock_result": top})
+
+    return SuggestKRResponse(
+        objective_id=body.objective_id,
+        suggestions=[KRSuggestion(**s) for s in result],
+        mode=LLM_MODE,
+    )
