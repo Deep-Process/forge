@@ -42,7 +42,7 @@ export function LlmMonitor() {
   const [statusFilter, setStatusFilter] = useState("");
 
   // Debug status
-  const { data: statusData } = useSWR<DebugStatus>(
+  const { data: statusData, mutate: refreshStatus } = useSWR<DebugStatus>(
     slug ? `debug-status-${slug}` : null,
     () => debugApi.status(slug),
     { refreshInterval: 10000 },
@@ -63,16 +63,26 @@ export function LlmMonitor() {
 
   const handleToggle = async () => {
     if (!statusData) return;
-    if (statusData.enabled) {
-      await debugApi.disable(slug);
-    } else {
-      await debugApi.enable(slug);
+    try {
+      if (statusData.enabled) {
+        await debugApi.disable(slug);
+      } else {
+        await debugApi.enable(slug);
+      }
+      refreshStatus();
+    } catch {
+      // Error captured by API debug interceptor
     }
   };
 
   const handleClear = async () => {
-    await debugApi.clear(slug);
-    refreshSessions();
+    try {
+      await debugApi.clear(slug);
+      refreshSessions();
+      refreshStatus();
+    } catch {
+      // Error captured by API debug interceptor
+    }
   };
 
   // Collect unique task IDs for filter
