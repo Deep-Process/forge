@@ -452,6 +452,11 @@ export const ai = {
       `/projects/${slug}/ai/assess-impact`,
       { knowledge_id: knowledgeId },
     ),
+  suggestKR: (slug: string, objectiveId: string, context?: string) =>
+    create<import("@/lib/types").SuggestKRResponse>(
+      `/projects/${slug}/ai/suggest-kr`,
+      { objective_id: objectiveId, ...(context ? { context } : {}) },
+    ),
 };
 
 // -- Debug Monitor --

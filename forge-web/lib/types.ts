@@ -690,6 +690,20 @@ export interface SuggestACResponse {
   mode: string;
 }
 
+export interface KRSuggestion {
+  description: string;
+  metric?: string;
+  metric_hint?: string;
+  rationale: string;
+  relevance_score: number;
+}
+
+export interface SuggestKRResponse {
+  objective_id: string;
+  suggestions: KRSuggestion[];
+  mode: string;
+}
+
 export interface PromotionRecommendation {
   target: "knowledge" | "guideline" | "none";
   confidence: number;

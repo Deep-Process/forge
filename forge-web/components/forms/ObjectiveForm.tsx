@@ -13,10 +13,11 @@ import { SelectField, type SelectOption } from "./SelectField";
 import { MultiSelectField } from "./MultiSelectField";
 import { DynamicListField } from "./DynamicListField";
 import { FormErrorSummary } from "./FormErrorSummary";
-import type { Objective, ObjectiveRelation } from "@/lib/types";
+import type { Objective, ObjectiveRelation, KRSuggestion } from "@/lib/types";
 import type { FieldError } from "@/lib/utils/apiErrors";
 import useSWR from "swr";
 import { guidelines as guidelinesApi, objectives as objectivesApi } from "@/lib/api";
+import { KRSuggestionsPanel } from "@/components/suggestions/KRSuggestionsPanel";
 
 const APPETITE_OPTIONS: SelectOption[] = [
   { value: "small", label: "Small (days)" },
@@ -264,6 +265,21 @@ export function ObjectiveForm({ slug, open, onClose, objective, onSuccess }: Obj
           + Add Key Result
         </button>
       </div>
+
+      {/* AI KR Suggestions — only when editing existing objective */}
+      {isEdit && objective && (
+        <KRSuggestionsPanel
+          slug={slug}
+          objectiveId={objective.id}
+          onApply={(suggestion: KRSuggestion) => {
+            append({
+              description: suggestion.description,
+              metric: suggestion.metric || "",
+              target: undefined,
+            });
+          }}
+        />
+      )}
 
       {/* Guidelines Picker */}
       <div className="mb-4">
