@@ -1,0 +1,28 @@
+[
+  {
+    "id": "T-038",
+    "name": "fix-critical-websocket-bugs",
+    "description": "Fix critical bugs in ws.py: (1) str(bytes) sends literal b... breaking JSON.parse on frontend — must decode bytes to utf-8 string, (2) synchronous storage.exists() blocks event loop — wrap with asyncio.to_thread, (3) no ping/pong keepalive — dead connections persist forever, (4) pubsub.aclose() may not exist in redis-py <5.0 — add compatibility check.",
+    "instruction": "Fix 4 bugs in forge-api/app/routers/ws.py:\n1. Line 65: Replace await websocket.send_text(str(data)) with bytes decode: if isinstance(data, bytes): data = data.decode(utf-8); await websocket.send_text(data)\n2. Line 48: Replace exists = storage.exists(slug, tracker) with exists = await asyncio.to_thread(storage.exists, slug, tracker)\n3. Add periodic ping in the polling loop (every 30s): send {event: ping} to detect dead connections\n4. Line 75: Wrap pubsub.aclose() with hasattr check for redis-py version compatibility",
+    "type": "bug",
+    "status": "TODO",
+    "started_at": null,
+    "completed_at": null,
+    "failed_reason": null,
+    "depends_on": [],
+    "parallel": true,
+    "conflicts_with": [],
+    "acceptance_criteria": [
+      "WebSocket messages decoded from bytes to utf-8 before sending",
+      "storage.exists() called via asyncio.to_thread",
+      "Periodic ping/pong keepalive every 30 seconds",
+      "pubsub cleanup works with both redis-py 4.x and 5.x"
+    ],
+    "scopes": [
+      "backend"
+    ],
+    "origin": "deep-verify systematic review",
+    "knowledge_ids": [],
+    "skill": null
+  }
+]

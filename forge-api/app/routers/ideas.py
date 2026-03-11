@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
     check_project_exists,
+    emit_event,
     find_item_or_404,
     load_entity,
     next_id,
@@ -128,7 +129,7 @@ async def get_idea(slug: str, idea_id: str, storage=Depends(get_storage)):
 
 
 @router.patch("/{idea_id}")
-async def update_idea(slug: str, idea_id: str, body: IdeaUpdate, storage=Depends(get_storage)):
+async def update_idea(slug: str, idea_id: str, body: IdeaUpdate, request: Request, storage=Depends(get_storage)):
     await check_project_exists(storage, slug)
     updates = body.model_dump(exclude_none=True)
     # F-16: COMMITTED can only be set via /commit endpoint
@@ -137,9 +138,9 @@ async def update_idea(slug: str, idea_id: str, body: IdeaUpdate, storage=Depends
     async with _get_lock(slug, "ideas"):
         data = await load_entity(storage, slug, "ideas")
         idea = find_item_or_404(data.get("ideas", []), idea_id, "Idea")
+        old_status = idea.get("status", "DRAFT")
         # Validate status transition
         if "status" in updates:
-            old_status = idea.get("status", "DRAFT")
             new_status = updates["status"]
             allowed = _IDEA_TRANSITIONS.get(old_status, set())
             if new_status not in allowed:
@@ -147,11 +148,15 @@ async def update_idea(slug: str, idea_id: str, body: IdeaUpdate, storage=Depends
         for k, v in updates.items():
             idea[k] = v
         await save_entity(storage, slug, "ideas", data)
+    if "status" in updates and updates["status"] != old_status:
+        await emit_event(request, slug, "idea.status_changed", {
+            "idea_id": idea_id, "old_status": old_status, "new_status": updates["status"],
+        })
     return idea
 
 
 @router.post("/{idea_id}/commit")
-async def commit_idea(slug: str, idea_id: str, storage=Depends(get_storage)):
+async def commit_idea(slug: str, idea_id: str, request: Request, storage=Depends(get_storage)):
     """Commit idea — transition to COMMITTED status (only from APPROVED)."""
     await check_project_exists(storage, slug)
     async with _get_lock(slug, "ideas"):
@@ -161,4 +166,7 @@ async def commit_idea(slug: str, idea_id: str, storage=Depends(get_storage)):
             raise HTTPException(422, f"Can only commit APPROVED ideas, got '{idea.get('status')}'")
         idea["status"] = "COMMITTED"
         await save_entity(storage, slug, "ideas", data)
+    await emit_event(request, slug, "idea.status_changed", {
+        "idea_id": idea_id, "old_status": "APPROVED", "new_status": "COMMITTED",
+    })
     return idea

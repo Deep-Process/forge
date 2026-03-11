@@ -11,7 +11,7 @@ services:
       FORGE_LLM_CONFIG_PATH: /config/providers.toml
       FORGE_HOST: "0.0.0.0"
       FORGE_PORT: "8000"
-      FORGE_CORS_ORIGINS: '["http://localhost:3000"]'
+      FORGE_CORS_ORIGINS: '["http://localhost:3000","https://0dgzrhkw-3000.euw.devtunnels.ms","https://0dgzrhkw-8000.euw.devtunnels.ms"]'
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
@@ -64,8 +64,8 @@ services:
     build:
       context: ./forge-web
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-        NEXT_PUBLIC_WS_URL: ws://localhost:8000
+        NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_WS_URL: wss://0dgzrhkw-8000.euw.devtunnels.ms
     ports:
       - "3000:3000"
     depends_on:

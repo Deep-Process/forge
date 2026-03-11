@@ -22,6 +22,7 @@ EVENT_TYPES = {
     "execution.output",
     "ai.suggestion",
     "debug.session",
+    "idea.status_changed",
 }
 
 

@@ -5,7 +5,17 @@
  * typed event handlers. Supports reconnection with exponential backoff.
  */
 
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
+function getWsBase(): string {
+  const env = process.env.NEXT_PUBLIC_WS_URL;
+  if (env) return env;
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}`;
+  }
+  return "ws://localhost:8000";
+}
+
+const WS_BASE = getWsBase();
 
 export interface ForgeEvent {
   event: string;
