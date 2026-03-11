@@ -3,9 +3,22 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { objectives as objectivesApi, ideas as ideasApi, guidelines as guidelinesApi } from "@/lib/api";
+import { objectives as objectivesApi, ideas as ideasApi, guidelines as guidelinesApi, knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
-import type { Objective, Idea, Guideline, KeyResult } from "@/lib/types";
+import type { Objective, Idea, Guideline, KeyResult, ObjectiveRelation } from "@/lib/types";
+
+const KR_STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "ACHIEVED"] as const;
+const KR_STATUS_COLORS: Record<string, string> = {
+  NOT_STARTED: "bg-gray-100 text-gray-600",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  ACHIEVED: "bg-green-100 text-green-700",
+};
+const RELATION_TYPE_COLORS: Record<string, string> = {
+  depends_on: "bg-blue-100 text-blue-700",
+  related_to: "bg-gray-100 text-gray-600",
+  supersedes: "bg-orange-100 text-orange-700",
+  duplicates: "bg-red-100 text-red-700",
+};
 
 export default function ObjectiveDetailPage() {
   const { slug, id } = useParams() as { slug: string; id: string };
@@ -17,6 +30,10 @@ export default function ObjectiveDetailPage() {
   // Related data
   const [linkedIdeas, setLinkedIdeas] = useState<Idea[]>([]);
   const [derivedGuidelines, setDerivedGuidelines] = useState<Guideline[]>([]);
+  const [scopeGuidelines, setScopeGuidelines] = useState<Guideline[]>([]);
+  const [assignedGuidelines, setAssignedGuidelines] = useState<Guideline[]>([]);
+  const [allObjectives, setAllObjectives] = useState<Objective[]>([]);
+  const [allKnowledge, setAllKnowledge] = useState<any[]>([]);
 
   // Inline KR edit state
   const [editingKR, setEditingKR] = useState<number | null>(null);
@@ -40,24 +57,44 @@ export default function ObjectiveDetailPage() {
     fetchObjective();
   }, [fetchObjective]);
 
-  // Fetch linked ideas and derived guidelines
+  // Fetch related data
   useEffect(() => {
     if (!objective) return;
     const fetchRelated = async () => {
       try {
+        // Ideas
         const ideaRes = await ideasApi.list(slug);
-        const matching = ideaRes.ideas.filter((idea) =>
+        setLinkedIdeas(ideaRes.ideas.filter((idea) =>
           idea.advances_key_results.some((akr) => akr.startsWith(id))
-        );
-        setLinkedIdeas(matching);
+        ));
 
+        // Guidelines
         const glRes = await guidelinesApi.list(slug);
-        const derived = glRes.guidelines.filter((g) => {
-          // derived_from exists in API but not in TS type
+        const allGls = glRes.guidelines || [];
+
+        // Derived guidelines
+        setDerivedGuidelines(allGls.filter((g) => {
           const gAny = g as unknown as { derived_from?: string };
           return gAny.derived_from === id;
-        });
-        setDerivedGuidelines(derived);
+        }));
+
+        // Scope-based guidelines
+        const objScopes = new Set(objective.scopes || []);
+        setScopeGuidelines(allGls.filter((g) =>
+          g.status === "ACTIVE" && objScopes.has(g.scope)
+        ));
+
+        // Explicitly assigned guidelines
+        const assignedIds = new Set(objective.guideline_ids || []);
+        setAssignedGuidelines(allGls.filter((g) => assignedIds.has(g.id)));
+
+        // Objectives for relation display
+        const objRes = await objectivesApi.list(slug);
+        setAllObjectives(objRes.objectives || []);
+
+        // Knowledge objects
+        const kRes = await knowledgeApi.list(slug);
+        setAllKnowledge(kRes.knowledge || []);
       } catch {
         // Silent fail for related data
       }
@@ -69,9 +106,14 @@ export default function ObjectiveDetailPage() {
     if (!objective) return;
     setSaving(true);
     try {
-      const updatedKRs = objective.key_results.map((kr, i) =>
-        i === krIndex ? { ...kr, current: parseFloat(editValue) || 0 } : kr
-      );
+      const kr = objective.key_results[krIndex];
+      const updatedKRs = objective.key_results.map((k, i) => {
+        if (i !== krIndex) return k;
+        if (k.metric) {
+          return { ...k, current: parseFloat(editValue) || 0 };
+        }
+        return { ...k, status: editValue as any };
+      });
       await objectivesApi.update(slug, id, { key_results: updatedKRs });
       setObjective({ ...objective, key_results: updatedKRs });
       setEditingKR(null);
@@ -82,9 +124,16 @@ export default function ObjectiveDetailPage() {
     }
   };
 
+  const getObjectiveTitle = (objId: string) => {
+    const obj = allObjectives.find((o) => o.id === objId);
+    return obj ? obj.title : objId;
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading objective...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!objective) return <p className="text-sm text-gray-400">Objective not found</p>;
+
+  const knowledgeIds = (objective as any).knowledge_ids || [];
 
   return (
     <div>
@@ -119,21 +168,131 @@ export default function ObjectiveDetailPage() {
         </h3>
         <div className="space-y-3">
           {objective.key_results.map((kr, i) => (
-            <KRProgressBar
-              key={i}
-              kr={kr}
-              index={i}
-              editing={editingKR === i}
-              editValue={editValue}
-              saving={saving}
-              onStartEdit={() => { setEditingKR(i); setEditValue(String(kr.current ?? 0)); }}
-              onCancelEdit={() => setEditingKR(null)}
-              onSave={() => handleKRSave(i)}
-              onValueChange={setEditValue}
-            />
+            kr.metric ? (
+              <NumericKRCard
+                key={i}
+                kr={kr}
+                index={i}
+                editing={editingKR === i}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={() => { setEditingKR(i); setEditValue(String(kr.current ?? 0)); }}
+                onCancelEdit={() => setEditingKR(null)}
+                onSave={() => handleKRSave(i)}
+                onValueChange={setEditValue}
+              />
+            ) : (
+              <DescriptiveKRCard
+                key={i}
+                kr={kr}
+                index={i}
+                editing={editingKR === i}
+                editValue={editValue}
+                saving={saving}
+                onStartEdit={() => { setEditingKR(i); setEditValue(kr.status || "NOT_STARTED"); }}
+                onCancelEdit={() => setEditingKR(null)}
+                onSave={() => handleKRSave(i)}
+                onValueChange={setEditValue}
+              />
+            )
           ))}
         </div>
       </section>
+
+      {/* Applied Guidelines */}
+      {(scopeGuidelines.length > 0 || assignedGuidelines.length > 0) && (
+        <section className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Applied Guidelines ({scopeGuidelines.length + assignedGuidelines.length})
+          </h3>
+          {scopeGuidelines.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">From scopes ({scopeGuidelines.length})</p>
+              <div className="space-y-1">
+                {scopeGuidelines.map((g) => (
+                  <div key={g.id} className="flex items-center gap-2 p-2 rounded border bg-white text-xs">
+                    <span className="font-mono text-gray-400">{g.id}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      g.weight === "must" ? "bg-red-100 text-red-700" :
+                      g.weight === "should" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>{g.weight}</span>
+                    <span className="text-gray-700 truncate">{g.title || g.content?.slice(0, 60)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {assignedGuidelines.length > 0 && (
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Explicitly assigned ({assignedGuidelines.length})</p>
+              <div className="space-y-1">
+                {assignedGuidelines.map((g) => (
+                  <div key={g.id} className="flex items-center gap-2 p-2 rounded border bg-forge-50 border-forge-200 text-xs">
+                    <span className="font-mono text-gray-400">{g.id}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      g.weight === "must" ? "bg-red-100 text-red-700" :
+                      g.weight === "should" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>{g.weight}</span>
+                    <span className="text-gray-700 truncate">{g.title || g.content?.slice(0, 60)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Relations */}
+      {objective.relations && objective.relations.length > 0 && (
+        <section className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Relations ({objective.relations.length})
+          </h3>
+          <div className="space-y-2">
+            {objective.relations.map((rel, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 rounded border bg-white text-xs">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                  RELATION_TYPE_COLORS[rel.type] || "bg-gray-100 text-gray-600"
+                }`}>{rel.type}</span>
+                <span className="text-gray-400">→</span>
+                <Link
+                  href={`/projects/${slug}/objectives/${rel.target_id}`}
+                  className="text-forge-600 hover:text-forge-800 font-medium"
+                >
+                  {rel.target_id}: {getObjectiveTitle(rel.target_id)?.slice(0, 40)}
+                </Link>
+                {rel.notes && <span className="text-gray-400 italic ml-2">{rel.notes}</span>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Knowledge */}
+      {knowledgeIds.length > 0 && (
+        <section className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Knowledge ({knowledgeIds.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {knowledgeIds.map((kId: string) => {
+              const k = allKnowledge.find((kn: any) => kn.id === kId);
+              return (
+                <Link
+                  key={kId}
+                  href={`/projects/${slug}/knowledge/${kId}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded border bg-white text-xs hover:border-forge-300"
+                >
+                  <span className="font-mono text-gray-400">{kId}</span>
+                  {k && <span className="text-gray-600">{k.title?.slice(0, 30)}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Linked Ideas */}
       {linkedIdeas.length > 0 && (
@@ -201,22 +360,18 @@ export default function ObjectiveDetailPage() {
   );
 }
 
-function KRProgressBar({
+/* Numeric KR with progress bar */
+function NumericKRCard({
   kr, index, editing, editValue, saving,
   onStartEdit, onCancelEdit, onSave, onValueChange,
 }: {
-  kr: KeyResult;
-  index: number;
-  editing: boolean;
-  editValue: string;
-  saving: boolean;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: () => void;
-  onValueChange: (v: string) => void;
+  kr: KeyResult; index: number; editing: boolean; editValue: string;
+  saving: boolean; onStartEdit: () => void; onCancelEdit: () => void;
+  onSave: () => void; onValueChange: (v: string) => void;
 }) {
   const baseline = kr.baseline ?? 0;
-  const span = kr.target - baseline;
+  const target = kr.target ?? 0;
+  const span = target - baseline;
   const current = kr.current ?? baseline;
   const pct = span !== 0 ? Math.min(100, Math.max(0, Math.round((current - baseline) / span * 100))) : 0;
 
@@ -236,25 +391,14 @@ function KRProgressBar({
                 className="w-20 text-xs border rounded px-2 py-1"
                 autoFocus
               />
-              <button
-                onClick={onSave}
-                disabled={saving}
-                className="text-xs text-forge-600 hover:text-forge-700 font-medium disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button onClick={onCancelEdit} className="text-xs text-gray-400 hover:text-gray-600">
-                Cancel
-              </button>
+              <button onClick={onSave} disabled={saving}
+                className="text-xs text-forge-600 hover:text-forge-700 font-medium disabled:opacity-50">Save</button>
+              <button onClick={onCancelEdit} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
             </>
           ) : (
             <>
-              <span className="text-xs text-gray-500">
-                {current} / {kr.target}
-              </span>
-              <button onClick={onStartEdit} className="text-xs text-gray-400 hover:text-forge-600">
-                Edit
-              </button>
+              <span className="text-xs text-gray-500">{current} / {target}</span>
+              <button onClick={onStartEdit} className="text-xs text-gray-400 hover:text-forge-600">Edit</button>
             </>
           )}
         </div>
@@ -273,6 +417,58 @@ function KRProgressBar({
       {baseline > 0 && (
         <div className="text-[10px] text-gray-400 mt-1">Baseline: {baseline}</div>
       )}
+      {kr.description && (
+        <p className="text-[11px] text-gray-500 mt-1 italic">{kr.description}</p>
+      )}
+    </div>
+  );
+}
+
+/* Descriptive KR with status badge */
+function DescriptiveKRCard({
+  kr, index, editing, editValue, saving,
+  onStartEdit, onCancelEdit, onSave, onValueChange,
+}: {
+  kr: KeyResult; index: number; editing: boolean; editValue: string;
+  saving: boolean; onStartEdit: () => void; onCancelEdit: () => void;
+  onSave: () => void; onValueChange: (v: string) => void;
+}) {
+  const status = kr.status || "NOT_STARTED";
+
+  return (
+    <div className="rounded-lg border bg-white p-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-medium text-gray-700">
+          KR-{index + 1}
+        </span>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <select
+                value={editValue}
+                onChange={(e) => onValueChange(e.target.value)}
+                className="text-xs border rounded px-2 py-1"
+                autoFocus
+              >
+                {KR_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s.replace("_", " ")}</option>
+                ))}
+              </select>
+              <button onClick={onSave} disabled={saving}
+                className="text-xs text-forge-600 hover:text-forge-700 font-medium disabled:opacity-50">Save</button>
+              <button onClick={onCancelEdit} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+            </>
+          ) : (
+            <>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                KR_STATUS_COLORS[status] || "bg-gray-100 text-gray-600"
+              }`}>{status.replace("_", " ")}</span>
+              <button onClick={onStartEdit} className="text-xs text-gray-400 hover:text-forge-600">Toggle</button>
+            </>
+          )}
+        </div>
+      </div>
+      <p className="text-sm text-gray-600">{kr.description}</p>
     </div>
   );
 }
