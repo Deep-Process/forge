@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { taskCreateSchema, type TaskCreateForm } from "@/lib/schemas/task";
 import { createTask, updateTask } from "@/stores/taskStore";
+import { skills as skillsApi } from "@/lib/api";
 import { parseValidationErrors, fieldErrorsToRecord } from "@/lib/utils/apiErrors";
 import { FormDrawer } from "./FormDrawer";
 import { TextField } from "./TextField";
@@ -14,7 +15,7 @@ import { MultiSelectField } from "./MultiSelectField";
 import { EntityRefField } from "./EntityRefField";
 import { DynamicListField } from "./DynamicListField";
 import { FormErrorSummary } from "./FormErrorSummary";
-import type { Task } from "@/lib/types";
+import type { Task, Skill } from "@/lib/types";
 import type { FieldError } from "@/lib/utils/apiErrors";
 
 const TYPE_OPTIONS: SelectOption[] = [
@@ -48,6 +49,7 @@ function getDefaults(task?: Task): TaskCreateForm {
         acceptance_criteria: task.acceptance_criteria || [],
         scopes: task.scopes || [],
         parallel: task.parallel || false,
+        skill_id: task.skill_id || null,
       }
     : {
         name: "",
@@ -60,6 +62,7 @@ function getDefaults(task?: Task): TaskCreateForm {
         acceptance_criteria: [],
         scopes: [],
         parallel: false,
+        skill_id: null,
       };
 }
 
@@ -75,6 +78,15 @@ export function TaskForm({ slug, open, onClose, task, onSuccess }: TaskFormProps
   const isEdit = !!task;
   const [submitting, setSubmitting] = useState(false);
   const [apiErrors, setApiErrors] = useState<FieldError[]>([]);
+  const [activeSkills, setActiveSkills] = useState<Skill[]>([]);
+
+  // Fetch ACTIVE skills for the dropdown
+  useEffect(() => {
+    if (!open) return;
+    skillsApi.list({ status: "ACTIVE" })
+      .then((res) => setActiveSkills(res.skills))
+      .catch(() => setActiveSkills([]));
+  }, [open]);
 
   const { control, handleSubmit, setError, reset } = useForm<TaskCreateForm>({
     resolver: zodResolver(taskCreateSchema),
@@ -146,6 +158,32 @@ export function TaskForm({ slug, open, onClose, task, onSuccess }: TaskFormProps
           <SelectField name="type" control={control} label="Type" options={TYPE_OPTIONS} />
           <MultiSelectField name="scopes" control={control} label="Scopes" options={SCOPE_OPTIONS} />
         </>
+      )}
+
+      {/* Linked Skill */}
+      {activeSkills.length > 0 && (
+        <Controller
+          name="skill_id"
+          control={control}
+          render={({ field }) => (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Linked Skill
+              </label>
+              <select
+                value={field.value ?? ""}
+                onChange={(e) => field.onChange(e.target.value || null)}
+                className="w-full rounded-md border px-2 py-1.5 text-sm focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
+              >
+                <option value="">None</option>
+                {activeSkills.map((s) => (
+                  <option key={s.id} value={s.id}>{s.id} — {s.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Only ACTIVE skills shown</p>
+            </div>
+          )}
+        />
       )}
 
       <DynamicListField name="acceptance_criteria" control={control} label="Acceptance Criteria" addLabel="Add criterion" placeholder="When X, then Y" />

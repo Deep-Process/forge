@@ -15,6 +15,7 @@ export const taskCreateSchema = z.object({
   scopes: z.array(z.string()).optional(),
   parallel: z.boolean().optional(),
   skill: z.string().nullable().optional(),
+  skill_id: z.string().nullable().optional(),
 });
 
 export const taskUpdateSchema = z.object({

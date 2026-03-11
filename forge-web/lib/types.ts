@@ -87,6 +87,7 @@ export interface Task {
   scopes: string[];
   parallel: boolean;
   skill: string | null;
+  skill_id: string | null;
   started_at: string | null;
   completed_at: string | null;
   failed_reason: string | null;
@@ -105,6 +106,7 @@ export interface TaskCreate {
   scopes?: string[];
   parallel?: boolean;
   skill?: string | null;
+  skill_id?: string | null;
 }
 
 export interface TaskUpdate {

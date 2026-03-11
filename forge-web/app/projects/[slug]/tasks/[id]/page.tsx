@@ -197,6 +197,28 @@ function OverviewTab({ task, slug }: { task: Task; slug: string }) {
         </section>
       )}
 
+      {/* Linked Skill */}
+      {task.skill_id && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Linked Skill</h3>
+          <Link
+            href={`/skills/${task.skill_id}`}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white hover:border-forge-300 transition-colors text-sm"
+          >
+            <span className="text-xs text-gray-400 font-mono">{task.skill_id}</span>
+            <span className="text-forge-600">View Skill &rarr;</span>
+          </Link>
+        </section>
+      )}
+
+      {/* Legacy Skill Path */}
+      {task.skill && !task.skill_id && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Skill Path</h3>
+          <code className="text-xs bg-gray-50 px-2 py-1 rounded">{task.skill}</code>
+        </section>
+      )}
+
       {/* Blocked by Decisions */}
       {task.blocked_by_decisions.length > 0 && (
         <section>
