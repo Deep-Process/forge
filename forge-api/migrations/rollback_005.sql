@@ -15,4 +15,7 @@ DROP INDEX IF EXISTS idx_skills_updated_at;
 -- Drop table
 DROP TABLE IF EXISTS skills;
 
+-- Remove migration tracking entry so migrate.py can re-apply
+DELETE FROM schema_migrations WHERE version = '005';
+
 COMMIT;
