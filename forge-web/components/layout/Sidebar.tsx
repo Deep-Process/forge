@@ -12,11 +12,13 @@ interface NavItem {
 const globalNav: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "grid" },
   { label: "Projects", href: "/projects", icon: "folder" },
+  { label: "Skills", href: "/skills", icon: "skills" },
 ];
 
 const iconMap: Record<string, string> = {
   grid: "\u25A6",
   folder: "\u{1F4C1}",
+  skills: "\u26A1",
 };
 
 export function Sidebar() {
