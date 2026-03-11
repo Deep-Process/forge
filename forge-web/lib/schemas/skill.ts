@@ -1,10 +1,7 @@
 import { z } from "zod";
 
-const skillCategory = z.enum([
-  "workflow", "analysis", "generation", "validation",
-  "integration", "refactoring", "testing", "deployment",
-  "documentation", "custom",
-]);
+// Category is a string (supports custom categories beyond defaults)
+const skillCategory = z.string().min(1);
 
 const skillStatus = z.enum(["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"]);
 

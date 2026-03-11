@@ -171,7 +171,7 @@ export default function IdeaDetailPage() {
                     )
                     .map((kr, krIdx) => {
                       const baseline = kr.baseline ?? 0;
-                      const span = kr.target - baseline;
+                      const span = (kr.target ?? 0) - baseline;
                       const pct = span !== 0 ? Math.min(100, Math.max(0, Math.round(((kr.current ?? baseline) - baseline) / span * 100))) : 0;
                       return (
                         <div key={krIdx} className="flex items-center gap-2 text-xs">

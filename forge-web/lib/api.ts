@@ -155,6 +155,19 @@ export async function remove<T>(path: string): Promise<T> {
   return request<T>(path, { method: "DELETE" });
 }
 
+/** Fetch a file/blob from the API (for export downloads). */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, {
+    headers: buildHeaders(false),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => res.statusText);
+    throw new ApiError(res.status, body);
+  }
+  return res.blob();
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -229,6 +242,7 @@ import type {
   AssessImpactResponse,
   DebugStatus, DebugSessionSummary, DebugSession,
   Skill, SkillCreate, SkillUpdate, LintResult, PromoteResult,
+  SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef,
 } from "./types";
 
 // -- Projects --
@@ -474,8 +488,24 @@ export const skills = {
     remove<{ removed: string }>(`/skills/${id}`),
   lint: (id: string) =>
     create<LintResult>(`/skills/${id}/lint`, {}),
+  lintAll: (params?: Record<string, string>) =>
+    create<BulkLintResult>(`/skills/lint-all`, params ?? {}),
   promote: (id: string, force: boolean = false) =>
     create<PromoteResult>(`/skills/${id}/promote`, { force }),
+  generate: (data: SkillGenerateRequest) =>
+    create<{ skill_md_content: string; parsed_metadata: Record<string, unknown> }>("/skills/generate", data),
+  importSkill: (data: SkillImportRequest) =>
+    create<{ skill_id: string; name: string; parsed_frontmatter: Record<string, unknown> }>("/skills/import", data),
+  exportSkill: (id: string) =>
+    fetchBlob(`/skills/${id}/export`),
+  exportBulk: (skillIds?: string[], format: "json" | "zip" = "zip") =>
+    create<Blob | { skills: Skill[]; count: number }>("/skills/export-bulk", { skill_ids: skillIds, format }),
+  categories: () =>
+    get<{ categories: SkillCategoryDef[] }>("/skills/categories"),
+  addCategory: (data: { key: string; label: string; color: string }) =>
+    create<{ added: string; categories: SkillCategoryDef[] }>("/skills/categories", data),
+  removeCategory: (key: string) =>
+    remove<{ removed: string }>(`/skills/categories/${key}`),
 };
 
 // -- Debug Monitor --

@@ -1,12 +1,16 @@
-"""Skills router — CRUD for global platform skills (no project slug)."""
+"""Skills router — CRUD + lint + promote + generate + import/export + categories."""
 
 from __future__ import annotations
 
 import asyncio
+import io
+import json
+import zipfile
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.dependencies import get_storage
@@ -18,6 +22,11 @@ from app.routers._helpers import (
     next_id,
     save_global_entity,
 )
+from app.services.frontmatter import (
+    generate_frontmatter,
+    merge_frontmatter_to_metadata,
+    parse_frontmatter,
+)
 from app.services.teslint import run_teslint
 
 router = APIRouter(prefix="/skills", tags=["skills"])
@@ -28,12 +37,25 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 _ENTITY = "skills"
 _LOCK_NS = "_global"  # Lock namespace (not a file path)
 
-VALID_CATEGORIES = [
+DEFAULT_CATEGORIES = [
     "workflow", "analysis", "generation", "validation",
     "integration", "refactoring", "testing", "deployment",
     "documentation", "custom",
 ]
 VALID_STATUSES = ["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"]
+
+DEFAULT_CATEGORY_COLORS: dict[str, str] = {
+    "workflow": "blue",
+    "analysis": "purple",
+    "generation": "green",
+    "validation": "yellow",
+    "integration": "cyan",
+    "refactoring": "orange",
+    "testing": "red",
+    "deployment": "indigo",
+    "documentation": "gray",
+    "custom": "slate",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -43,11 +65,7 @@ VALID_STATUSES = ["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"]
 class SkillCreate(BaseModel):
     name: str
     description: str = ""
-    category: Literal[
-        "workflow", "analysis", "generation", "validation",
-        "integration", "refactoring", "testing", "deployment",
-        "documentation", "custom",
-    ] = "custom"
+    category: str = "custom"
     skill_md_content: str | None = None
     evals_json: list[dict] = []
     resources: dict = {}
@@ -60,11 +78,7 @@ class SkillCreate(BaseModel):
 class SkillUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    category: Literal[
-        "workflow", "analysis", "generation", "validation",
-        "integration", "refactoring", "testing", "deployment",
-        "documentation", "custom",
-    ] | None = None
+    category: str | None = None
     status: Literal["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"] | None = None
     skill_md_content: str | None = None
     evals_json: list[dict] | None = None
@@ -72,6 +86,34 @@ class SkillUpdate(BaseModel):
     teslint_config: dict | None = None
     tags: list[str] | None = None
     scopes: list[str] | None = None
+
+
+class SkillImportRequest(BaseModel):
+    content: str
+    filename: str | None = None
+    category: str | None = None
+
+
+class SkillGenerateRequest(BaseModel):
+    description: str
+    category: str | None = None
+    examples: list[str] = []
+    style_hints: str | None = None
+
+
+class BulkExportRequest(BaseModel):
+    skill_ids: list[str] | None = None
+    format: Literal["json", "zip"] = "zip"
+
+
+class CategoryCreate(BaseModel):
+    key: str
+    label: str
+    color: str = "slate"
+
+
+class PromoteRequest(BaseModel):
+    force: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +128,39 @@ def _ensure_data(data: dict) -> dict:
     """Ensure skills data has proper structure."""
     if "skills" not in data:
         data["skills"] = []
+    if "config" not in data:
+        data["config"] = {}
+    if "custom_categories" not in data.get("config", {}):
+        data.setdefault("config", {})["custom_categories"] = []
     return data
+
+
+def _get_all_categories(data: dict) -> list[dict]:
+    """Return all categories (defaults + custom) with colors."""
+    categories = []
+    for key in DEFAULT_CATEGORIES:
+        categories.append({
+            "key": key,
+            "label": key.capitalize(),
+            "color": DEFAULT_CATEGORY_COLORS.get(key, "slate"),
+            "is_default": True,
+        })
+    for cat in data.get("config", {}).get("custom_categories", []):
+        categories.append({
+            "key": cat["key"],
+            "label": cat.get("label", cat["key"].capitalize()),
+            "color": cat.get("color", "slate"),
+            "is_default": False,
+        })
+    return categories
+
+
+def _valid_category_keys(data: dict) -> set[str]:
+    """Return set of valid category keys (defaults + custom)."""
+    keys = set(DEFAULT_CATEGORIES)
+    for cat in data.get("config", {}).get("custom_categories", []):
+        keys.add(cat["key"])
+    return keys
 
 
 def _matches_filter(skill: dict, **filters) -> bool:
@@ -131,14 +205,229 @@ async def _check_skill_in_use(storage, skill_id: str) -> list[dict]:
                             "task_name": task.get("name"),
                         })
             except Exception:
-                continue  # Skip projects with broken trackers
+                continue
     except Exception:
-        pass  # Storage error — fall through
+        pass
     return in_use
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Fixed-path endpoints (MUST be before parameterized /{skill_id} routes)
+# ---------------------------------------------------------------------------
+
+@router.post("/lint-all")
+async def lint_all_skills(
+    status: str | None = Query(None),
+    category: str | None = Query(None),
+    storage=Depends(get_storage),
+):
+    """Run TESLint on all skills (or filtered). Returns results matrix."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skills = data["skills"]
+
+    if status:
+        skills = [s for s in skills if s.get("status") == status]
+    if category:
+        skills = [s for s in skills if s.get("category") == category]
+
+    lintable = [s for s in skills if s.get("skill_md_content")]
+
+    sem = asyncio.Semaphore(4)
+
+    async def _lint_one(skill: dict) -> dict:
+        async with sem:
+            result = await asyncio.to_thread(
+                run_teslint,
+                skill.get("name", skill["id"]),
+                skill["skill_md_content"],
+                skill.get("teslint_config"),
+            )
+            return {
+                "skill_id": skill["id"],
+                "skill_name": skill.get("name", ""),
+                "status": skill.get("status", "DRAFT"),
+                "passed": result.passed,
+                "error_count": result.error_count,
+                "warning_count": result.warning_count,
+                "error_message": result.error_message,
+            }
+
+    results = await asyncio.gather(*[_lint_one(s) for s in lintable])
+
+    return {
+        "results": list(results),
+        "total": len(lintable),
+        "passed": sum(1 for r in results if r["passed"]),
+        "failed": sum(1 for r in results if not r["passed"]),
+    }
+
+
+@router.post("/import", status_code=201)
+async def import_skill(
+    body: SkillImportRequest,
+    request: Request,
+    storage=Depends(get_storage),
+):
+    """Import a skill from raw SKILL.md content."""
+    fm = parse_frontmatter(body.content)
+
+    name = fm.name or body.filename or "Imported Skill"
+    description = fm.description or ""
+    category = body.category or "custom"
+
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
+        data = _ensure_data(data)
+        skills = data["skills"]
+
+        skill_id = next_id(skills, "S")
+        now = _now_iso()
+        skill = {
+            "id": skill_id,
+            "name": name,
+            "description": description,
+            "category": category,
+            "status": "DRAFT",
+            "skill_md_content": body.content,
+            "evals_json": [],
+            "resources": {},
+            "teslint_config": None,
+            "tags": [],
+            "scopes": [],
+            "promoted_with_warnings": False,
+            "promotion_history": [],
+            "usage_count": 0,
+            "created_by": "import",
+            "created_at": now,
+            "updated_at": now,
+        }
+        skills.append(skill)
+        await save_global_entity(storage, _ENTITY, data)
+
+    await emit_event(request, _LOCK_NS, "skill.created", {"id": skill_id})
+    return {"skill_id": skill_id, "name": name, "parsed_frontmatter": fm.raw}
+
+
+@router.post("/export-bulk")
+async def export_bulk(body: BulkExportRequest, storage=Depends(get_storage)):
+    """Export multiple skills as JSON or ZIP of .md files."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skills = data["skills"]
+
+    if body.skill_ids:
+        skills = [s for s in skills if s.get("id") in body.skill_ids]
+
+    if body.format == "json":
+        return {"skills": skills, "count": len(skills)}
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for skill in skills:
+            content = skill.get("skill_md_content") or ""
+            if not content:
+                content = generate_frontmatter(
+                    name=skill.get("name", skill["id"]),
+                    description=skill.get("description", ""),
+                ) + f"\n\n# {skill.get('name', skill['id'])}\n"
+            safe_name = skill.get("name", skill["id"]).replace(" ", "-").replace("/", "_")
+            zf.writestr(f"{safe_name}.SKILL.md", content)
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="skills-export.zip"'},
+    )
+
+
+@router.post("/generate")
+async def generate_skill(body: SkillGenerateRequest):
+    """Generate SKILL.md content from description (mock mode)."""
+    desc = body.description.strip()
+    words = desc.split()
+    name = "-".join(words[:3]).lower().replace(",", "").replace(".", "")
+    if len(name) > 40:
+        name = name[:40]
+    title = " ".join(words[:5]).title()
+    id_upper = name.upper().replace("-", "_")
+
+    content = _SKILL_TEMPLATE.format(
+        name=name,
+        id_upper=id_upper,
+        description=desc,
+        title=title,
+        purpose=desc[:80].lower(),
+        core_instruction=desc,
+    )
+
+    fm = parse_frontmatter(content)
+
+    return {
+        "skill_md_content": content,
+        "parsed_metadata": {
+            "name": fm.name,
+            "description": fm.description,
+            "version": fm.version,
+            "allowed_tools": fm.allowed_tools,
+        },
+    }
+
+
+@router.get("/categories")
+async def list_categories(storage=Depends(get_storage)):
+    """List all skill categories with colors."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    return {"categories": _get_all_categories(data)}
+
+
+@router.post("/categories", status_code=201)
+async def add_category(body: CategoryCreate, storage=Depends(get_storage)):
+    """Add a custom skill category."""
+    if body.key in DEFAULT_CATEGORIES:
+        raise HTTPException(422, f"Category '{body.key}' is a default and cannot be re-added")
+
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
+        data = _ensure_data(data)
+        custom = data["config"]["custom_categories"]
+
+        if any(c["key"] == body.key for c in custom):
+            raise HTTPException(422, f"Category '{body.key}' already exists")
+
+        custom.append({"key": body.key, "label": body.label, "color": body.color})
+        await save_global_entity(storage, _ENTITY, data)
+
+    return {"added": body.key, "categories": _get_all_categories(data)}
+
+
+@router.delete("/categories/{key}")
+async def remove_category(key: str, storage=Depends(get_storage)):
+    """Remove a custom category. Default categories cannot be removed."""
+    if key in DEFAULT_CATEGORIES:
+        raise HTTPException(422, f"Cannot remove default category '{key}'")
+
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
+        data = _ensure_data(data)
+
+        using = [s for s in data["skills"] if s.get("category") == key]
+        if using:
+            raise HTTPException(
+                409,
+                f"Cannot remove category '{key}' — used by {len(using)} skill(s)",
+            )
+
+        custom = data["config"]["custom_categories"]
+        data["config"]["custom_categories"] = [c for c in custom if c["key"] != key]
+        await save_global_entity(storage, _ENTITY, data)
+
+    return {"removed": key}
+
+
+# ---------------------------------------------------------------------------
+# CRUD endpoints
 # ---------------------------------------------------------------------------
 
 @router.get("")
@@ -184,12 +473,21 @@ async def create_skills(
         skills = data["skills"]
 
         for item in body:
+            name = item.name
+            description = item.description
+            if item.skill_md_content:
+                meta = merge_frontmatter_to_metadata(item.skill_md_content)
+                if not name and meta.get("name"):
+                    name = meta["name"]
+                if not description and meta.get("description"):
+                    description = meta["description"]
+
             skill_id = next_id(skills, "S")
             now = _now_iso()
             skill = {
                 "id": skill_id,
-                "name": item.name,
-                "description": item.description,
+                "name": name,
+                "description": description,
                 "category": item.category,
                 "status": "DRAFT",
                 "skill_md_content": item.skill_md_content,
@@ -216,6 +514,10 @@ async def create_skills(
     return {"added": added, "total": len(data["skills"])}
 
 
+# ---------------------------------------------------------------------------
+# Parameterized endpoints (/{skill_id} — AFTER all fixed paths)
+# ---------------------------------------------------------------------------
+
 @router.get("/{skill_id}")
 async def get_skill(skill_id: str, storage=Depends(get_storage)):
     """Get a single skill by ID."""
@@ -232,7 +534,7 @@ async def update_skill(
     request: Request,
     storage=Depends(get_storage),
 ):
-    """Update a skill. Status transitions validated."""
+    """Update a skill. Auto-parses frontmatter when content changes."""
     async with _get_lock(_LOCK_NS, _ENTITY):
         data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
@@ -242,9 +544,6 @@ async def update_skill(
         if not updates:
             return skill
 
-        # Status transition validation
-        # NOTE: DRAFT→ACTIVE is NOT allowed via PATCH — use POST /skills/{id}/promote
-        # which enforces gates (valid SKILL.md, evals, TESLint). See G-015, T-082.
         if "status" in updates:
             new_status = updates["status"]
             current = skill.get("status", "DRAFT")
@@ -260,6 +559,13 @@ async def update_skill(
                     f"Cannot transition from {current} to {new_status}. "
                     f"Valid: {valid_transitions.get(current, set())}",
                 )
+
+        if "skill_md_content" in updates and updates["skill_md_content"]:
+            meta = merge_frontmatter_to_metadata(updates["skill_md_content"])
+            if meta.get("name") and "name" not in updates:
+                updates["name"] = meta["name"]
+            if meta.get("description") and "description" not in updates:
+                updates["description"] = meta["description"]
 
         for key, value in updates.items():
             skill[key] = value
@@ -281,9 +587,8 @@ async def delete_skill(
     async with _get_lock(_LOCK_NS, _ENTITY):
         data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
-        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+        find_item_or_404(data["skills"], skill_id, "Skill")
 
-        # Scan projects for IN_PROGRESS tasks referencing this skill
         in_use = await _check_skill_in_use(storage, skill_id)
         if in_use:
             task_list = ", ".join(f"{u['project']}/{u['task_id']}" for u in in_use)
@@ -300,15 +605,12 @@ async def delete_skill(
 
 
 # ---------------------------------------------------------------------------
-# Lint endpoint
+# Lint endpoint (per-skill)
 # ---------------------------------------------------------------------------
 
 @router.post("/{skill_id}/lint")
-async def lint_skill(
-    skill_id: str,
-    storage=Depends(get_storage),
-):
-    """Run TESLint on a skill's SKILL.md content. Returns findings."""
+async def lint_skill(skill_id: str, storage=Depends(get_storage)):
+    """Run TESLint on a skill's SKILL.md content."""
     data = await load_global_entity(storage, _ENTITY)
     data = _ensure_data(data)
     skill = find_item_or_404(data["skills"], skill_id, "Skill")
@@ -318,20 +620,12 @@ async def lint_skill(
         raise HTTPException(422, f"Skill '{skill_id}' has no SKILL.md content to lint")
 
     result = await asyncio.to_thread(
-        run_teslint,
-        skill.get("name", skill_id),
-        content,
-        skill.get("teslint_config"),
+        run_teslint, skill.get("name", skill_id), content, skill.get("teslint_config"),
     )
 
     findings = [
-        {
-            "rule_id": f.rule_id,
-            "severity": f.severity,
-            "message": f.message,
-            "line": f.line,
-            "column": f.column,
-        }
+        {"rule_id": f.rule_id, "severity": f.severity, "message": f.message,
+         "line": f.line, "column": f.column}
         for f in result.findings
     ]
 
@@ -348,12 +642,8 @@ async def lint_skill(
 
 
 # ---------------------------------------------------------------------------
-# Promote endpoint — DRAFT → ACTIVE with 3-gate validation
+# Promote endpoint
 # ---------------------------------------------------------------------------
-
-class PromoteRequest(BaseModel):
-    force: bool = False
-
 
 @router.post("/{skill_id}/promote")
 async def promote_skill(
@@ -362,139 +652,180 @@ async def promote_skill(
     request: Request,
     storage=Depends(get_storage),
 ):
-    """Promote a skill from DRAFT to ACTIVE.
-
-    Three gates:
-    1. SKILL.md has YAML frontmatter with name + description
-    2. evals_json has at least 1 entry
-    3. TESLint passes with 0 errors
-
-    If all pass: DRAFT → ACTIVE.
-    If TESLint fails and force=True: DRAFT → ACTIVE + promoted_with_warnings=True.
-    """
+    """Promote DRAFT → ACTIVE with 3-gate validation."""
     async with _get_lock(_LOCK_NS, _ENTITY):
         data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
         skill = find_item_or_404(data["skills"], skill_id, "Skill")
 
         if skill.get("status") != "DRAFT":
-            raise HTTPException(
-                422,
-                f"Only DRAFT skills can be promoted. Current status: {skill.get('status')}",
-            )
+            raise HTTPException(422, f"Only DRAFT skills can be promoted. Current: {skill.get('status')}")
 
-        # --- Gate 1: SKILL.md frontmatter ---
-        gate_results = []
         content = skill.get("skill_md_content", "") or ""
+        gate_results = []
 
-        has_frontmatter = content.strip().startswith("---")
-        has_name = bool(skill.get("name"))
-        has_description = bool(skill.get("description"))
-        gate1_passed = has_frontmatter and has_name and has_description
+        fm = parse_frontmatter(content)
+        gate1_passed = fm.valid and bool(skill.get("name")) and bool(skill.get("description"))
         gate_results.append({
             "gate": "frontmatter",
             "passed": gate1_passed,
             "detail": (
-                "SKILL.md has valid frontmatter with name and description"
+                "Valid SKILL.md frontmatter with name and description"
                 if gate1_passed
-                else "Missing: "
-                + (", ".join(filter(None, [
-                    "YAML frontmatter (---)" if not has_frontmatter else None,
-                    "name" if not has_name else None,
-                    "description" if not has_description else None,
-                ])))
+                else "Missing: " + ", ".join(fm.errors or ["name or description"])
             ),
         })
 
-        # --- Gate 2: Evals ---
         evals = skill.get("evals_json", [])
         gate2_passed = len(evals) >= 1
         gate_results.append({
             "gate": "evals",
             "passed": gate2_passed,
-            "detail": (
-                f"{len(evals)} eval(s) defined"
-                if gate2_passed
-                else "At least 1 eval test case required"
-            ),
+            "detail": f"{len(evals)} eval(s) defined" if gate2_passed else "At least 1 eval required",
         })
 
-        # --- Gate 3: TESLint ---
         gate3_passed = False
         teslint_error_count = 0
         teslint_warning_count = 0
         if content.strip():
             lint_result = await asyncio.to_thread(
-                run_teslint,
-                skill.get("name", skill_id),
-                content,
-                skill.get("teslint_config"),
+                run_teslint, skill.get("name", skill_id), content, skill.get("teslint_config"),
             )
             gate3_passed = lint_result.passed
             teslint_error_count = lint_result.error_count
             teslint_warning_count = lint_result.warning_count
-
-            if not lint_result.success and lint_result.error_message:
-                gate_results.append({
-                    "gate": "teslint",
-                    "passed": False,
-                    "detail": f"TESLint error: {lint_result.error_message}",
-                })
-            else:
-                gate_results.append({
-                    "gate": "teslint",
-                    "passed": gate3_passed,
-                    "detail": (
-                        f"TESLint passed ({teslint_warning_count} warnings)"
-                        if gate3_passed
-                        else f"TESLint found {teslint_error_count} error(s), {teslint_warning_count} warning(s)"
-                    ),
-                })
-        else:
             gate_results.append({
                 "gate": "teslint",
-                "passed": False,
-                "detail": "No SKILL.md content to lint",
+                "passed": gate3_passed,
+                "detail": (
+                    f"TESLint passed ({teslint_warning_count} warnings)"
+                    if gate3_passed
+                    else lint_result.error_message or f"TESLint: {teslint_error_count} error(s)"
+                ),
             })
+        else:
+            gate_results.append({"gate": "teslint", "passed": False, "detail": "No content to lint"})
 
-        # --- Decision ---
         all_passed = gate1_passed and gate2_passed and gate3_passed
         can_promote = all_passed or (gate1_passed and gate2_passed and body.force)
 
         if not can_promote:
             failed = [g for g in gate_results if not g["passed"]]
-            msg = "Promotion blocked. Failed gates: " + "; ".join(
-                f"{g['gate']}: {g['detail']}" for g in failed
-            )
+            msg = "Promotion blocked: " + "; ".join(f"{g['gate']}: {g['detail']}" for g in failed)
             if not body.force and not gate3_passed and gate1_passed and gate2_passed:
-                msg += ". Use force=true to override TESLint errors."
+                msg += ". Use force=true to override TESLint."
             raise HTTPException(422, msg)
 
-        # Promote
         now = _now_iso()
         skill["status"] = "ACTIVE"
-        skill["promoted_with_warnings"] = not all_passed  # True if force-promoted
+        skill["promoted_with_warnings"] = not all_passed
         skill["updated_at"] = now
-
-        # Append promotion history
-        history_entry = {
+        skill.setdefault("promotion_history", []).append({
             "promoted_at": now,
             "error_count": teslint_error_count,
             "warning_count": teslint_warning_count,
             "forced": body.force and not all_passed,
             "gates": gate_results,
-        }
-        if "promotion_history" not in skill:
-            skill["promotion_history"] = []
-        skill["promotion_history"].append(history_entry)
+        })
 
         await save_global_entity(storage, _ENTITY, data)
 
     await emit_event(request, _LOCK_NS, "skill.promoted", {"id": skill_id})
-
     return {
         "skill_id": skill_id,
         "status": "ACTIVE",
         "promoted_with_warnings": skill["promoted_with_warnings"],
         "gates": gate_results,
     }
+
+
+# ---------------------------------------------------------------------------
+# Export (per-skill, parameterized)
+# ---------------------------------------------------------------------------
+
+@router.get("/{skill_id}/export")
+async def export_skill(skill_id: str, storage=Depends(get_storage)):
+    """Export a skill as a downloadable .md file."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+
+    content = skill.get("skill_md_content") or ""
+    if not content:
+        content = generate_frontmatter(
+            name=skill.get("name", skill_id),
+            description=skill.get("description", ""),
+        ) + f"\n\n# {skill.get('name', skill_id)}\n"
+
+    safe_name = skill.get("name", skill_id).replace(" ", "-").replace("/", "_")
+    filename = f"{safe_name}.SKILL.md"
+
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Generate template (LLM / mock)
+# ---------------------------------------------------------------------------
+
+_SKILL_TEMPLATE = """---
+name: {name}
+id: SKILL-{id_upper}
+version: "1.0.0"
+description: >
+  {description}
+allowed-tools: [Read, Glob, Grep, Bash]
+---
+
+# {title}
+
+{description}
+
+## What This Adds (Beyond Native Capability)
+
+- Structured, repeatable procedure for {purpose}
+- Explicit success criteria and verification steps
+- Scope transparency — states what is NOT covered
+
+## Procedure
+
+### Step 1: Gather Context
+
+Read relevant files and understand the current state.
+
+### Step 2: Execute Core Task
+
+{core_instruction}
+
+### Step 3: Validate Results
+
+Verify that the output meets the success criteria.
+
+## Output Format
+
+Present results in a structured format with clear sections.
+
+## Success Criteria
+
+- [ ] Core task completed successfully
+- [ ] Output follows the specified format
+- [ ] No unintended side effects
+
+## Rules
+
+- Always verify before reporting completion
+- Document any assumptions made
+- Flag uncertainties explicitly
+
+## Scope Transparency
+
+This skill does NOT:
+- Handle edge cases beyond the described scope
+- Make architectural decisions without user input
+- Modify files outside the specified scope
+"""
+
+

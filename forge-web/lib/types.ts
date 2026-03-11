@@ -744,10 +744,7 @@ export interface AssessImpactResponse {
 // ---------------------------------------------------------------------------
 
 export type SkillStatus = "DRAFT" | "ACTIVE" | "DEPRECATED" | "ARCHIVED";
-export type SkillCategory =
-  | "workflow" | "analysis" | "generation" | "validation"
-  | "integration" | "refactoring" | "testing" | "deployment"
-  | "documentation" | "custom";
+export type SkillCategory = string;
 
 export interface TESLintFinding {
   rule_id: string;
@@ -827,6 +824,41 @@ export interface PromoteResult {
   status: string;
   promoted_with_warnings: boolean;
   gates: Array<{ gate: string; passed: boolean; detail: string }>;
+}
+
+export interface SkillGenerateRequest {
+  description: string;
+  category?: string;
+  examples?: string[];
+  style_hints?: string;
+}
+
+export interface SkillImportRequest {
+  content: string;
+  filename?: string;
+  category?: string;
+}
+
+export interface BulkLintResult {
+  results: Array<{
+    skill_id: string;
+    skill_name: string;
+    status: string;
+    passed: boolean;
+    error_count: number;
+    warning_count: number;
+    error_message: string | null;
+  }>;
+  total: number;
+  passed: number;
+  failed: number;
+}
+
+export interface SkillCategoryDef {
+  key: string;
+  label: string;
+  color: string;
+  is_default: boolean;
 }
 
 // ---------------------------------------------------------------------------
