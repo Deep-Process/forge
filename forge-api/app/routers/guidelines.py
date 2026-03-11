@@ -132,6 +132,9 @@ async def update_guideline(slug: str, guideline_id: str, body: GuidelineUpdate, 
         data = await load_entity(storage, slug, "guidelines")
         guideline = find_item_or_404(data.get("guidelines", []), guideline_id, "Guideline")
         updates = body.model_dump(exclude_none=True)
+        # Block content changes on DEPRECATED guidelines (only status changes allowed)
+        if guideline.get("status") == "DEPRECATED" and set(updates.keys()) - {"status"}:
+            raise HTTPException(422, "Cannot modify DEPRECATED guideline fields — only status changes allowed")
         for k, v in updates.items():
             guideline[k] = v
         await save_entity(storage, slug, "guidelines", data)

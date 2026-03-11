@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -16,6 +17,8 @@ from app.routers._helpers import (
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 
 class ProjectCreate(BaseModel):
@@ -39,6 +42,11 @@ async def list_projects(storage=Depends(get_storage)):
 @router.post("", status_code=201)
 async def create_project(body: ProjectCreate, storage=Depends(get_storage)):
     """Create a new project."""
+    if not _SLUG_RE.match(body.slug):
+        raise HTTPException(422, "Invalid project slug — use alphanumeric, hyphens, underscores only")
+    exists = await asyncio.to_thread(storage.exists, body.slug, "tracker")
+    if exists:
+        raise HTTPException(409, f"Project '{body.slug}' already exists")
     data = {
         "project": body.slug,
         "goal": body.goal,

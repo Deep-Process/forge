@@ -501,7 +501,10 @@ class ContractValidationMiddleware(BaseHTTPMiddleware):
             if not body_bytes:
                 return await call_next(request)
             if len(body_bytes) > _MAX_BODY_SIZE:
-                return await call_next(request)
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large for validation"},
+                )
             data = json.loads(body_bytes)
         except (json.JSONDecodeError, UnicodeDecodeError):
             # Let FastAPI/Pydantic handle JSON parse errors

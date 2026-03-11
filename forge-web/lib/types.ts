@@ -36,7 +36,7 @@ export type ACTemplateCategory =
   | "performance" | "security" | "quality" | "functionality"
   | "accessibility" | "reliability" | "data-integrity" | "ux";
 export type KnowledgeLinkEntityType =
-  | "task" | "decision" | "idea" | "objective" | "knowledge" | "guideline" | "lesson";
+  | "task" | "idea" | "objective" | "knowledge" | "guideline" | "lesson";
 export type KnowledgeLinkRelation =
   | "required" | "context" | "reference" | "depends_on"
   | "references" | "derived-from" | "supports" | "contradicts";
@@ -527,13 +527,14 @@ export interface TokenUsage {
 }
 
 export interface ExecutionState {
+  execution_id: string;
   task_id: string;
+  project: string;
   status: ExecutionStatus;
-  started_at: string | null;
+  started_at: string;
   completed_at: string | null;
-  duration_seconds: number | null;
+  output_chunks: Array<{ index: number; content: string; timestamp?: string }>;
   token_usage: TokenUsage;
-  output: string;
   error: string | null;
 }
 
@@ -705,4 +706,61 @@ export interface AssessImpactResponse {
   impact_items: ImpactItem[];
   summary: string;
   mode: string;
+}
+
+// ---------------------------------------------------------------------------
+// Debug Monitor
+// ---------------------------------------------------------------------------
+
+export interface DebugSessionSummary {
+  session_id: string;
+  timestamp: string;
+  contract_id: string | null;
+  provider: string;
+  model: string;
+  task_id: string | null;
+  execution_id: string | null;
+  status: "pending" | "success" | "error" | "validation_failed";
+  latency_ms: number;
+  token_usage: { input_tokens: number; output_tokens: number; total_tokens: number };
+  error: string | null;
+}
+
+export interface DebugContextSection {
+  name: string;
+  header: string;
+  content: string;
+  token_estimate: number;
+  was_truncated: boolean;
+}
+
+export interface DebugValidationResult {
+  rule_id: string;
+  description: string;
+  passed: boolean;
+  error: string | null;
+}
+
+export interface DebugSession extends DebugSessionSummary {
+  contract_name: string | null;
+  temperature: number;
+  max_tokens: number;
+  response_format: string;
+  system_prompt: string;
+  user_prompt: string;
+  context_sections: DebugContextSection[];
+  total_context_tokens: number;
+  tools: Record<string, unknown>[] | null;
+  raw_response: string;
+  parsed_output: Record<string, unknown> | null;
+  stop_reason: string;
+  validation_results: DebugValidationResult[];
+  validation_passed: boolean;
+  error_type: string | null;
+}
+
+export interface DebugStatus {
+  enabled: boolean;
+  project: string;
+  session_count: number;
 }

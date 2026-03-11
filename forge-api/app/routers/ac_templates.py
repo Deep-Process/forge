@@ -140,15 +140,22 @@ async def instantiate_template(
             if name and name not in params and "default" in p:
                 params[name] = p["default"]
 
-        # Substitute placeholders
-        result = tmpl_str
-        for key, value in params.items():
-            result = result.replace(f"{{{key}}}", str(value))
+        # Substitute placeholders (single-pass to prevent injection via param values)
+        def _substitute(match: re.Match) -> str:
+            name = match.group(1)
+            if name in params:
+                return str(params[name])
+            return match.group(0)  # keep unresolved
 
-        # Check for unresolved placeholders
-        unresolved = re.findall(r"\{(\w+)\}", result)
+        result = re.sub(r"\{(\w+)\}", _substitute, tmpl_str)
+
+        # Check for unresolved placeholders (only original template placeholders)
+        unresolved = [
+            m for m in re.findall(r"\{(\w+)\}", tmpl_str)
+            if m not in params
+        ]
         if unresolved:
-            raise HTTPException(422, f"Missing parameters: {', '.join(unresolved)}")
+            raise HTTPException(422, f"Missing parameters: {', '.join(set(unresolved))}")
 
         # Increment usage count
         template["usage_count"] = template.get("usage_count", 0) + 1

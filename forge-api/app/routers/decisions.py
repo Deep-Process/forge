@@ -28,6 +28,16 @@ VALID_TYPES = Literal[
 VALID_CONFIDENCE = Literal["HIGH", "MEDIUM", "LOW"]
 VALID_STATUS = Literal["OPEN", "CLOSED", "DEFERRED", "ANALYZING", "MITIGATED", "ACCEPTED"]
 
+# Allowed status transitions for decisions
+_DECISION_TRANSITIONS: dict[str, set[str]] = {
+    "OPEN": {"CLOSED", "DEFERRED", "ANALYZING"},
+    "ANALYZING": {"OPEN", "CLOSED", "DEFERRED", "MITIGATED", "ACCEPTED"},
+    "DEFERRED": {"OPEN", "CLOSED"},
+    "MITIGATED": {"CLOSED"},
+    "ACCEPTED": {"CLOSED"},
+    "CLOSED": set(),  # terminal
+}
+
 
 class DecisionCreate(BaseModel):
     task_id: str
@@ -37,7 +47,7 @@ class DecisionCreate(BaseModel):
     reasoning: str = ""
     alternatives: list[str] = []
     confidence: VALID_CONFIDENCE = "MEDIUM"
-    status: VALID_STATUS = "OPEN"
+    status: VALID_STATUS = "OPEN"  # ignored — always forced to OPEN
     decided_by: Literal["claude", "user", "imported"] = "claude"
     file: str = ""
     scope: str = ""
@@ -96,7 +106,7 @@ async def add_decisions(request: Request, slug: str, body: list[DecisionCreate],
         added = []
         for item in body:
             decision_id = next_id(decisions, "D")
-            decision = {"id": decision_id, **item.model_dump()}
+            decision = {"id": decision_id, **item.model_dump(), "status": "OPEN"}
             decisions.append(decision)
             added.append(decision_id)
         data["decisions"] = decisions
@@ -123,6 +133,13 @@ async def update_decision(request: Request, slug: str, decision_id: str, body: D
         data = await load_entity(storage, slug, "decisions")
         decision = find_item_or_404(data.get("decisions", []), decision_id, "Decision")
         updates = body.model_dump(exclude_none=True)
+        # Validate status transition
+        if "status" in updates:
+            old_status = decision.get("status", "OPEN")
+            new_status = updates["status"]
+            allowed = _DECISION_TRANSITIONS.get(old_status, set())
+            if new_status not in allowed:
+                raise HTTPException(422, f"Invalid transition: {old_status} -> {new_status}")
         for k, v in updates.items():
             decision[k] = v
         await save_entity(storage, slug, "decisions", data)

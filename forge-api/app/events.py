@@ -21,6 +21,7 @@ EVENT_TYPES = {
     "gate.result",
     "execution.output",
     "ai.suggestion",
+    "debug.session",
 }
 
 

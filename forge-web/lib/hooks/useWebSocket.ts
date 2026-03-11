@@ -13,6 +13,7 @@ import { getToken } from "../api";
 export function useWebSocket(slug: string | null) {
   const wsRef = useRef<ForgeWebSocket | null>(null);
   const [connected, setConnected] = useState(false);
+  const [instanceId, setInstanceId] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
@@ -20,8 +21,9 @@ export function useWebSocket(slug: string | null) {
     const ws = new ForgeWebSocket(slug, getToken());
     wsRef.current = ws;
     ws.connect();
+    setInstanceId((prev) => prev + 1);
 
-    // Poll connection status (WebSocket API has no onconnected callback we can hook into cleanly)
+    // Poll connection status
     const interval = setInterval(() => {
       setConnected(ws.connected);
     }, 1000);
@@ -38,14 +40,16 @@ export function useWebSocket(slug: string | null) {
     (eventType: string, handler: EventHandler) => {
       return wsRef.current?.on(eventType, handler) ?? (() => {});
     },
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [instanceId],
   );
 
   const onAny = useCallback(
     (handler: EventHandler) => {
       return wsRef.current?.onAny(handler) ?? (() => {});
     },
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [instanceId],
   );
 
   return { connected, on, onAny };

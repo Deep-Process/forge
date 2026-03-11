@@ -17,10 +17,7 @@ _entity_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
 def _get_lock(project: str, entity: str) -> asyncio.Lock:
     """Get or create an asyncio.Lock for a (project, entity) pair."""
-    key = (project, entity)
-    if key not in _entity_locks:
-        _entity_locks[key] = asyncio.Lock()
-    return _entity_locks[key]
+    return _entity_locks.setdefault((project, entity), asyncio.Lock())
 
 
 # ---------------------------------------------------------------------------

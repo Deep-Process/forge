@@ -152,6 +152,22 @@ async def claim_next_task(
         tracker = await load_entity(storage, slug, "tracker")
         tasks = tracker.get("tasks", [])
 
+        # Reset stale CLAIMING tasks (stuck from crashed/restarted server)
+        import time
+        _CLAIM_TIMEOUT = 30  # seconds
+        now_ts = time.time()
+        stale_reset = False
+        for t in tasks:
+            if t.get("status") == "CLAIMING":
+                claimed_at = t.get("claimed_at", 0)
+                if now_ts - claimed_at > _CLAIM_TIMEOUT:
+                    t["status"] = "TODO"
+                    t.pop("agent", None)
+                    t.pop("claimed_at", None)
+                    stale_reset = True
+        if stale_reset:
+            await save_entity(storage, slug, "tracker", tracker)
+
         done_ids = {t["id"] for t in tasks if t.get("status") == "DONE"}
         active_ids = {t["id"] for t in tasks if t.get("status") in ("IN_PROGRESS", "CLAIMING")}
         active_conflicts = set()
@@ -160,8 +176,10 @@ async def claim_next_task(
                 active_conflicts.update(t.get("conflicts_with", []))
 
         # Load decisions for blocked_by_decisions check (F-05)
+        # Include all resolved statuses, not just CLOSED
+        _RESOLVED_STATUSES = {"CLOSED", "DEFERRED", "MITIGATED", "ACCEPTED"}
         dec_data = await load_entity(storage, slug, "decisions")
-        closed_decisions = {d["id"] for d in dec_data.get("decisions", []) if d.get("status") == "CLOSED"}
+        closed_decisions = {d["id"] for d in dec_data.get("decisions", []) if d.get("status") in _RESOLVED_STATUSES}
 
         claimed_id = None
         for task in tasks:
@@ -179,6 +197,7 @@ async def claim_next_task(
 
             # Phase 1: CLAIMING (only one task)
             task["status"] = "CLAIMING"
+            task["claimed_at"] = time.time()
             if agent:
                 task["agent"] = agent
             await save_entity(storage, slug, "tracker", tracker)
@@ -203,6 +222,7 @@ async def claim_next_task(
             raise HTTPException(409, f"Task {claimed_id} was claimed by another agent")
 
         task["status"] = "IN_PROGRESS"
+        task.pop("claimed_at", None)  # clean up temporary field
         await save_entity(storage, slug, "tracker", tracker)
         await emit_event(request, slug, "task.status_changed", {
             "task_id": claimed_id, "old_status": "TODO", "new_status": "IN_PROGRESS",

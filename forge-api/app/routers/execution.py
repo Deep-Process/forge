@@ -109,7 +109,9 @@ async def _run_mock_execution(
     """Simulate LLM streaming execution in background.
 
     Yields mock chunks with realistic timing, emits events via EventBus,
-    and updates the in-memory execution record.
+    and updates the in-memory execution record.  When the LLM Debug Monitor
+    is enabled for the project, a DebugSession is created and finalised
+    alongside the execution.
     """
     record = _executions.get(execution_id)
     if record is None:
@@ -132,10 +134,53 @@ async def _run_mock_execution(
         except Exception:
             pass
 
+    # --- Debug capture: start session if enabled ---
+    debug_capture = getattr(request_app.state, "debug_capture", None)
+    debug_session_id: str | None = None
+    if debug_capture is not None:
+        try:
+            debug_enabled = await debug_capture.is_enabled(slug)
+            if debug_enabled:
+                debug_session_id = await debug_capture.capture_start(
+                    slug,
+                    task_id=task_id,
+                    execution_id=execution_id,
+                    contract_id=None,
+                    contract_name="mock-execution",
+                    provider="mock",
+                    model="mock-streamer-v1",
+                    temperature=0.0,
+                    max_tokens=4096,
+                    response_format="text",
+                    system_prompt="You are a mock execution engine for Forge.",
+                    user_prompt=f"Execute task {task_id} in project {slug}.",
+                    context_sections=[{
+                        "name": "task_context",
+                        "header": "Task Context",
+                        "content": f"Mock execution for task {task_id}",
+                        "token_estimate": 50,
+                        "was_truncated": False,
+                    }],
+                    total_context_tokens=2400,
+                )
+        except Exception:
+            debug_session_id = None
+
     try:
         for i, chunk in enumerate(_MOCK_CHUNKS):
-            # Check for cancellation
+            # Check for cancellation (status-flag path)
             if record["status"] == "cancelled":
+                # F-012: Finalize debug session on status-flag cancellation
+                if debug_capture and debug_session_id:
+                    try:
+                        await debug_capture.capture_error(
+                            debug_session_id,
+                            error="Execution cancelled",
+                            error_type="cancelled",
+                        )
+                        await debug_capture.finalize(debug_session_id, slug)
+                    except Exception:
+                        pass
                 return
 
             record["output_chunks"].append(chunk)
@@ -173,6 +218,30 @@ async def _run_mock_execution(
             except Exception:
                 pass
 
+        # --- Debug capture: record response on success ---
+        if debug_capture and debug_session_id:
+            try:
+                raw = "".join(record["output_chunks"])
+                await debug_capture.capture_response(
+                    debug_session_id,
+                    raw_response=raw,
+                    stop_reason="end_turn",
+                    token_usage=record["token_usage"],
+                )
+                await debug_capture.capture_validation(
+                    debug_session_id,
+                    validation_results=[{
+                        "rule_id": "mock-pass",
+                        "description": "Mock validation always passes",
+                        "passed": True,
+                        "error": None,
+                    }],
+                    validation_passed=True,
+                )
+                await debug_capture.finalize(debug_session_id, slug)
+            except Exception:
+                pass
+
     except asyncio.CancelledError:
         record["status"] = "cancelled"
         record["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -186,6 +255,19 @@ async def _run_mock_execution(
                 })
             except Exception:
                 pass
+
+        # --- Debug capture: record cancellation ---
+        if debug_capture and debug_session_id:
+            try:
+                await debug_capture.capture_error(
+                    debug_session_id,
+                    error="Execution cancelled",
+                    error_type="cancelled",
+                )
+                await debug_capture.finalize(debug_session_id, slug)
+            except Exception:
+                pass
+
     except Exception as exc:
         record["status"] = "failed"
         record["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -200,6 +282,18 @@ async def _run_mock_execution(
                     "status": "failed",
                     "error": str(exc),
                 })
+            except Exception:
+                pass
+
+        # --- Debug capture: record error ---
+        if debug_capture and debug_session_id:
+            try:
+                await debug_capture.capture_error(
+                    debug_session_id,
+                    error=str(exc),
+                    error_type="provider_error",
+                )
+                await debug_capture.finalize(debug_session_id, slug)
             except Exception:
                 pass
 
@@ -298,16 +392,21 @@ async def start_execution(
     )
     _execution_tasks[execution_id] = bg_task
 
-    # When background task finishes, persist final state
+    # When background task finishes, persist final state and clean up memory
     def _on_done(fut: asyncio.Task) -> None:
         async def _persist_final():
             try:
-                await _persist_execution(storage, slug, _executions.get(execution_id, record))
+                final_record = _executions.get(execution_id, record)
+                await _persist_execution(storage, slug, final_record)
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).error("Failed to persist execution %s: %s", execution_id, exc)
             finally:
                 _execution_tasks.pop(execution_id, None)
+                # Clean up completed executions from memory to prevent unbounded growth
+                rec = _executions.get(execution_id)
+                if rec and rec.get("status") in ("completed", "failed", "cancelled"):
+                    _executions.pop(execution_id, None)
         asyncio.ensure_future(_persist_final())
 
     bg_task.add_done_callback(_on_done)
@@ -449,13 +548,15 @@ async def cancel_execution(
     record["status"] = "cancelled"
     record["completed_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Cancel the background asyncio task
-    bg_task = _execution_tasks.pop(execution_id, None)
+    # Cancel the background asyncio task (_on_done callback will persist)
+    bg_task = _execution_tasks.get(execution_id)
     if bg_task and not bg_task.done():
         bg_task.cancel()
-
-    # Persist cancellation
-    await _persist_execution(storage, slug, record)
+    else:
+        # No background task running — persist directly and clean up
+        _execution_tasks.pop(execution_id, None)
+        await _persist_execution(storage, slug, record)
+        _executions.pop(execution_id, None)
 
     await emit_event(request, slug, "execution.output", {
         "execution_id": execution_id,
@@ -473,9 +574,13 @@ async def cancel_execution(
 
 # ---------------------------------------------------------------------------
 # WebSocket endpoint for streaming execution output
+# Registered on a separate router (no HTTP auth dependencies)
 # ---------------------------------------------------------------------------
 
-@router.websocket("/{task_id}/stream")
+ws_router = APIRouter()
+
+
+@ws_router.websocket("/ws/projects/{slug}/execute/{task_id}/stream")
 async def execution_stream(websocket: WebSocket, slug: str, task_id: str):
     """WebSocket endpoint for real-time execution output streaming.
 
@@ -509,10 +614,10 @@ async def execution_stream(websocket: WebSocket, slug: str, task_id: str):
             await websocket.close(code=4001, reason="Unauthorized")
             return
 
-    # Validate project exists
+    # Validate project exists (async to avoid blocking event loop)
     storage = websocket.app.state.storage
     if storage is not None:
-        exists = storage.exists(slug, "tracker")
+        exists = await asyncio.to_thread(storage.exists, slug, "tracker")
         if not exists:
             await websocket.close(code=4004, reason="Project not found")
             return
@@ -527,13 +632,18 @@ async def execution_stream(websocket: WebSocket, slug: str, task_id: str):
     pubsub = None
     try:
         import json
+        import time
         pubsub = await event_bus.subscribe(slug)
+        last_ping = time.monotonic()
 
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
             if message and message["type"] == "message":
                 try:
-                    data = json.loads(message["data"])
+                    raw = message["data"]
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8")
+                    data = json.loads(raw)
                     # Only forward execution.output events for this task
                     if (
                         data.get("event") == "execution.output"
@@ -551,6 +661,11 @@ async def execution_stream(websocket: WebSocket, slug: str, task_id: str):
                     logging.getLogger(__name__).debug("Malformed event payload: %s", e)
             else:
                 await asyncio.sleep(0.05)
+
+            # Periodic ping to detect dead connections
+            if time.monotonic() - last_ping >= 30:
+                await websocket.send_json({"event": "ping"})
+                last_ping = time.monotonic()
     except WebSocketDisconnect:
         pass
     except Exception as e:
@@ -559,4 +674,7 @@ async def execution_stream(websocket: WebSocket, slug: str, task_id: str):
     finally:
         if pubsub is not None:
             await pubsub.unsubscribe()
-            await pubsub.aclose()
+            if hasattr(pubsub, "aclose"):
+                await pubsub.aclose()
+            elif hasattr(pubsub, "close"):
+                await pubsub.close()

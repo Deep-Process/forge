@@ -100,13 +100,15 @@ async def promote_lesson(
     target = body.target if body else "guideline"
 
     if target == "guideline":
-        # Lock both lessons and global guidelines
+        # Lock lessons for entire operation to prevent double-promotion
         async with _get_lock(slug, "lessons"):
             data = await load_entity(storage, slug, "lessons")
             lesson = find_item_or_404(data.get("lessons", []), lesson_id, "Lesson")
 
             if lesson.get("promoted_to_guideline"):
-                raise HTTPException(422, f"Already promoted to {lesson['promoted_to_guideline']}")
+                raise HTTPException(422, f"Already promoted to guideline {lesson['promoted_to_guideline']}")
+            if lesson.get("promoted_to_knowledge"):
+                raise HTTPException(422, f"Already promoted to knowledge {lesson['promoted_to_knowledge']}")
 
             # Load global guidelines
             g_data = await asyncio.to_thread(storage.load_global, "guidelines")
@@ -132,37 +134,38 @@ async def promote_lesson(
         return {"promoted_to": "guideline", "guideline_id": guideline_id}
 
     elif target == "knowledge":
+        # Hold lessons lock for entire operation to prevent TOCTOU race
         async with _get_lock(slug, "lessons"):
             data = await load_entity(storage, slug, "lessons")
             lesson = find_item_or_404(data.get("lessons", []), lesson_id, "Lesson")
 
             if lesson.get("promoted_to_knowledge"):
-                raise HTTPException(422, f"Already promoted to {lesson['promoted_to_knowledge']}")
+                raise HTTPException(422, f"Already promoted to knowledge {lesson['promoted_to_knowledge']}")
+            if lesson.get("promoted_to_guideline"):
+                raise HTTPException(422, f"Already promoted to guideline {lesson['promoted_to_guideline']}")
 
-        async with _get_lock(slug, "knowledge"):
-            k_data = await load_entity(storage, slug, "knowledge")
-            entries = k_data.get("knowledge", [])
+            # Nest knowledge lock inside lessons lock
+            async with _get_lock(slug, "knowledge"):
+                k_data = await load_entity(storage, slug, "knowledge")
+                entries = k_data.get("knowledge", [])
 
-            k_id = next_id(entries, "K")
-            knowledge = {
-                "id": k_id,
-                "title": lesson["title"],
-                "content": lesson["detail"],
-                "category": body.category if body and body.category else "technical-context",
-                "scopes": body.scopes if body and body.scopes else [],
-                "tags": lesson.get("tags", []),
-                "status": "ACTIVE",
-                "promoted_from": lesson["id"],
-                "versions": [],
-                "linked_entities": [],
-            }
-            entries.append(knowledge)
-            k_data["knowledge"] = entries
-            await save_entity(storage, slug, "knowledge", k_data)
+                k_id = next_id(entries, "K")
+                knowledge = {
+                    "id": k_id,
+                    "title": lesson["title"],
+                    "content": lesson["detail"],
+                    "category": body.category if body and body.category else "technical-context",
+                    "scopes": body.scopes if body and body.scopes else [],
+                    "tags": lesson.get("tags", []),
+                    "status": "ACTIVE",
+                    "promoted_from": lesson["id"],
+                    "versions": [],
+                    "linked_entities": [],
+                }
+                entries.append(knowledge)
+                k_data["knowledge"] = entries
+                await save_entity(storage, slug, "knowledge", k_data)
 
-        async with _get_lock(slug, "lessons"):
-            data = await load_entity(storage, slug, "lessons")
-            lesson = find_item_or_404(data.get("lessons", []), lesson_id, "Lesson")
             lesson["promoted_to_knowledge"] = k_id
             await save_entity(storage, slug, "lessons", data)
 

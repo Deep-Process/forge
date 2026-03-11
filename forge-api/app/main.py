@@ -19,6 +19,7 @@ from app.routers import (
     ai,
     auth,
     changes,
+    debug,
     decisions,
     execution,
     gates,
@@ -69,6 +70,10 @@ async def lifespan(app: FastAPI):
 
     # Event bus (Redis Pub/Sub)
     app.state.event_bus = EventBus(app.state.redis)
+
+    # Debug capture service (LLM Debug Monitor)
+    from app.debug_capture import DebugCapture
+    app.state.debug_capture = DebugCapture(app.state.storage, app.state.event_bus)
 
     yield
 
@@ -166,5 +171,7 @@ app.include_router(lessons.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ac_templates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(gates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(execution.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(debug.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ai.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ws.router)
+app.include_router(execution.ws_router)  # Execution WS — own auth, no HTTP deps

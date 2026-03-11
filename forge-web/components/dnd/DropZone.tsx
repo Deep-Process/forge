@@ -161,7 +161,7 @@ export function DropZone({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`transition-colors duration-150 rounded-lg
+      className={`relative transition-colors duration-150 rounded-lg
         ${highlight ? "ring-2 ring-forge-400 bg-forge-50/60" : ""}
         ${isActive ? "" : "opacity-50 pointer-events-none"}
         ${className}`}

@@ -6,6 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
 import { useEntityStore } from "@/stores/entityStore";
+import { DebugToggle } from "@/components/debug/DebugToggle";
 
 interface NavItem {
   label: string;
@@ -26,6 +27,7 @@ const entityNav: NavItem[] = [
   { label: "AC Templates", segment: "ac-templates" },
   { label: "Changes", segment: "changes" },
   { label: "Lessons", segment: "lessons" },
+  { label: "Debug", segment: "debug" },
   { label: "Execution", segment: "execution", contextual: true },
 ];
 
@@ -58,12 +60,15 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           <Link href="/projects" className="hover:text-gray-600">Projects</Link>
           <span>/</span>
           <span className="text-gray-700 font-medium">{slug}</span>
-          <span
-            className={`ml-auto inline-block h-2.5 w-2.5 rounded-full ${
-              connected ? "bg-green-500" : "bg-red-500"
-            }`}
-            title={connected ? "WebSocket connected" : "WebSocket disconnected"}
-          />
+          <div className="ml-auto flex items-center gap-2">
+            <DebugToggle slug={slug} />
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                connected ? "bg-green-500" : "bg-red-500"
+              }`}
+              title={connected ? "WebSocket connected" : "WebSocket disconnected"}
+            />
+          </div>
         </div>
         {detail && (
           <p className="text-sm text-gray-500">{detail.goal}</p>

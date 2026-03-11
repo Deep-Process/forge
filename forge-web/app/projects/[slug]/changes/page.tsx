@@ -33,7 +33,7 @@ export default function ChangesPage() {
             className="rounded-md border px-2 py-1 text-sm focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
           >
             <option value="">All</option>
-            {["create", "edit", "delete", "rename", "move", "verify"].map((a) => (
+            {["create", "edit", "delete", "rename", "move"].map((a) => (
               <option key={a} value={a}>{a}</option>
             ))}
           </select>

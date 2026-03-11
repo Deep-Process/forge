@@ -337,15 +337,23 @@ export const useEntityStore = create<EntityState>((set, get) => ({
       let items: AnyEntity[];
 
       switch (op) {
-        case "update":
+        case "update": {
           // Merge payload into existing item to handle partial payloads
           if (!payloadId) return {};
+          // Map WS event fields to entity fields (e.g. new_status -> status)
+          const mergeData = { ...payload };
+          if ("new_status" in mergeData) {
+            mergeData.status = mergeData.new_status;
+            delete mergeData.new_status;
+            delete mergeData.old_status;
+          }
           items = slice.items.map((item) =>
             getItemId(item, type) === payloadId
-              ? ({ ...item, ...payload } as unknown as AnyEntity)
+              ? ({ ...item, ...mergeData } as unknown as AnyEntity)
               : item,
           );
           break;
+        }
 
         case "remove":
           if (!payloadId) return {};

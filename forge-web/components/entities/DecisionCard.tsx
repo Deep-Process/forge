@@ -22,7 +22,7 @@ export function DecisionCard({ decision, onClose }: DecisionCardProps) {
           <h3 className="font-medium text-sm">{decision.issue}</h3>
           <p className="text-xs text-gray-500 mt-1">{decision.recommendation}</p>
         </div>
-        {onClose && decision.status === "OPEN" && (
+        {onClose && !["CLOSED", "MITIGATED", "ACCEPTED"].includes(decision.status) && (
           <button
             onClick={() => onClose(decision.id)}
             className="text-xs text-forge-600 hover:text-forge-700 font-medium ml-2"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
 import { useEntityStore } from "@/stores/entityStore";
@@ -12,11 +12,18 @@ export default function ProjectDashboardPage() {
   const slug = params.slug as string;
 
   const { statuses, fetchStatus } = useProjectStore();
-  const { slices, fetchEntities } = useEntityStore();
+  const { slices, fetchEntities, clearSlice } = useEntityStore();
   const status = statuses[slug];
+  const prevSlugRef = useRef(slug);
 
   useEffect(() => {
     if (slug) {
+      // Clear stale data from previous project to avoid cross-project flash
+      if (prevSlugRef.current !== slug) {
+        const types = ["tasks", "decisions", "changes", "objectives", "ideas", "knowledge", "guidelines", "lessons"] as const;
+        types.forEach((t) => clearSlice(t));
+        prevSlugRef.current = slug;
+      }
       fetchStatus(slug);
       fetchEntities(slug, "tasks");
       fetchEntities(slug, "decisions");
@@ -27,7 +34,7 @@ export default function ProjectDashboardPage() {
       fetchEntities(slug, "guidelines");
       fetchEntities(slug, "lessons");
     }
-  }, [slug, fetchStatus, fetchEntities]);
+  }, [slug, fetchStatus, fetchEntities, clearSlice]);
 
   const tasks = slices.tasks.items as import("@/lib/types").Task[];
   const allDecisions = slices.decisions.items as import("@/lib/types").Decision[];

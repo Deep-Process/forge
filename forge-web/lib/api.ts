@@ -166,6 +166,7 @@ import type {
   SuggestACResponse,
   EvaluateLessonResponse,
   AssessImpactResponse,
+  DebugStatus, DebugSessionSummary, DebugSession,
 } from "./types";
 
 // -- Projects --
@@ -388,4 +389,40 @@ export const ai = {
       `/projects/${slug}/ai/assess-impact`,
       { knowledge_id: knowledgeId },
     ),
+};
+
+// -- Debug Monitor --
+export const debug = {
+  enable: (slug: string) =>
+    create<{ enabled: boolean; project: string }>(
+      `/projects/${slug}/debug/enable`, {},
+    ),
+  disable: (slug: string) =>
+    create<{ enabled: boolean; project: string }>(
+      `/projects/${slug}/debug/disable`, {},
+    ),
+  status: (slug: string) =>
+    get<DebugStatus>(`/projects/${slug}/debug/status`),
+  sessions: (slug: string, params?: {
+    task_id?: string;
+    contract_id?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.task_id) searchParams.set("task_id", params.task_id);
+    if (params?.contract_id) searchParams.set("contract_id", params.contract_id);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.offset) searchParams.set("offset", String(params.offset));
+    const qs = searchParams.toString();
+    return get<{ sessions: DebugSessionSummary[]; total: number }>(
+      `/projects/${slug}/debug/sessions${qs ? `?${qs}` : ""}`,
+    );
+  },
+  session: (slug: string, sessionId: string) =>
+    get<DebugSession>(`/projects/${slug}/debug/sessions/${sessionId}`),
+  clear: (slug: string) =>
+    remove<{ cleared: number }>(`/projects/${slug}/debug/sessions`),
 };

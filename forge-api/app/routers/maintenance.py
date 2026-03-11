@@ -243,6 +243,11 @@ async def stale_knowledge(
     entries = data.get("knowledge", [])
     now = datetime.now(timezone.utc)
 
+    # Preload referencing entities for consistent total_references calculation
+    tracker = await load_entity(storage, slug, "tracker")
+    ideas_data = await load_entity(storage, slug, "ideas")
+    obj_data = await load_entity(storage, slug, "objectives")
+
     stale_items: list[dict] = []
 
     for entry in entries:
@@ -257,8 +262,13 @@ async def stale_knowledge(
         days_since = _days_since_update(entry, now)
 
         if is_stale or status == "REVIEW_NEEDED":
+            k_id = entry.get("id", "")
             linked_count = _count_linked_entities(entry)
-            suggestion = _generate_review_suggestion(entry, days_since, linked_count)
+            ext_task_count = sum(1 for t in tracker.get("tasks", []) if k_id in t.get("knowledge_ids", []))
+            ext_idea_count = sum(1 for i in ideas_data.get("ideas", []) if k_id in i.get("knowledge_ids", []))
+            ext_obj_count = sum(1 for o in obj_data.get("objectives", []) if k_id in o.get("knowledge_ids", []))
+            total_references = linked_count + ext_task_count + ext_idea_count + ext_obj_count
+            suggestion = _generate_review_suggestion(entry, days_since, total_references)
 
             stale_items.append({
                 "id": entry.get("id", ""),

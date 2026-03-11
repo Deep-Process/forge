@@ -24,6 +24,15 @@ IDEA_CATEGORIES = Literal[
     "refactor", "infrastructure", "business-opportunity", "research",
 ]
 
+# Allowed status transitions for ideas
+_IDEA_TRANSITIONS: dict[str, set[str]] = {
+    "DRAFT": {"EXPLORING", "REJECTED"},
+    "EXPLORING": {"APPROVED", "REJECTED", "DRAFT"},
+    "APPROVED": set(),  # COMMITTED only via /commit endpoint
+    "REJECTED": {"DRAFT"},  # allow reopen to draft
+    "COMMITTED": set(),  # terminal
+}
+
 
 class IdeaCreate(BaseModel):
     title: str
@@ -128,6 +137,13 @@ async def update_idea(slug: str, idea_id: str, body: IdeaUpdate, storage=Depends
     async with _get_lock(slug, "ideas"):
         data = await load_entity(storage, slug, "ideas")
         idea = find_item_or_404(data.get("ideas", []), idea_id, "Idea")
+        # Validate status transition
+        if "status" in updates:
+            old_status = idea.get("status", "DRAFT")
+            new_status = updates["status"]
+            allowed = _IDEA_TRANSITIONS.get(old_status, set())
+            if new_status not in allowed:
+                raise HTTPException(422, f"Invalid transition: {old_status} -> {new_status}")
         for k, v in updates.items():
             idea[k] = v
         await save_entity(storage, slug, "ideas", data)

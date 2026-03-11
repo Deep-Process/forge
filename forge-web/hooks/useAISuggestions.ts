@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ai } from "@/lib/api";
 import type {
   AISuggestionEntityType,
@@ -68,6 +68,14 @@ export function useAISuggestions(
       setLoading(false);
     }
   }, [slug, entityType, entityId, suggestionType]);
+
+  // Auto-fetch when suggestion type changes
+  useEffect(() => {
+    if (slug && entityId) {
+      refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionType]);
 
   return { suggestions, loading, error, refetch };
 }

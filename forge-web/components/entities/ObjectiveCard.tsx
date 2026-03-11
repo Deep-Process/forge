@@ -18,7 +18,9 @@ export function ObjectiveCard({ objective }: ObjectiveCardProps) {
       {objective.key_results.length > 0 && (
         <div className="mt-2 space-y-1">
           {objective.key_results.map((kr, i) => {
-            const pct = kr.target > 0 ? Math.round(((kr.current ?? 0) / kr.target) * 100) : 0;
+            const baseline = kr.baseline ?? 0;
+            const span = kr.target - baseline;
+            const pct = span !== 0 ? Math.min(100, Math.max(0, Math.round(((kr.current ?? baseline) - baseline) / span * 100))) : 0;
             return (
               <div key={i} className="flex items-center gap-2 text-xs">
                 <span className="text-gray-500 flex-1 truncate">{kr.metric}</span>

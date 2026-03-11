@@ -67,6 +67,8 @@ class EntityType(str, Enum):
     LESSONS = "lessons"
     KNOWLEDGE = "knowledge"
     AC_TEMPLATES = "ac_templates"
+    EXECUTIONS = "executions"
+    DEBUG_SESSIONS = "debug_sessions"
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +132,16 @@ def default_structure(entity: str, project: str) -> dict:
             "project": project,
             "updated": ts,
             "ac_templates": [],
+        },
+        EntityType.EXECUTIONS: {
+            "project": project,
+            "updated": ts,
+            "executions": [],
+        },
+        EntityType.DEBUG_SESSIONS: {
+            "project": project,
+            "updated": ts,
+            "sessions": [],
         },
     }
 

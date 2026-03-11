@@ -39,7 +39,7 @@ export type OnRelationshipBuilt = (result: RelationshipResult) => void;
 
 const ENTITY_TYPE_TO_LINK_TYPE: Record<string, KnowledgeLink["entity_type"] | undefined> = {
   tasks: "task",
-  decisions: "decision",
+  decisions: undefined,  // decisions not supported as knowledge link target
   ideas: "idea",
   objectives: "objective",
   knowledge: "knowledge",

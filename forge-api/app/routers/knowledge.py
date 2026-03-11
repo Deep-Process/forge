@@ -234,6 +234,23 @@ async def impact_analysis(slug: str, k_id: str, storage=Depends(get_storage)):
 @router.post("/{k_id}/link", status_code=201)
 async def link_entity(slug: str, k_id: str, body: LinkCreate, storage=Depends(get_storage)):
     await check_project_exists(storage, slug)
+
+    # Validate that the linked entity actually exists
+    _ENTITY_STORE_MAP = {
+        "task": ("tracker", "tasks"),
+        "idea": ("ideas", "ideas"),
+        "objective": ("objectives", "objectives"),
+        "knowledge": ("knowledge", "knowledge"),
+        "guideline": ("guidelines", "guidelines"),
+        "lesson": ("lessons", "lessons"),
+    }
+    store_info = _ENTITY_STORE_MAP.get(body.entity_type)
+    if store_info:
+        entity_data = await load_entity(storage, slug, store_info[0])
+        items = entity_data.get(store_info[1], [])
+        if not any(item.get("id") == body.entity_id for item in items):
+            raise HTTPException(404, f"{body.entity_type} '{body.entity_id}' not found")
+
     async with _get_lock(slug, "knowledge"):
         data = await load_entity(storage, slug, "knowledge")
         entry = find_item_or_404(data.get("knowledge", []), k_id, "Knowledge")
