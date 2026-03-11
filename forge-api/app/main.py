@@ -16,14 +16,17 @@ from app.contract_validation import ContractValidationMiddleware
 from app.events import EventBus
 from app.routers import (
     ac_templates,
+    ai,
     auth,
     changes,
     decisions,
+    execution,
     gates,
     guidelines,
     ideas,
     knowledge,
     lessons,
+    maintenance,
     objectives,
     projects,
     tasks,
@@ -156,9 +159,12 @@ app.include_router(ideas.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(tasks.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(decisions.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(knowledge.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(maintenance.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(guidelines.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(changes.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(lessons.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ac_templates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(gates.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(execution.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(ai.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ws.router)

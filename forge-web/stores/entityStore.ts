@@ -129,25 +129,29 @@ const responseKeys: Record<EntityType, string> = {
   gates: "gates",
 };
 
-/** Maps WS event names to entity types and operation. */
-const eventMap: Record<string, { type: EntityType; op: "create" | "update" | "remove" | "replace" }> = {
-  "task.created": { type: "tasks", op: "create" },
-  "task.updated": { type: "tasks", op: "update" },
-  "task.completed": { type: "tasks", op: "update" },
-  "task.failed": { type: "tasks", op: "update" },
-  "task.removed": { type: "tasks", op: "remove" },
-  "decision.created": { type: "decisions", op: "create" },
-  "decision.updated": { type: "decisions", op: "update" },
+/** Maps WS event names to entity types, operation, and payload ID key.
+ *  Backend emits events like "task.status_changed" with "task_id" in payload,
+ *  while "task.created" uses "task_id" too. We normalize to find the entity. */
+const eventMap: Record<string, { type: EntityType; op: "create" | "update" | "remove" | "replace"; idKey?: string }> = {
+  "task.created": { type: "tasks", op: "create", idKey: "task_id" },
+  "task.updated": { type: "tasks", op: "update", idKey: "task_id" },
+  "task.status_changed": { type: "tasks", op: "update", idKey: "task_id" },
+  "task.completed": { type: "tasks", op: "update", idKey: "task_id" },
+  "task.failed": { type: "tasks", op: "update", idKey: "task_id" },
+  "task.removed": { type: "tasks", op: "remove", idKey: "task_id" },
+  "decision.created": { type: "decisions", op: "create", idKey: "decision_id" },
+  "decision.updated": { type: "decisions", op: "update", idKey: "decision_id" },
+  "decision.closed": { type: "decisions", op: "update", idKey: "decision_id" },
   "objective.created": { type: "objectives", op: "create" },
   "objective.updated": { type: "objectives", op: "update" },
   "idea.created": { type: "ideas", op: "create" },
   "idea.updated": { type: "ideas", op: "update" },
   "idea.committed": { type: "ideas", op: "update" },
-  "change.recorded": { type: "changes", op: "create" },
+  "change.recorded": { type: "changes", op: "create", idKey: "change_id" },
   "guideline.created": { type: "guidelines", op: "create" },
   "guideline.updated": { type: "guidelines", op: "update" },
-  "knowledge.created": { type: "knowledge", op: "create" },
-  "knowledge.updated": { type: "knowledge", op: "update" },
+  "knowledge.created": { type: "knowledge", op: "create", idKey: "knowledge_id" },
+  "knowledge.updated": { type: "knowledge", op: "update", idKey: "knowledge_id" },
   "lesson.created": { type: "lessons", op: "create" },
   "gate.configured": { type: "gates", op: "replace" },
 };
@@ -320,12 +324,13 @@ export const useEntityStore = create<EntityState>((set, get) => ({
   handleEvent: (event: ForgeEvent) => {
     const mapping = eventMap[event.event];
     if (!mapping) return;
-    const { type, op } = mapping;
+    const { type, op, idKey } = mapping;
 
     const payload = event.payload as Record<string, unknown>;
+    // Resolve entity ID: try idKey from mapping, then "id", then gate "name"
     const payloadId = (type === "gates")
       ? (payload?.name as string | undefined)
-      : (payload?.id as string | undefined);
+      : ((idKey ? payload?.[idKey] : undefined) ?? payload?.id) as string | undefined;
 
     set((s) => {
       const slice = s.slices[type];

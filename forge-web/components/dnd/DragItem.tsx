@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type ReactNode, type DragEvent } from "react";
+import { useCallback, useState, type ReactNode, type DragEvent } from "react";
 import {
   DND_MIME,
   serializeDragData,
@@ -44,6 +44,8 @@ export function DragItem({
   className = "",
   children,
 }: DragItemProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       // Set custom MIME data so DropZone can deserialize
@@ -54,13 +56,14 @@ export function DragItem({
         `${data.entityType}:${data.entityId}`,
       );
       e.dataTransfer.effectAllowed = "linkMove";
-
+      setIsDragging(true);
       onDragStart?.(data);
     },
     [data, onDragStart],
   );
 
   const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
     onDragEnd?.();
   }, [onDragEnd]);
 
@@ -70,7 +73,7 @@ export function DragItem({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`cursor-grab active:cursor-grabbing select-none transition-opacity
-        [&.dragging]:opacity-40 ${className}`}
+        ${isDragging ? "opacity-40" : ""} ${className}`}
       aria-roledescription="draggable item"
       aria-label={data.label ?? `${data.entityType} ${data.entityId}`}
     >

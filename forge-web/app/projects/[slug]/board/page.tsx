@@ -53,7 +53,7 @@ interface NodePos {
  * 2. Assign each node to a layer = longest path from any root to that node.
  * 3. Position nodes left-to-right by layer, top-to-bottom within layer.
  */
-function computeLayout(tasks: Task[]): { nodes: Map<string, NodePos>; width: number; height: number } {
+function computeLayout(tasks: Task[]): { nodes: Map<string, NodePos>; width: number; height: number; cycleNodes: Set<string> } {
   const taskMap = new Map<string, Task>();
   for (const t of tasks) taskMap.set(t.id, t);
 
@@ -103,9 +103,14 @@ function computeLayout(tasks: Task[]): { nodes: Map<string, NodePos>; width: num
     }
   }
 
-  // Handle cycles or disconnected nodes: assign layer 0 to anything unvisited
+  // Handle cycles or disconnected nodes: assign to max_layer+1 with cycle flag
+  const assignedMax = Math.max(0, ...Array.from(layerOf.values()));
+  const cycleNodes = new Set<string>();
   for (const t of tasks) {
-    if (!layerOf.has(t.id)) layerOf.set(t.id, 0);
+    if (!layerOf.has(t.id)) {
+      layerOf.set(t.id, assignedMax + 1);
+      cycleNodes.add(t.id);
+    }
   }
 
   // Group by layer
@@ -138,7 +143,7 @@ function computeLayout(tasks: Task[]): { nodes: Map<string, NodePos>; width: num
   const width = PAD_X * 2 + (maxLayer + 1) * NODE_W + maxLayer * H_GAP;
   const height = maxY + PAD_Y;
 
-  return { nodes, width, height };
+  return { nodes, width, height, cycleNodes };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +163,7 @@ export default function BoardPage() {
 
   const tasks = slices.tasks.items as Task[];
 
-  const { nodes, width, height } = useMemo(() => computeLayout(tasks), [tasks]);
+  const { nodes, width, height, cycleNodes } = useMemo(() => computeLayout(tasks), [tasks]);
 
   // Build edge list: for each task that has depends_on, draw dep -> task
   const edges = useMemo(() => {
@@ -175,7 +180,7 @@ export default function BoardPage() {
 
   const handleNodeClick = useCallback(
     (task: Task) => {
-      router.push(`/projects/${slug}/tasks`);
+      router.push(`/projects/${slug}/tasks?highlight=${task.id}`);
     },
     [router, slug],
   );
@@ -303,8 +308,9 @@ export default function BoardPage() {
                     rx={8}
                     ry={8}
                     fill={fill}
-                    stroke="#e5e7eb"
-                    strokeWidth={1}
+                    stroke={cycleNodes.has(task.id) ? "#f97316" : "#e5e7eb"}
+                    strokeWidth={cycleNodes.has(task.id) ? 3 : 1}
+                    strokeDasharray={cycleNodes.has(task.id) ? "6 3" : undefined}
                     className="transition-opacity hover:opacity-90"
                   />
                   {/* Task ID */}

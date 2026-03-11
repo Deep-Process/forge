@@ -234,22 +234,155 @@ async def complete_task(
     return task
 
 
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~4 chars per token for English text."""
+    return max(1, len(text) // 4) if text else 0
+
+
+def _make_section(name: str, header: str, content: str, max_tokens: int = 0) -> dict:
+    """Build a context section with token estimate and optional truncation."""
+    token_estimate = _estimate_tokens(content)
+    was_truncated = False
+    if max_tokens > 0 and token_estimate > max_tokens:
+        # Truncate to approximate char limit
+        char_limit = max_tokens * 4
+        content = content[:char_limit] + "\n... [truncated]"
+        token_estimate = max_tokens
+        was_truncated = True
+    return {
+        "name": name,
+        "header": header,
+        "content": content,
+        "token_estimate": token_estimate,
+        "was_truncated": was_truncated,
+    }
+
+
 @router.get("/{task_id}/context")
 async def get_task_context(slug: str, task_id: str, storage=Depends(get_storage)):
-    """Assemble context for task execution."""
+    """Assemble rich context for task execution — standalone context view."""
     await check_project_exists(storage, slug)
     tracker = await load_entity(storage, slug, "tracker")
     task = find_item_or_404(tracker.get("tasks", []), task_id, "Task")
 
-    # Gather dependency outputs
-    dep_tasks = []
-    for dep_id in task.get("depends_on", []):
-        dep = next((t for t in tracker.get("tasks", []) if t["id"] == dep_id), None)
-        if dep:
-            dep_tasks.append({"id": dep["id"], "name": dep.get("name", ""), "status": dep.get("status", "")})
+    sections: list[dict] = []
+
+    # --- Section 1: Task brief ---
+    task_lines = [
+        f"ID: {task.get('id', '')}",
+        f"Name: {task.get('name', '')}",
+        f"Type: {task.get('type', 'feature')}",
+        f"Status: {task.get('status', 'TODO')}",
+        "",
+        "Description:",
+        task.get("description", "(none)"),
+    ]
+    if task.get("instruction"):
+        task_lines += ["", "Instruction:", task["instruction"]]
+    if task.get("acceptance_criteria"):
+        task_lines += ["", "Acceptance Criteria:"]
+        for i, ac in enumerate(task["acceptance_criteria"], 1):
+            task_lines.append(f"  {i}. {ac}")
+    if task.get("scopes"):
+        task_lines.append(f"\nScopes: {', '.join(task['scopes'])}")
+    sections.append(_make_section("task", "Task Brief", "\n".join(task_lines)))
+
+    # --- Section 2: Dependencies ---
+    dep_ids = task.get("depends_on", [])
+    if dep_ids:
+        dep_lines = []
+        for dep_id in dep_ids:
+            dep = next((t for t in tracker.get("tasks", []) if t["id"] == dep_id), None)
+            if dep:
+                dep_lines.append(f"[{dep['id']}] {dep.get('name', '')} — {dep.get('status', '?')}")
+                if dep.get("description"):
+                    dep_lines.append(f"  {dep['description'][:200]}")
+                dep_lines.append("")
+        sections.append(_make_section("dependencies", "Dependencies", "\n".join(dep_lines)))
+
+    # --- Section 3: Related decisions ---
+    try:
+        dec_data = await load_entity(storage, slug, "decisions")
+        decisions = dec_data.get("decisions", [])
+        # Include decisions linked to this task or blocking it
+        blocked_dec_ids = set(task.get("blocked_by_decisions", []))
+        relevant = [d for d in decisions if d.get("task_id") == task_id or d.get("id") in blocked_dec_ids]
+        if relevant:
+            dec_lines = []
+            for d in relevant:
+                dec_lines.append(f"[{d['id']}] {d.get('status', '?')} — {d.get('issue', '')}")
+                if d.get("recommendation"):
+                    dec_lines.append(f"  Recommendation: {d['recommendation'][:300]}")
+                dec_lines.append("")
+            sections.append(_make_section("decisions", "Related Decisions", "\n".join(dec_lines)))
+    except Exception:
+        pass
+
+    # --- Section 4: Applicable guidelines ---
+    try:
+        gl_data = await load_entity(storage, slug, "guidelines")
+        guidelines = gl_data.get("guidelines", [])
+        task_scopes = set(task.get("scopes", []))
+        applicable = [
+            g for g in guidelines
+            if g.get("status") == "ACTIVE" and (
+                not task_scopes or g.get("scope", "") in task_scopes
+                or g.get("scope", "") == "global"
+            )
+        ]
+        if applicable:
+            gl_lines = []
+            for g in applicable:
+                weight = g.get("weight", "should").upper()
+                gl_lines.append(f"[{weight}] {g.get('title', '')} (scope: {g.get('scope', 'global')})")
+                gl_lines.append(f"  {g.get('content', '')[:300]}")
+                gl_lines.append("")
+            sections.append(_make_section("guidelines", "Applicable Guidelines", "\n".join(gl_lines)))
+    except Exception:
+        pass
+
+    # --- Section 5: Related knowledge ---
+    try:
+        kn_data = await load_entity(storage, slug, "knowledge")
+        knowledge_items = kn_data.get("knowledge", [])
+        task_scopes = set(task.get("scopes", []))
+        relevant_kn = [
+            k for k in knowledge_items
+            if k.get("status") == "ACTIVE" and (
+                not task_scopes or set(k.get("scopes", [])).intersection(task_scopes)
+            )
+        ]
+        if relevant_kn:
+            kn_lines = []
+            for k in relevant_kn[:10]:  # Cap at 10
+                kn_lines.append(f"[{k['id']}] {k.get('title', '')} ({k.get('category', '')})")
+                content_preview = k.get("content", "")[:500]
+                kn_lines.append(f"  {content_preview}")
+                kn_lines.append("")
+            sections.append(_make_section(
+                "knowledge", "Related Knowledge", "\n".join(kn_lines), max_tokens=4000))
+    except Exception:
+        pass
+
+    # --- Section 6: Recent changes from dependencies ---
+    try:
+        ch_data = await load_entity(storage, slug, "changes")
+        changes = ch_data.get("changes", [])
+        dep_changes = [c for c in changes if c.get("task_id") in dep_ids]
+        if dep_changes:
+            ch_lines = []
+            for c in dep_changes[-20:]:  # Last 20
+                ch_lines.append(
+                    f"[{c.get('task_id', '?')}] {c.get('action', '?')} {c.get('file', '?')} — {c.get('summary', '')}")
+            sections.append(_make_section("changes", "Changes from Dependencies", "\n".join(ch_lines)))
+    except Exception:
+        pass
+
+    total_tokens = sum(s["token_estimate"] for s in sections)
 
     return {
         "task": task,
-        "dependencies": dep_tasks,
+        "sections": sections,
+        "total_token_estimate": total_tokens,
         "scopes": task.get("scopes", []),
     }

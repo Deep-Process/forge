@@ -36,7 +36,7 @@ export type ACTemplateCategory =
   | "performance" | "security" | "quality" | "functionality"
   | "accessibility" | "reliability" | "data-integrity" | "ux";
 export type KnowledgeLinkEntityType =
-  | "task" | "idea" | "objective" | "knowledge" | "guideline" | "lesson";
+  | "task" | "decision" | "idea" | "objective" | "knowledge" | "guideline" | "lesson";
 export type KnowledgeLinkRelation =
   | "required" | "context" | "reference" | "depends_on"
   | "references" | "derived-from" | "supports" | "contradicts";
@@ -114,6 +114,21 @@ export interface TaskUpdate {
   status?: TaskStatus;
   failed_reason?: string;
   blocked_by_decisions?: string[];
+}
+
+export interface ContextSection {
+  name: string;
+  header: string;
+  content: string;
+  token_estimate: number;
+  was_truncated: boolean;
+}
+
+export interface TaskContext {
+  task: Task;
+  sections: ContextSection[];
+  total_token_estimate: number;
+  scopes: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -501,6 +516,37 @@ export interface ACTemplateUpdate {
 }
 
 // ---------------------------------------------------------------------------
+// Execution
+// ---------------------------------------------------------------------------
+
+export type ExecutionStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface ExecutionState {
+  task_id: string;
+  status: ExecutionStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
+  token_usage: TokenUsage;
+  output: string;
+  error: string | null;
+}
+
+export interface ExecutionStreamChunk {
+  type: "chunk" | "status" | "error" | "token_usage" | "done";
+  content?: string;
+  status?: ExecutionStatus;
+  error?: string;
+  token_usage?: TokenUsage;
+  timestamp: string;
+}
+
+// ---------------------------------------------------------------------------
 // Gates
 // ---------------------------------------------------------------------------
 
@@ -514,4 +560,149 @@ export interface GateCreate {
   name: string;
   command: string;
   required?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge Maintenance
+// ---------------------------------------------------------------------------
+
+export interface MaintenanceSummary {
+  total_knowledge: number;
+  active: number;
+  draft: number;
+  review_needed: number;
+  deprecated: number;
+  archived: number;
+  stale_count: number;
+  stale_days_threshold: number;
+}
+
+export interface StaleKnowledge {
+  id: string;
+  title: string;
+  status: KnowledgeStatus;
+  category: KnowledgeCategory;
+  days_since_update: number | null;
+  review_interval_days: number;
+  total_references?: number;
+  linked_entities_count?: number;
+  last_updated: string | null;
+  suggestion?: string;
+  priority?: "high" | "medium";
+}
+
+export interface ReviewSuggestion {
+  id: string;
+  title: string;
+  suggestion: string;
+  priority: "high" | "medium";
+}
+
+export interface UsageStat {
+  id: string;
+  title: string;
+  status: KnowledgeStatus;
+  category: KnowledgeCategory;
+  linked_entities: number;
+  referencing_tasks: number;
+  referencing_ideas: number;
+  referencing_objectives: number;
+  total_references: number;
+}
+
+export interface MaintenanceReport {
+  summary: MaintenanceSummary;
+  stale: StaleKnowledge[];
+  review_suggestions: ReviewSuggestion[];
+  usage_stats: UsageStat[];
+}
+
+export interface StaleReport {
+  stale: StaleKnowledge[];
+  count: number;
+  stale_days_threshold: number;
+}
+
+// ---------------------------------------------------------------------------
+// AI Suggestions
+// ---------------------------------------------------------------------------
+
+export type AISuggestionEntityType = "task" | "idea" | "objective" | "guideline" | "lesson" | "knowledge";
+export type AISuggestionType = "knowledge" | "guidelines" | "ac";
+
+export interface KnowledgeSuggestion {
+  knowledge_id: string;
+  title: string;
+  relevance_score: number;
+  reason: string;
+}
+
+export interface SuggestKnowledgeResponse {
+  entity_type: string;
+  entity_id: string;
+  suggestions: KnowledgeSuggestion[];
+  mode: string;
+}
+
+export interface GuidelineSuggestion {
+  guideline_id: string;
+  title: string;
+  weight: string;
+  relevance_score: number;
+  reason: string;
+}
+
+export interface SuggestGuidelinesResponse {
+  entity_type: string;
+  entity_id: string;
+  suggestions: GuidelineSuggestion[];
+  mode: string;
+}
+
+export interface ACSuggestion {
+  template_id: string;
+  title: string;
+  category: string;
+  suggested_criterion: string;
+  relevance_score: number;
+  reason: string;
+}
+
+export interface SuggestACResponse {
+  task_id: string;
+  suggestions: ACSuggestion[];
+  mode: string;
+}
+
+export interface PromotionRecommendation {
+  target: "knowledge" | "guideline" | "none";
+  confidence: number;
+  reason: string;
+  suggested_scope: string;
+  suggested_category: string;
+  suggested_weight: string;
+}
+
+export interface EvaluateLessonResponse {
+  lesson_id: string;
+  lesson_title: string;
+  recommendation: PromotionRecommendation;
+  mode: string;
+}
+
+export interface ImpactItem {
+  entity_type: string;
+  entity_id: string;
+  name: string;
+  impact_level: "high" | "medium" | "low";
+  reason: string;
+}
+
+export interface AssessImpactResponse {
+  knowledge_id: string;
+  knowledge_title: string;
+  total_affected: number;
+  impact_items: ImpactItem[];
+  summary: string;
+  mode: string;
 }

@@ -10,6 +10,8 @@ import { useEntityStore } from "@/stores/entityStore";
 interface NavItem {
   label: string;
   segment: string;
+  /** If true, only show this tab when the route matches. */
+  contextual?: boolean;
 }
 
 const entityNav: NavItem[] = [
@@ -21,8 +23,10 @@ const entityNav: NavItem[] = [
   { label: "Ideas", segment: "ideas" },
   { label: "Knowledge", segment: "knowledge" },
   { label: "Guidelines", segment: "guidelines" },
+  { label: "AC Templates", segment: "ac-templates" },
   { label: "Changes", segment: "changes" },
   { label: "Lessons", segment: "lessons" },
+  { label: "Execution", segment: "execution", contextual: true },
 ];
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
@@ -73,6 +77,10 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           const isActive = item.segment
             ? pathname.startsWith(`${basePath}/${item.segment}`)
             : pathname === basePath;
+
+          // Contextual tabs only appear when the route matches
+          if (item.contextual && !isActive) return null;
+
           return (
             <Link
               key={item.segment}

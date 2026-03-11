@@ -1,12 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   knowledge as knowledgeApi,
   tasks as tasksApi,
 } from "@/lib/api";
 import type { KnowledgeLink, KnowledgeLinkRelation } from "@/lib/types";
 import type { DropResult, DragData, DragEntityType } from "@/lib/hooks/useDragDrop";
+
+/** Auto-dismiss wrapper: removes children after a delay. */
+function AutoDismiss({ onDismiss, delay, children }: { onDismiss: () => void; delay: number; children: ReactNode }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, delay);
+    return () => clearTimeout(t);
+  }, [onDismiss, delay]);
+  return <>{children}</>;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +39,7 @@ export type OnRelationshipBuilt = (result: RelationshipResult) => void;
 
 const ENTITY_TYPE_TO_LINK_TYPE: Record<string, KnowledgeLink["entity_type"] | undefined> = {
   tasks: "task",
+  decisions: "decision",
   ideas: "idea",
   objectives: "objective",
   knowledge: "knowledge",
@@ -275,13 +285,14 @@ export function RelationshipBuilder({
         </div>
       )}
       {lastResult && !processing && (
-        <div
-          className={`fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-sm z-50 transition-opacity duration-300
-            ${lastResult.success ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}
-          onAnimationEnd={() => setLastResult(null)}
-        >
-          {lastResult.message}
-        </div>
+        <AutoDismiss onDismiss={() => setLastResult(null)} delay={3000}>
+          <div
+            className={`fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-sm z-50
+              ${lastResult.success ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}
+          >
+            {lastResult.message}
+          </div>
+        </AutoDismiss>
       )}
     </>
   );

@@ -148,7 +148,7 @@ export async function health(): Promise<{ status: string; version: string }> {
 
 import type {
   ProjectDetail, ProjectCreate, ProjectStatus,
-  Task, TaskCreate, TaskUpdate,
+  Task, TaskCreate, TaskUpdate, TaskContext,
   Decision, DecisionCreate, DecisionUpdate,
   Objective, ObjectiveCreate, ObjectiveUpdate,
   Idea, IdeaCreate, IdeaUpdate,
@@ -158,6 +158,14 @@ import type {
   Lesson, LessonCreate, LessonPromote,
   ACTemplate, ACTemplateCreate, ACTemplateUpdate,
   Gate, GateCreate,
+  MaintenanceReport, StaleReport,
+  ExecutionState,
+  AISuggestionEntityType,
+  SuggestKnowledgeResponse,
+  SuggestGuidelinesResponse,
+  SuggestACResponse,
+  EvaluateLessonResponse,
+  AssessImpactResponse,
 } from "./types";
 
 // -- Projects --
@@ -188,8 +196,7 @@ export const tasks = {
     create<Task>(projectPath(slug, "tasks", id) + "/complete",
       { reasoning: reasoning ?? "" }),
   context: (slug: string, id: string) =>
-    get<{ task: Record<string, unknown>; dependencies: Array<Record<string, unknown>>; scopes: string[] }>(
-      projectPath(slug, "tasks", id) + "/context"),
+    get<TaskContext>(projectPath(slug, "tasks", id) + "/context"),
 };
 
 // -- Decisions --
@@ -286,6 +293,22 @@ export const knowledge = {
     remove<{ removed: number }>(projectPath(slug, "knowledge", id) + `/link/${linkId}`),
 };
 
+// -- Knowledge Maintenance --
+export const knowledgeMaintenance = {
+  overview: (slug: string, staleDays?: number) => {
+    const params: Record<string, string> = {};
+    if (staleDays !== undefined) params.stale_days = String(staleDays);
+    return list<MaintenanceReport>(
+      projectPath(slug, "knowledge") + "/maintenance", params);
+  },
+  stale: (slug: string, staleDays?: number) => {
+    const params: Record<string, string> = {};
+    if (staleDays !== undefined) params.stale_days = String(staleDays);
+    return list<StaleReport>(
+      projectPath(slug, "knowledge") + "/maintenance/stale", params);
+  },
+};
+
 // -- Lessons --
 export const lessons = {
   list: (slug: string) =>
@@ -323,4 +346,46 @@ export const gates = {
   check: (slug: string, taskId?: string) =>
     create<{ message: string; task: string; gates: Array<Record<string, unknown>> }>(
       projectPath(slug, "gates") + "/check" + (taskId ? `?task=${taskId}` : ""), {}),
+};
+
+// -- Execution --
+export const execution = {
+  start: (slug: string, taskId: string, mode?: string) =>
+    create<ExecutionState>(
+      `/projects/${slug}/execute/${taskId}`,
+      mode ? { mode } : {},
+    ),
+  status: (slug: string, taskId: string) =>
+    get<ExecutionState>(`/projects/${slug}/execute/${taskId}/status`),
+  cancel: (slug: string, taskId: string) =>
+    create<ExecutionState>(`/projects/${slug}/execute/${taskId}/cancel`, {}),
+};
+
+// -- AI Suggestions --
+export const ai = {
+  suggestKnowledge: (slug: string, entityType: AISuggestionEntityType, entityId: string) =>
+    create<SuggestKnowledgeResponse>(
+      `/projects/${slug}/ai/suggest-knowledge`,
+      { entity_type: entityType, entity_id: entityId },
+    ),
+  suggestGuidelines: (slug: string, entityType: AISuggestionEntityType, entityId: string) =>
+    create<SuggestGuidelinesResponse>(
+      `/projects/${slug}/ai/suggest-guidelines`,
+      { entity_type: entityType, entity_id: entityId },
+    ),
+  suggestAC: (slug: string, taskId: string) =>
+    create<SuggestACResponse>(
+      `/projects/${slug}/ai/suggest-ac`,
+      { task_id: taskId },
+    ),
+  evaluateLesson: (slug: string, lessonId: string) =>
+    create<EvaluateLessonResponse>(
+      `/projects/${slug}/ai/evaluate-lesson`,
+      { lesson_id: lessonId },
+    ),
+  assessImpact: (slug: string, knowledgeId: string) =>
+    create<AssessImpactResponse>(
+      `/projects/${slug}/ai/assess-impact`,
+      { knowledge_id: knowledgeId },
+    ),
 };
