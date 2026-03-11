@@ -9,6 +9,8 @@ import { dispatchWsEvent } from "@/stores/wsDispatcher";
 import { DebugToggle } from "@/components/debug/DebugToggle";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { BottomPanel } from "@/components/debug/BottomPanel";
+import { useDebugPanelStore } from "@/stores/debugPanelStore";
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -16,16 +18,20 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const { details, selectProject } = useProjectStore();
   const detail = details[slug];
   const { connected, onAny } = useWebSocket(slug);
+  const incrementEvents = useDebugPanelStore((s) => s.incrementEvents);
 
   useEffect(() => {
     if (slug) selectProject(slug);
   }, [slug, selectProject]);
 
-  // Forward all WebSocket events to per-entity stores
+  // Forward all WebSocket events to per-entity stores + count events
   useEffect(() => {
-    const unsub = onAny(dispatchWsEvent);
+    const unsub = onAny((event) => {
+      dispatchWsEvent(event);
+      incrementEvents();
+    });
     return unsub;
-  }, [onAny]);
+  }, [onAny, incrementEvents]);
 
   return (
     <div className="flex h-full -m-6">
@@ -64,6 +70,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           <Breadcrumb />
           {children}
         </div>
+
+        {/* Debug bottom panel */}
+        <BottomPanel />
       </div>
     </div>
   );
