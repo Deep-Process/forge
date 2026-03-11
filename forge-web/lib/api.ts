@@ -41,26 +41,87 @@ function buildHeaders(hasBody: boolean, extra?: Record<string, string>): Record<
   return h;
 }
 
-/** Generic fetch wrapper with error handling. */
+/** Debug store — imported lazily. Set by app initialization. */
+type AddEntryFn = (entry: {
+  method: string; url: string; status: number | null;
+  duration: number; timestamp: number;
+  requestBody?: unknown; responseBody?: unknown; error?: string;
+}) => void;
+
+let _addEntry: AddEntryFn | null = null;
+
+/** Called once by app code to wire up debug store (avoids circular import). */
+export function setDebugInterceptor(fn: AddEntryFn): void {
+  _addEntry = fn;
+}
+
+const MAX_BODY_SIZE = 8_000;
+/** Truncate large JSON bodies to prevent memory bloat in debug store. */
+function truncateBody(body: unknown): unknown {
+  if (body === undefined) return undefined;
+  const str = JSON.stringify(body);
+  if (str.length <= MAX_BODY_SIZE) return body;
+  return `[truncated: ${str.length} chars] ${str.slice(0, MAX_BODY_SIZE)}...`;
+}
+
+/** Generic fetch wrapper with error handling and debug capture. */
 async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const method = init?.method ?? "GET";
   const hasBody = init?.body != null;
   const initHeaders = init?.headers as Record<string, string> | undefined;
-  const res = await fetch(url, {
-    ...init,
-    headers: buildHeaders(hasBody, initHeaders),
-  });
+  const startTime = Date.now();
+  let requestBody: unknown;
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => res.statusText);
-    throw new ApiError(res.status, body);
+  if (hasBody && typeof init?.body === "string") {
+    try { requestBody = JSON.parse(init.body); } catch { requestBody = init.body; }
   }
 
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers: buildHeaders(hasBody, initHeaders),
+    });
+
+    const duration = Date.now() - startTime;
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => res.statusText);
+      _addEntry?.({
+        method, url: path, status: res.status, duration,
+        timestamp: startTime, requestBody: truncateBody(requestBody), responseBody: truncateBody(body),
+        error: typeof body === "string" ? body : JSON.stringify(body),
+      });
+      throw new ApiError(res.status, body);
+    }
+
+    if (res.status === 204) {
+      _addEntry?.({
+        method, url: path, status: 204, duration,
+        timestamp: startTime, requestBody: truncateBody(requestBody),
+      });
+      return undefined as T;
+    }
+
+    const responseBody = await res.json();
+    _addEntry?.({
+      method, url: path, status: res.status, duration,
+      timestamp: startTime, requestBody: truncateBody(requestBody), responseBody: truncateBody(responseBody),
+    });
+    return responseBody;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    const duration = Date.now() - startTime;
+    _addEntry?.({
+      method, url: path, status: null, duration,
+      timestamp: startTime, requestBody,
+      error: (e as Error).message,
+    });
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------

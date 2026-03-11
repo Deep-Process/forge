@@ -3,6 +3,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SWRProvider } from "@/lib/swr-config";
 import { ToastContainer } from "@/components/shared/ToastContainer";
+import { DebugInit } from "@/components/debug/DebugInit";
 
 export const metadata: Metadata = {
   title: "Forge Platform",
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex h-screen overflow-hidden">
         <SWRProvider>
+          <DebugInit />
           <Sidebar />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
           <ToastContainer />

@@ -6,6 +6,8 @@ import {
   type PanelState,
   type DebugTab,
 } from "@/stores/debugPanelStore";
+import { useDebugStore } from "@/stores/debugStore";
+import { ApiInspector } from "./ApiInspector";
 
 // ---------------------------------------------------------------------------
 // Height mappings
@@ -28,8 +30,10 @@ const TABS: Array<{ id: DebugTab; label: string }> = [
 // ---------------------------------------------------------------------------
 
 export function BottomPanel() {
-  const { panelState, activeTab, errorCount, eventCount, toggle, setPanelState, setActiveTab } =
+  const { panelState, activeTab, eventCount, toggle, setPanelState, setActiveTab } =
     useDebugPanelStore();
+  const apiErrorCount = useDebugStore((s) => s.errorCount);
+  const apiTotalRequests = useDebugStore((s) => s.totalRequests);
 
   // Keyboard shortcut: Ctrl+` to toggle
   const handleKeyDown = useCallback(
@@ -99,11 +103,14 @@ export function BottomPanel() {
         {/* Status indicators */}
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
           {isCollapsed && <span className="font-medium">Debug Console</span>}
-          {errorCount > 0 && (
+          {apiErrorCount > 0 && (
             <span className="inline-flex items-center gap-1 text-red-600 font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-              {errorCount} error{errorCount !== 1 ? "s" : ""}
+              {apiErrorCount} error{apiErrorCount !== 1 ? "s" : ""}
             </span>
+          )}
+          {apiTotalRequests > 0 && (
+            <span className="tabular-nums">{apiTotalRequests} req</span>
           )}
           <span className="tabular-nums">{eventCount} events</span>
 
@@ -136,13 +143,8 @@ export function BottomPanel() {
       {/* Tab content */}
       {!isCollapsed && (
         <div className="flex-1 overflow-y-auto p-3 text-sm text-gray-500">
-          <div role="tabpanel" id="debug-panel-api" hidden={activeTab !== "api"}>
-            <div className="text-center py-8">
-              <p className="font-medium text-gray-400">API Inspector</p>
-              <p className="text-xs text-gray-300 mt-1">
-                API call logging will appear here. Full implementation in T-067.
-              </p>
-            </div>
+          <div role="tabpanel" id="debug-panel-api" hidden={activeTab !== "api"} className="h-full">
+            <ApiInspector />
           </div>
           <div role="tabpanel" id="debug-panel-llm" hidden={activeTab !== "llm"}>
             <div className="text-center py-8">
