@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -13,19 +14,19 @@ from app.routers._helpers import (
     _get_lock,
     emit_event,
     find_item_or_404,
-    load_entity,
+    load_global_entity,
     next_id,
-    save_entity,
+    save_global_entity,
 )
 from app.services.teslint import run_teslint
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
 # ---------------------------------------------------------------------------
-# Storage key — skills are global (no project slug)
+# Storage key — skills are global, stored in _global/skills.json
 # ---------------------------------------------------------------------------
-_GLOBAL = "__global__"
 _ENTITY = "skills"
+_LOCK_NS = "_global"  # Lock namespace (not a file path)
 
 VALID_CATEGORIES = [
     "workflow", "analysis", "generation", "validation",
@@ -111,6 +112,29 @@ def _matches_filter(skill: dict, **filters) -> bool:
     return True
 
 
+async def _check_skill_in_use(storage, skill_id: str) -> list[dict]:
+    """Scan all projects for IN_PROGRESS tasks referencing this skill."""
+    from app.routers._helpers import load_entity
+    in_use = []
+    try:
+        projects = await asyncio.to_thread(storage.list_projects)
+        for proj in projects:
+            try:
+                tracker = await load_entity(storage, proj, "tracker")
+                for task in tracker.get("tasks", []):
+                    if task.get("status") == "IN_PROGRESS" and task.get("skill") == skill_id:
+                        in_use.append({
+                            "project": proj,
+                            "task_id": task.get("id"),
+                            "task_name": task.get("name"),
+                        })
+            except Exception:
+                continue  # Skip projects with broken trackers
+    except Exception:
+        pass  # Storage error — fall through
+    return in_use
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -125,7 +149,7 @@ async def list_skills(
     storage=Depends(get_storage),
 ):
     """List all skills with optional filters."""
-    data = await load_entity(storage, _GLOBAL, _ENTITY)
+    data = await load_global_entity(storage, _ENTITY)
     data = _ensure_data(data)
     skills = data["skills"]
 
@@ -152,8 +176,8 @@ async def create_skills(
         raise HTTPException(422, "At least one skill is required")
 
     added = []
-    async with _get_lock(_GLOBAL, _ENTITY):
-        data = await load_entity(storage, _GLOBAL, _ENTITY)
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
         skills = data["skills"]
 
@@ -182,10 +206,10 @@ async def create_skills(
             skills.append(skill)
             added.append(skill_id)
 
-        await save_entity(storage, _GLOBAL, _ENTITY, data)
+        await save_global_entity(storage, _ENTITY, data)
 
     for sid in added:
-        await emit_event(request, _GLOBAL, "skill.created", {"id": sid})
+        await emit_event(request, _LOCK_NS, "skill.created", {"id": sid})
 
     return {"added": added, "total": len(data["skills"])}
 
@@ -193,7 +217,7 @@ async def create_skills(
 @router.get("/{skill_id}")
 async def get_skill(skill_id: str, storage=Depends(get_storage)):
     """Get a single skill by ID."""
-    data = await load_entity(storage, _GLOBAL, _ENTITY)
+    data = await load_global_entity(storage, _ENTITY)
     data = _ensure_data(data)
     skill = find_item_or_404(data["skills"], skill_id, "Skill")
     return skill
@@ -207,8 +231,8 @@ async def update_skill(
     storage=Depends(get_storage),
 ):
     """Update a skill. Status transitions validated."""
-    async with _get_lock(_GLOBAL, _ENTITY):
-        data = await load_entity(storage, _GLOBAL, _ENTITY)
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
         skill = find_item_or_404(data["skills"], skill_id, "Skill")
 
@@ -239,9 +263,9 @@ async def update_skill(
             skill[key] = value
         skill["updated_at"] = _now_iso()
 
-        await save_entity(storage, _GLOBAL, _ENTITY, data)
+        await save_global_entity(storage, _ENTITY, data)
 
-    await emit_event(request, _GLOBAL, "skill.updated", {"id": skill_id})
+    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
     return skill
 
 
@@ -252,24 +276,24 @@ async def delete_skill(
     storage=Depends(get_storage),
 ):
     """Delete a skill. Blocked if used by IN_PROGRESS tasks."""
-    async with _get_lock(_GLOBAL, _ENTITY):
-        data = await load_entity(storage, _GLOBAL, _ENTITY)
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
         skill = find_item_or_404(data["skills"], skill_id, "Skill")
 
-        # Check usage: scan all projects for IN_PROGRESS tasks referencing this skill
-        # For now, check usage_count as a guard
-        if skill.get("status") == "ACTIVE" and skill.get("usage_count", 0) > 0:
+        # Scan projects for IN_PROGRESS tasks referencing this skill
+        in_use = await _check_skill_in_use(storage, skill_id)
+        if in_use:
+            task_list = ", ".join(f"{u['project']}/{u['task_id']}" for u in in_use)
             raise HTTPException(
                 409,
-                f"Cannot delete ACTIVE skill '{skill_id}' with {skill['usage_count']} tasks using it. "
-                "Set status to DEPRECATED first.",
+                f"Cannot delete skill '{skill_id}' — used by IN_PROGRESS tasks: {task_list}",
             )
 
         data["skills"] = [s for s in data["skills"] if s.get("id") != skill_id]
-        await save_entity(storage, _GLOBAL, _ENTITY, data)
+        await save_global_entity(storage, _ENTITY, data)
 
-    await emit_event(request, _GLOBAL, "skill.deleted", {"id": skill_id})
+    await emit_event(request, _LOCK_NS, "skill.deleted", {"id": skill_id})
     return {"removed": skill_id}
 
 
@@ -283,7 +307,7 @@ async def lint_skill(
     storage=Depends(get_storage),
 ):
     """Run TESLint on a skill's SKILL.md content. Returns findings."""
-    data = await load_entity(storage, _GLOBAL, _ENTITY)
+    data = await load_global_entity(storage, _ENTITY)
     data = _ensure_data(data)
     skill = find_item_or_404(data["skills"], skill_id, "Skill")
 
@@ -291,7 +315,6 @@ async def lint_skill(
     if not content:
         raise HTTPException(422, f"Skill '{skill_id}' has no SKILL.md content to lint")
 
-    import asyncio
     result = await asyncio.to_thread(
         run_teslint,
         skill.get("name", skill_id),
@@ -347,8 +370,8 @@ async def promote_skill(
     If all pass: DRAFT → ACTIVE.
     If TESLint fails and force=True: DRAFT → ACTIVE + promoted_with_warnings=True.
     """
-    async with _get_lock(_GLOBAL, _ENTITY):
-        data = await load_entity(storage, _GLOBAL, _ENTITY)
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
         skill = find_item_or_404(data["skills"], skill_id, "Skill")
 
@@ -399,7 +422,6 @@ async def promote_skill(
         teslint_error_count = 0
         teslint_warning_count = 0
         if content.strip():
-            import asyncio
             lint_result = await asyncio.to_thread(
                 run_teslint,
                 skill.get("name", skill_id),
@@ -464,9 +486,9 @@ async def promote_skill(
             skill["promotion_history"] = []
         skill["promotion_history"].append(history_entry)
 
-        await save_entity(storage, _GLOBAL, _ENTITY, data)
+        await save_global_entity(storage, _ENTITY, data)
 
-    await emit_event(request, _GLOBAL, "skill.promoted", {"id": skill_id})
+    await emit_event(request, _LOCK_NS, "skill.promoted", {"id": skill_id})
 
     return {
         "skill_id": skill_id,

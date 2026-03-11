@@ -3,13 +3,14 @@
 Creates a temporary directory with the expected .claude/skills/{name}/SKILL.md
 structure, runs `python -m teslint --format json`, parses output, cleans up.
 
-Per ADR-3 (D-020): TESLint as subprocess with temp dir.
+Per ADR-3 (D-023): TESLint as subprocess with temp dir. See also D-020 (path structure risk).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -65,11 +66,20 @@ def run_teslint(
     Returns:
         TESLintResult with findings, counts, and success flag.
     """
+    # Guard: no content to lint
+    if not skill_md_content:
+        return TESLintResult(success=True, raw_output="(no content to lint)")
+
+    # Sanitize skill_name — prevent path traversal and log injection
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", skill_name)
+    if not safe_name:
+        safe_name = "unnamed"
+
     tmp_dir = None
     try:
         # Create temp dir with .claude/skills/{name}/SKILL.md structure
         tmp_dir = tempfile.mkdtemp(prefix="teslint-")
-        skill_dir = Path(tmp_dir) / ".claude" / "skills" / skill_name
+        skill_dir = Path(tmp_dir) / ".claude" / "skills" / safe_name
         skill_dir.mkdir(parents=True, exist_ok=True)
 
         # Write SKILL.md
@@ -97,7 +107,7 @@ def run_teslint(
                 error_message="TESLint is not installed. Install with: pip install teslint",
             )
         except subprocess.TimeoutExpired:
-            logger.warning(f"TESLint timed out after {timeout_seconds}s for skill '{skill_name}'")
+            logger.warning(f"TESLint timed out after {timeout_seconds}s for skill '{safe_name}'")
             return TESLintResult(
                 success=False,
                 error_message=f"TESLint timed out after {timeout_seconds} seconds",
@@ -137,7 +147,7 @@ def run_teslint(
         # Warn if 0 findings on non-empty content (possible false pass)
         if len(findings) == 0 and len(skill_md_content.strip()) > 50:
             logger.info(
-                f"TESLint returned 0 findings for skill '{skill_name}' "
+                f"TESLint returned 0 findings for skill '{safe_name}' "
                 f"({len(skill_md_content)} chars) — verify scanner found the file"
             )
 
@@ -151,7 +161,7 @@ def run_teslint(
         )
 
     except Exception as e:
-        logger.exception(f"Unexpected error running TESLint for skill '{skill_name}'")
+        logger.exception(f"Unexpected error running TESLint for skill '{safe_name}'")
         return TESLintResult(
             success=False,
             error_message=f"Unexpected error: {str(e)}",

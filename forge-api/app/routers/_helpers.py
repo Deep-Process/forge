@@ -48,6 +48,16 @@ async def save_entity(storage, project: str, entity: str, data: dict) -> None:
     await asyncio.to_thread(storage.save_data, project, entity, data)
 
 
+async def load_global_entity(storage, entity: str) -> dict:
+    """Load global entity data (e.g., skills) — uses _global/ storage."""
+    return await asyncio.to_thread(storage.load_global, entity)
+
+
+async def save_global_entity(storage, entity: str, data: dict) -> None:
+    """Save global entity data — uses _global/ storage."""
+    await asyncio.to_thread(storage.save_global, entity, data)
+
+
 async def check_project_exists(storage, project: str) -> None:
     """Raise 404 if project doesn't exist in storage."""
     exists = await asyncio.to_thread(storage.exists, project, "tracker")
