@@ -5,46 +5,68 @@ import { useRouter, useParams } from "next/navigation";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useCommandPaletteSearch, type SearchResult } from "@/lib/hooks/useCommandPalette";
 
+// ---------------------------------------------------------------------------
+// Root — only manages open state + global hotkey (no store subscriptions)
+// ---------------------------------------------------------------------------
+
 export function CommandPalette() {
+  const [open, setOpen] = useState(false);
+
+  useHotkeys("mod+k", (e) => {
+    e.preventDefault();
+    setOpen((prev) => !prev);
+  }, { enableOnFormTags: true });
+
+  if (!open) return null;
+
+  return <CommandPaletteDialog onClose={() => setOpen(false)} />;
+}
+
+// ---------------------------------------------------------------------------
+// Dialog — mounts only when open, subscribes to stores
+// ---------------------------------------------------------------------------
+
+function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
 
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const { results, quickActions } = useCommandPaletteSearch(slug, query);
-
-  // Total selectable items: results + quick actions
   const totalItems = results.length + quickActions.length;
 
-  // Global keyboard shortcut
-  useHotkeys("mod+k", (e) => {
-    e.preventDefault();
-    setOpen(true);
-    setQuery("");
-    setSelectedIndex(0);
-  }, { enableOnFormTags: true });
-
-  // Focus input when opened
+  // Focus input on mount
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open]);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  // Lock body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   // Reset selection when results change
   useEffect(() => {
     setSelectedIndex(0);
   }, [results.length]);
 
+  // Scroll selected item into view
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const el = list.querySelector(`[data-cp-index="${selectedIndex}"]`);
+    if (el) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
   const close = useCallback(() => {
-    setOpen(false);
-    setQuery("");
-    setSelectedIndex(0);
-  }, []);
+    onClose();
+  }, [onClose]);
 
   const selectResult = useCallback(
     (result: SearchResult) => {
@@ -57,8 +79,6 @@ export function CommandPalette() {
   const selectQuickAction = useCallback(
     (action: string) => {
       close();
-      // Quick actions will be wired to form drawers in T-057
-      // For now, navigate to the relevant list page
       switch (action) {
         case "new-task":
           router.push(`/projects/${slug}/tasks`);
@@ -105,7 +125,7 @@ export function CommandPalette() {
     [selectedIndex, results, quickActions, totalItems, selectResult, selectQuickAction, close],
   );
 
-  if (!open) return null;
+  const activeDescendant = totalItems > 0 ? `cp-option-${selectedIndex}` : undefined;
 
   return (
     <>
@@ -124,10 +144,14 @@ export function CommandPalette() {
         >
           {/* Search input */}
           <div className="flex items-center border-b px-4">
-            <span className="text-gray-400 mr-2 text-sm">🔍</span>
+            <span className="text-gray-400 mr-2 text-sm" aria-hidden="true">&#x1F50D;</span>
             <input
               ref={inputRef}
               type="text"
+              role="combobox"
+              aria-expanded={true}
+              aria-controls="command-palette-listbox"
+              aria-activedescendant={activeDescendant}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -141,13 +165,27 @@ export function CommandPalette() {
             </kbd>
           </div>
 
+          {/* Live region for screen readers */}
+          <div aria-live="polite" className="sr-only">
+            {query && results.length > 0 && `${results.length} results found`}
+            {query && results.length === 0 && "No results found"}
+          </div>
+
           {/* Results */}
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div
+            ref={listRef}
+            className="max-h-[50vh] overflow-y-auto"
+            role="listbox"
+            id="command-palette-listbox"
+            aria-label="Search results"
+          >
             {results.length > 0 && (
               <div className="py-1">
                 {results.map((result, idx) => (
                   <button
                     key={`${result.type}-${result.id}`}
+                    id={`cp-option-${idx}`}
+                    data-cp-index={idx}
                     onClick={() => selectResult(result)}
                     className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors ${
                       selectedIndex === idx
@@ -188,6 +226,8 @@ export function CommandPalette() {
                 return (
                   <button
                     key={action.id}
+                    id={`cp-option-${actionIndex}`}
+                    data-cp-index={actionIndex}
                     onClick={() => selectQuickAction(action.action)}
                     className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors ${
                       selectedIndex === actionIndex

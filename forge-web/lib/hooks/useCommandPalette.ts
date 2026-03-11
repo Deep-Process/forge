@@ -28,21 +28,6 @@ export interface QuickAction {
   action: string;
 }
 
-const ENTITY_CONFIG: Array<{
-  type: SearchResult["type"];
-  icon: string;
-  prefix: string;
-  segment: string;
-}> = [
-  { type: "task", icon: "☑", prefix: "T-", segment: "tasks" },
-  { type: "decision", icon: "⚖", prefix: "D-", segment: "decisions" },
-  { type: "objective", icon: "◎", prefix: "O-", segment: "objectives" },
-  { type: "idea", icon: "💡", prefix: "I-", segment: "ideas" },
-  { type: "knowledge", icon: "📚", prefix: "K-", segment: "knowledge" },
-  { type: "guideline", icon: "📏", prefix: "G-", segment: "guidelines" },
-  { type: "lesson", icon: "🎓", prefix: "L-", segment: "lessons" },
-];
-
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-task", label: "New Task", action: "new-task" },
   { id: "new-idea", label: "New Idea", action: "new-idea" },
@@ -80,7 +65,7 @@ export function useCommandPaletteSearch(slug: string, query: string) {
       { type: "idea", icon: "💡", segment: "ideas", items: ideas.map((i) => ({ id: i.id, title: i.title, status: i.status })) },
       { type: "knowledge", icon: "📚", segment: "knowledge", items: knowledge.map((k) => ({ id: k.id, title: k.title, status: k.status })) },
       { type: "guideline", icon: "📏", segment: "guidelines", items: guidelines.map((g) => ({ id: g.id, title: g.title, status: g.status })) },
-      { type: "lesson", icon: "🎓", segment: "lessons", items: lessons.map((l) => ({ id: l.id, title: l.title, status: "ACTIVE" })) },
+      { type: "lesson", icon: "🎓", segment: "lessons", items: lessons.map((l) => ({ id: l.id, title: l.title, status: l.severity ?? "minor" })) },
     ];
 
     for (const entity of allEntities) {
