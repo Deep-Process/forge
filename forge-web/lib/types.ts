@@ -207,10 +207,19 @@ export interface DecisionUpdate {
 // ---------------------------------------------------------------------------
 
 export interface KeyResult {
-  metric: string;
+  id?: string;
+  metric?: string;
   baseline?: number;
-  target: number;
+  target?: number;
   current?: number;
+  description?: string;
+  status?: "NOT_STARTED" | "IN_PROGRESS" | "ACHIEVED";
+}
+
+export interface ObjectiveRelation {
+  type: "depends_on" | "related_to" | "supersedes" | "duplicates";
+  target_id: string;
+  notes?: string;
 }
 
 export interface Objective {
@@ -225,6 +234,8 @@ export interface Objective {
   scopes: string[];
   derived_guidelines: string[];
   knowledge_ids: string[];
+  guideline_ids: string[];
+  relations: ObjectiveRelation[];
   status: ObjectiveStatus;
   created_at: string;
 }
@@ -240,6 +251,8 @@ export interface ObjectiveCreate {
   scopes?: string[];
   derived_guidelines?: string[];
   knowledge_ids?: string[];
+  guideline_ids?: string[];
+  relations?: ObjectiveRelation[];
 }
 
 export interface ObjectiveUpdate {
@@ -253,6 +266,8 @@ export interface ObjectiveUpdate {
   scopes?: string[];
   derived_guidelines?: string[];
   knowledge_ids?: string[];
+  guideline_ids?: string[];
+  relations?: ObjectiveRelation[];
 }
 
 // ---------------------------------------------------------------------------

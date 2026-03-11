@@ -47,6 +47,7 @@ function getDefaults(objective?: Objective): ObjectiveCreateForm {
           baseline: kr.baseline,
           target: kr.target,
           current: kr.current,
+          description: kr.description,
         })) || [{ metric: "", target: 0 }],
         appetite: objective.appetite || "medium",
         scope: objective.scope || "project",
