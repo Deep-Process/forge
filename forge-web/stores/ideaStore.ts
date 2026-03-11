@@ -14,9 +14,9 @@ export const useIdeaStore = createEntityStore<Idea>({
 });
 
 export async function createIdea(slug: string, data: IdeaCreate[]): Promise<string[]> {
-  return withCreateLoading(useIdeaStore, () => ideasApi.create(slug, data));
+  return withCreateLoading(useIdeaStore, () => ideasApi.create(slug, data), { slug, entityPath: "ideas" });
 }
 
 export async function updateIdea(slug: string, id: string, data: IdeaUpdate): Promise<void> {
-  return withUpdate(useIdeaStore, (item) => item.id, id, () => ideasApi.update(slug, id, data));
+  return withUpdate(useIdeaStore, (item) => item.id, id, () => ideasApi.update(slug, id, data), data, { slug, entityPath: "ideas" });
 }

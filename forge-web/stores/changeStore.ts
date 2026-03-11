@@ -12,5 +12,5 @@ export const useChangeStore = createEntityStore<ChangeRecord>({
 });
 
 export async function createChange(slug: string, data: ChangeCreate[]): Promise<string[]> {
-  return withCreateLoading(useChangeStore, () => changesApi.create(slug, data));
+  return withCreateLoading(useChangeStore, () => changesApi.create(slug, data), { slug, entityPath: "changes" });
 }

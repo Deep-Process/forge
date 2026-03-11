@@ -13,9 +13,9 @@ export const useGuidelineStore = createEntityStore<Guideline>({
 });
 
 export async function createGuideline(slug: string, data: GuidelineCreate[]): Promise<string[]> {
-  return withCreateLoading(useGuidelineStore, () => guidelinesApi.create(slug, data));
+  return withCreateLoading(useGuidelineStore, () => guidelinesApi.create(slug, data), { slug, entityPath: "guidelines" });
 }
 
 export async function updateGuideline(slug: string, id: string, data: GuidelineUpdate): Promise<void> {
-  return withUpdate(useGuidelineStore, (item) => item.id, id, () => guidelinesApi.update(slug, id, data));
+  return withUpdate(useGuidelineStore, (item) => item.id, id, () => guidelinesApi.update(slug, id, data), data, { slug, entityPath: "guidelines" });
 }

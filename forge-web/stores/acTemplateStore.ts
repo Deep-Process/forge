@@ -10,9 +10,9 @@ export const useACTemplateStore = createEntityStore<ACTemplate>({
 });
 
 export async function createACTemplate(slug: string, data: ACTemplateCreate[]): Promise<string[]> {
-  return withCreateLoading(useACTemplateStore, () => acTemplatesApi.create(slug, data));
+  return withCreateLoading(useACTemplateStore, () => acTemplatesApi.create(slug, data), { slug, entityPath: "ac-templates" });
 }
 
 export async function updateACTemplate(slug: string, id: string, data: ACTemplateUpdate): Promise<void> {
-  return withUpdate(useACTemplateStore, (item) => item.id, id, () => acTemplatesApi.update(slug, id, data));
+  return withUpdate(useACTemplateStore, (item) => item.id, id, () => acTemplatesApi.update(slug, id, data), data as Partial<ACTemplate>, { slug, entityPath: "ac-templates" });
 }

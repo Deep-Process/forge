@@ -167,7 +167,7 @@ export default function IdeaDetailPage() {
                 <div className="mt-2 space-y-1">
                   {obj.key_results
                     .filter((_, krIdx) =>
-                      idea.advances_key_results.includes(`${obj.id}/KR-${krIdx + 1}`)
+                      idea.advances_key_results?.includes(`${obj.id}/KR-${krIdx + 1}`)
                     )
                     .map((kr, krIdx) => {
                       const baseline = kr.baseline ?? 0;

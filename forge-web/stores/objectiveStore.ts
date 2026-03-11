@@ -13,9 +13,9 @@ export const useObjectiveStore = createEntityStore<Objective>({
 });
 
 export async function createObjective(slug: string, data: ObjectiveCreate[]): Promise<string[]> {
-  return withCreateLoading(useObjectiveStore, () => objectivesApi.create(slug, data));
+  return withCreateLoading(useObjectiveStore, () => objectivesApi.create(slug, data), { slug, entityPath: "objectives" });
 }
 
 export async function updateObjective(slug: string, id: string, data: ObjectiveUpdate): Promise<void> {
-  return withUpdate(useObjectiveStore, (item) => item.id, id, () => objectivesApi.update(slug, id, data));
+  return withUpdate(useObjectiveStore, (item) => item.id, id, () => objectivesApi.update(slug, id, data), data, { slug, entityPath: "objectives" });
 }

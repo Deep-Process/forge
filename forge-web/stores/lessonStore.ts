@@ -12,5 +12,5 @@ export const useLessonStore = createEntityStore<Lesson>({
 });
 
 export async function createLesson(slug: string, data: LessonCreate[]): Promise<string[]> {
-  return withCreateLoading(useLessonStore, () => lessonsApi.create(slug, data));
+  return withCreateLoading(useLessonStore, () => lessonsApi.create(slug, data), { slug, entityPath: "lessons" });
 }

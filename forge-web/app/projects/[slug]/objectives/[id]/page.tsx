@@ -219,7 +219,7 @@ export default function ObjectiveDetailPage() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!objective) return <p className="text-sm text-gray-400">Objective not found</p>;
 
-  const knowledgeIds = (objective as any).knowledge_ids || [];
+  const knowledgeIds = objective.knowledge_ids || [];
 
   return (
     <div>

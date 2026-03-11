@@ -71,6 +71,9 @@ function parseEvent(event: ForgeEvent): { prefix: string; entityId?: string } {
 export function dispatchWsEvent(event: ForgeEvent): void {
   const { prefix, entityId } = parseEvent(event);
 
+  // Track last event timestamp for connection status monitoring
+  _lastEventTimestamp = new Date().toISOString();
+
   // Skip SWR revalidation if this is an echo of our own mutation
   const skipSWR = entityId ? isRecentMutation(entityId) : false;
 

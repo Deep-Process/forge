@@ -66,7 +66,7 @@ export default function KnowledgePage() {
       return (
         k.title.toLowerCase().includes(q) ||
         k.content.toLowerCase().includes(q) ||
-        k.tags.some((t) => t.toLowerCase().includes(q))
+        k.tags?.some((t) => t.toLowerCase().includes(q))
       );
     });
 

@@ -13,9 +13,9 @@ export const useKnowledgeStore = createEntityStore<Knowledge>({
 });
 
 export async function createKnowledge(slug: string, data: KnowledgeCreate[]): Promise<string[]> {
-  return withCreateLoading(useKnowledgeStore, () => knowledgeApi.create(slug, data));
+  return withCreateLoading(useKnowledgeStore, () => knowledgeApi.create(slug, data), { slug, entityPath: "knowledge" });
 }
 
 export async function updateKnowledge(slug: string, id: string, data: KnowledgeUpdate): Promise<void> {
-  return withUpdate(useKnowledgeStore, (item) => item.id, id, () => knowledgeApi.update(slug, id, data));
+  return withUpdate(useKnowledgeStore, (item) => item.id, id, () => knowledgeApi.update(slug, id, data), data, { slug, entityPath: "knowledge" });
 }
