@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { tasks as tasksApi, decisions as decisionsApi, changes as changesApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { EntityLink } from "@/components/shared/EntityLink";
 import type { Task, Decision, ChangeRecord, TaskContext, ContextSection } from "@/lib/types";
 
 type Tab = "overview" | "dependencies" | "decisions" | "changes" | "context";
@@ -202,13 +203,7 @@ function OverviewTab({ task, slug }: { task: Task; slug: string }) {
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Blocked by Decisions</h3>
           <div className="flex flex-wrap gap-2">
             {task.blocked_by_decisions.map((dId) => (
-              <Link
-                key={dId}
-                href={`/projects/${slug}/decisions/${dId}`}
-                className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded hover:bg-amber-100"
-              >
-                {dId}
-              </Link>
+              <EntityLink key={dId} id={dId} />
             ))}
           </div>
         </section>
@@ -220,13 +215,7 @@ function OverviewTab({ task, slug }: { task: Task; slug: string }) {
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Conflicts With</h3>
           <div className="flex flex-wrap gap-2">
             {task.conflicts_with.map((tId) => (
-              <Link
-                key={tId}
-                href={`/projects/${slug}/tasks/${tId}`}
-                className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200"
-              >
-                {tId}
-              </Link>
+              <EntityLink key={tId} id={tId} />
             ))}
           </div>
         </section>
@@ -320,7 +309,7 @@ function ChangesTab({ changes }: { changes: ChangeRecord[] }) {
           {c.decision_ids && c.decision_ids.length > 0 && (
             <div className="flex gap-1 mt-1">
               {c.decision_ids.map((dId) => (
-                <span key={dId} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{dId}</span>
+                <EntityLink key={dId} id={dId} showPreview={false} />
               ))}
             </div>
           )}

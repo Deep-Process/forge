@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { decisions as decisionsApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { EntityLink } from "@/components/shared/EntityLink";
 import type { Decision } from "@/lib/types";
 
 export default function DecisionDetailPage() {
@@ -59,12 +59,9 @@ export default function DecisionDetailPage() {
               </Badge>
             </div>
             {decision.task_id && (
-              <Link
-                href={`/projects/${slug}/tasks/${decision.task_id}`}
-                className="text-xs text-forge-600 hover:underline"
-              >
-                Task: {decision.task_id}
-              </Link>
+              <div className="text-xs">
+                Task: <EntityLink id={decision.task_id} />
+              </div>
             )}
           </div>
           <div className="text-xs text-gray-400 text-right">
@@ -186,7 +183,8 @@ function RiskSection({ decision }: { decision: Decision }) {
       )}
       {decision.linked_entity_id && (
         <div className="text-xs text-gray-500">
-          Linked entity: {decision.linked_entity_type} {decision.linked_entity_id}
+          Linked entity: {decision.linked_entity_type}{" "}
+          <EntityLink id={decision.linked_entity_id} />
         </div>
       )}
     </section>
