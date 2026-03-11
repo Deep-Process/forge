@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEntityData } from "@/hooks/useEntityData";
@@ -81,7 +81,7 @@ function ObjectivesSection({ slug }: { slug: string }) {
               {obj.id}: {obj.title}
             </Link>
             <div className="mt-1.5 space-y-1.5">
-              {obj.key_results.map((kr, i) => (
+              {(obj.key_results ?? []).map((kr, i) => (
                 <KRProgressBar key={i} kr={kr} />
               ))}
             </div>
@@ -126,8 +126,12 @@ function KRProgressBar({ kr }: { kr: KeyResult }) {
 
 function PipelineSection({ slug }: { slug: string }) {
   const { items: tasks, isLoading } = useEntityData<Task>(slug, "tasks");
-  const { statuses } = useProjectStore();
+  const { statuses, fetchStatus } = useProjectStore();
   const status = statuses[slug];
+
+  useEffect(() => {
+    if (slug && !statuses[slug]) fetchStatus(slug);
+  }, [slug, statuses, fetchStatus]);
 
   const { statusCounts, totalTasks } = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -154,6 +158,7 @@ function PipelineSection({ slug }: { slug: string }) {
           <Link
             key={key}
             href={`/projects/${slug}/tasks?status=${key}`}
+            aria-label={`${key}: ${count} tasks`}
             className={`${STATUS_COLORS[key] || "bg-gray-300"} transition-all hover:opacity-80`}
             style={{ width: `${totalTasks ? (count / totalTasks) * 100 : 0}%` }}
             title={`${key}: ${count}`}

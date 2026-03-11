@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEntityData } from "@/hooks/useEntityData";
 import { useTaskStore, updateTask as updateTaskAction } from "@/stores/taskStore";
 import { TaskCard } from "@/components/entities/TaskCard";
@@ -14,9 +14,10 @@ const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED", "CLAIMING"
 
 export default function TasksPage() {
   const { slug } = useParams() as { slug: string };
+  const searchParams = useSearchParams();
   const { items, count, isLoading, error, mutate } = useEntityData<Task>(slug, "tasks");
   const saving = useTaskStore((s) => s.saving);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
