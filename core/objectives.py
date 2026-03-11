@@ -106,6 +106,12 @@ CONTRACTS = {
                 )
                 for kr in item.get("key_results", [])
             ), "Each key_result must have either ('metric' + 'target') or 'description' (or both)"),
+            (lambda item, i: all(
+                isinstance(r, dict)
+                and r.get("type") in ("depends_on", "related_to", "supersedes", "duplicates")
+                and isinstance(r.get("target_id"), str)
+                for r in item.get("relations", [])
+            ), "Each relation must have 'type' (depends_on|related_to|supersedes|duplicates) and 'target_id' (O-NNN)"),
         ],
         "invariant_texts": [
             "title: concise name for the objective (e.g., 'Reduce API response time')",
