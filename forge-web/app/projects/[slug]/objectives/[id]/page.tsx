@@ -1,13 +1,47 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { objectives as objectivesApi, ideas as ideasApi, guidelines as guidelinesApi, knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
-import type { Objective, Idea, Guideline, KeyResult, ObjectiveRelation } from "@/lib/types";
+import type { Objective, Idea, Guideline, KeyResult, ObjectiveRelation, ObjectiveStatus } from "@/lib/types";
 
 const KR_STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "ACHIEVED"] as const;
+
+/* ---------- Status transition logic ---------- */
+interface ActionItem {
+  label: string;
+  action: string;
+  destructive?: boolean;
+  targetStatus?: ObjectiveStatus;
+}
+
+function getAvailableActions(status: ObjectiveStatus): ActionItem[] {
+  const actions: ActionItem[] = [
+    { label: "Update KR Progress", action: "update_kr" },
+  ];
+
+  switch (status) {
+    case "ACTIVE":
+      actions.push(
+        { label: "Pause", action: "status", targetStatus: "PAUSED" },
+        { label: "Mark as Achieved", action: "status", targetStatus: "ACHIEVED", destructive: true },
+        { label: "Mark as Abandoned", action: "status", targetStatus: "ABANDONED", destructive: true },
+      );
+      break;
+    case "PAUSED":
+      actions.push(
+        { label: "Resume", action: "status", targetStatus: "ACTIVE" },
+        { label: "Mark as Achieved", action: "status", targetStatus: "ACHIEVED", destructive: true },
+        { label: "Mark as Abandoned", action: "status", targetStatus: "ABANDONED", destructive: true },
+      );
+      break;
+    // ACHIEVED / ABANDONED are terminal — no status transitions
+  }
+
+  return actions;
+}
 const KR_STATUS_COLORS: Record<string, string> = {
   NOT_STARTED: "bg-gray-100 text-gray-600",
   IN_PROGRESS: "bg-blue-100 text-blue-700",
@@ -39,6 +73,12 @@ export default function ObjectiveDetailPage() {
   const [editingKR, setEditingKR] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Actions menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ActionItem | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchObjective = useCallback(async () => {
     setLoading(true);
@@ -129,6 +169,52 @@ export default function ObjectiveDetailPage() {
     return obj ? obj.title : objId;
   };
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const handleAction = (item: ActionItem) => {
+    setMenuOpen(false);
+    if (item.action === "update_kr") {
+      // Activate edit on first KR
+      if (objective && objective.key_results.length > 0) {
+        const kr = objective.key_results[0];
+        setEditingKR(0);
+        setEditValue(kr.metric ? String(kr.current ?? 0) : kr.status || "NOT_STARTED");
+      }
+      return;
+    }
+    if (item.action === "status" && item.targetStatus) {
+      if (item.destructive) {
+        setConfirmAction(item);
+      } else {
+        executeStatusChange(item.targetStatus);
+      }
+    }
+  };
+
+  const executeStatusChange = async (newStatus: ObjectiveStatus) => {
+    if (!objective) return;
+    setStatusSaving(true);
+    try {
+      await objectivesApi.update(slug, id, { status: newStatus });
+      await fetchObjective();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStatusSaving(false);
+      setConfirmAction(null);
+    }
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading objective...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!objective) return <p className="text-sm text-gray-400">Objective not found</p>;
@@ -137,16 +223,82 @@ export default function ObjectiveDetailPage() {
 
   return (
     <div>
+      {/* Confirmation Dialog */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              {confirmAction.label}?
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {confirmAction.targetStatus === "ACHIEVED"
+                ? "This will mark the objective as achieved. Derived guidelines should be reviewed."
+                : "This will mark the objective as abandoned. Derived guidelines should be reviewed."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-3 py-1.5 text-xs text-gray-600 border rounded hover:bg-gray-50"
+                disabled={statusSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => executeStatusChange(confirmAction.targetStatus!)}
+                className={`px-3 py-1.5 text-xs text-white rounded disabled:opacity-50 ${
+                  confirmAction.targetStatus === "ABANDONED"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+                disabled={statusSaving}
+              >
+                {statusSaving ? "Saving..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <button onClick={() => router.back()} className="text-xs text-gray-400 hover:text-gray-600 mb-2">
           &larr; Back
         </button>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm text-gray-400 font-mono">{objective.id}</span>
-          <Badge variant={statusVariant(objective.status)}>{objective.status}</Badge>
-          <Badge>{objective.appetite}</Badge>
-          <Badge variant="info">{objective.scope}</Badge>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400 font-mono">{objective.id}</span>
+            <Badge variant={statusVariant(objective.status)}>{objective.status}</Badge>
+            <Badge>{objective.appetite}</Badge>
+            <Badge variant="info">{objective.scope}</Badge>
+          </div>
+
+          {/* Actions dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border rounded-md hover:bg-gray-50"
+            >
+              Actions
+              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-1 w-48 bg-white border rounded-md shadow-lg z-30 py-1">
+                {getAvailableActions(objective.status).map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => handleAction(item)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 ${
+                      item.destructive ? "text-red-600 hover:bg-red-50" : "text-gray-700"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <h1 className="text-xl font-bold">{objective.title}</h1>
         {objective.description && (
