@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEntityData } from "@/hooks/useEntityData";
 import { updateTask as updateTaskAction } from "@/stores/taskStore";
-import { Badge, statusVariant } from "@/components/shared/Badge";
+import { Badge } from "@/components/shared/Badge";
 import type { Task, TaskStatus } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -177,7 +177,9 @@ function KanbanView({ tasks, slug }: { tasks: Task[]; slug: string }) {
     return cols;
   }, [tasks]);
 
-  const handleDragStart = (taskId: string) => {
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData("text/plain", taskId);
+    e.dataTransfer.effectAllowed = "move";
     dragItemRef.current = taskId;
   };
 
@@ -200,7 +202,9 @@ function KanbanView({ tasks, slug }: { tasks: Task[]; slug: string }) {
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === targetStatus) return;
 
-    updateTaskAction(slug, taskId, { status: targetStatus as TaskStatus });
+    updateTaskAction(slug, taskId, { status: targetStatus as TaskStatus }).catch(() => {
+      // SWR will revalidate and restore correct state
+    });
   };
 
   return (
@@ -249,14 +253,14 @@ function KanbanCard({
 }: {
   task: Task;
   slug: string;
-  onDragStart: (id: string) => void;
+  onDragStart: (e: React.DragEvent, id: string) => void;
 }) {
   const isBlocked = (task.blocked_by_decisions ?? []).length > 0;
 
   return (
     <div
       draggable
-      onDragStart={() => onDragStart(task.id)}
+      onDragStart={(e) => onDragStart(e, task.id)}
       className={`bg-white rounded-md border p-2.5 cursor-grab active:cursor-grabbing hover:border-forge-300 transition-colors ${
         isBlocked ? "border-red-300 border-l-4 border-l-red-400" : ""
       }`}
