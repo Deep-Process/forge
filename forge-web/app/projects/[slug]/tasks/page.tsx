@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { useEntityStore } from "@/stores/entityStore";
+import { useEntityData } from "@/hooks/useEntityData";
+import { useTaskStore, updateTask as updateTaskAction } from "@/stores/taskStore";
 import { TaskCard } from "@/components/entities/TaskCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { SuggestionPanel } from "@/components/ai/SuggestionPanel";
@@ -13,23 +14,20 @@ const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED", "CLAIMING"
 
 export default function TasksPage() {
   const { slug } = useParams() as { slug: string };
-  const { slices, fetchEntities, updateTask } = useEntityStore();
+  const { items, count, isLoading, error, mutate } = useEntityData<Task>(slug, "tasks");
+  const saving = useTaskStore((s) => s.saving);
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
 
-  useEffect(() => {
-    fetchEntities(slug, "tasks");
-  }, [slug, fetchEntities]);
-
-  const tasks = slices.tasks.items as Task[];
+  const tasks = items;
   const filtered = statusFilter
     ? tasks.filter((t) => t.status === statusFilter)
     : tasks;
 
   const handleStatusChange = (id: string, status: string) => {
-    updateTask(slug, id, { status: status as Task["status"] });
+    updateTaskAction(slug, id, { status: status as Task["status"] });
   };
 
   const handleTaskSelect = (id: string) => {
@@ -52,13 +50,16 @@ export default function TasksPage() {
   };
 
   const handleFormSuccess = useCallback(() => {
-    fetchEntities(slug, "tasks");
-  }, [slug, fetchEntities]);
+    mutate();
+  }, [mutate]);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Tasks ({slices.tasks.count})</h2>
+        <h2 className="text-lg font-semibold">
+          Tasks ({count})
+          {saving && <span className="ml-2 text-xs text-gray-400">Saving...</span>}
+        </h2>
         <div className="flex items-center gap-3">
           <StatusFilter options={STATUSES} value={statusFilter} onChange={setStatusFilter} />
           <button
@@ -69,9 +70,9 @@ export default function TasksPage() {
           </button>
         </div>
       </div>
-      {slices.tasks.loading && <p className="text-sm text-gray-400">Loading...</p>}
-      {slices.tasks.error && (
-        <p className="text-sm text-red-600 mb-2">{slices.tasks.error}</p>
+      {isLoading && <p className="text-sm text-gray-400">Loading...</p>}
+      {error && (
+        <p className="text-sm text-red-600 mb-2">{error}</p>
       )}
       <div className="space-y-3">
         {filtered.map((task) => (
@@ -87,7 +88,7 @@ export default function TasksPage() {
             <TaskCard task={task} slug={slug} onStatusChange={handleStatusChange} onEdit={handleEdit} />
           </div>
         ))}
-        {!slices.tasks.loading && filtered.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No tasks{statusFilter ? ` with status ${statusFilter}` : ""}</p>
         )}
       </div>

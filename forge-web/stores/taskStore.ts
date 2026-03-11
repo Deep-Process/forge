@@ -1,5 +1,6 @@
 import { createEntityStore, withCreateLoading, withUpdate } from "./factory";
 import { tasks as tasksApi } from "@/lib/api";
+import { trackMutation } from "@/lib/mutationTracker";
 import type { Task, TaskCreate, TaskUpdate } from "@/lib/types";
 
 export const useTaskStore = createEntityStore<Task>({
@@ -17,11 +18,11 @@ export const useTaskStore = createEntityStore<Task>({
 });
 
 export async function createTask(slug: string, data: TaskCreate[]): Promise<string[]> {
-  return withCreateLoading(useTaskStore, () => tasksApi.create(slug, data));
+  return withCreateLoading(useTaskStore, () => tasksApi.create(slug, data), { slug, entityPath: "tasks" });
 }
 
 export async function updateTask(slug: string, id: string, data: TaskUpdate): Promise<void> {
-  return withUpdate(useTaskStore, (item) => item.id, id, () => tasksApi.update(slug, id, data));
+  return withUpdate(useTaskStore, (item) => item.id, id, () => tasksApi.update(slug, id, data), data, { slug, entityPath: "tasks" });
 }
 
 export async function removeTask(slug: string, id: string): Promise<void> {
@@ -30,6 +31,7 @@ export async function removeTask(slug: string, id: string): Promise<void> {
   useTaskStore.setState({ items: filtered, count: filtered.length });
   try {
     await tasksApi.remove(slug, id);
+    trackMutation(id);
   } catch (e) {
     useTaskStore.setState({ items: prev, count: prev.length, error: (e as Error).message });
   }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SWRProvider } from "@/lib/swr-config";
 
 export const metadata: Metadata = {
   title: "Forge Platform",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="flex h-screen overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <SWRProvider>
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        </SWRProvider>
       </body>
     </html>
   );

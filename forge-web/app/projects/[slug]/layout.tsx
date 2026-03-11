@@ -1,17 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
-import { dispatchWsEvent } from "@/stores/wsDispatcher";
+import { dispatchWsEvent, setLastEventTimestamp } from "@/stores/wsDispatcher";
 import { DebugToggle } from "@/components/debug/DebugToggle";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { BottomPanel } from "@/components/debug/BottomPanel";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { useDebugPanelStore } from "@/stores/debugPanelStore";
+
+type ConnectionState = "connected" | "stale" | "disconnected";
+
+function useConnectionState(connected: boolean, lastEventTime: number | null): { state: ConnectionState; tick: number } {
+  const [state, setState] = useState<ConnectionState>("disconnected");
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!connected) {
+      setState("disconnected");
+      return;
+    }
+
+    // Check staleness + refresh timestamp display every 10s
+    const check = () => {
+      if (!connected) {
+        setState("disconnected");
+      } else if (lastEventTime && Date.now() - lastEventTime > 30_000) {
+        setState("stale");
+      } else {
+        setState("connected");
+      }
+      setTick((t) => t + 1);
+    };
+    check();
+    const interval = setInterval(check, 10_000);
+    return () => clearInterval(interval);
+  }, [connected, lastEventTime]);
+
+  return { state, tick };
+}
+
+const CONNECTION_STYLES: Record<ConnectionState, { color: string; label: string }> = {
+  connected: { color: "bg-green-500", label: "Connected" },
+  stale: { color: "bg-yellow-500", label: "Connected (no recent events)" },
+  disconnected: { color: "bg-red-500", label: "Disconnected" },
+};
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -20,16 +57,24 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const detail = details[slug];
   const { connected, onAny } = useWebSocket(slug);
   const incrementEvents = useDebugPanelStore((s) => s.incrementEvents);
+  const [lastEventTime, setLastEventTime] = useState<number | null>(null);
+
+  const { state: connectionState } = useConnectionState(connected, lastEventTime);
+  const connStyle = CONNECTION_STYLES[connectionState];
 
   useEffect(() => {
     if (slug) selectProject(slug);
   }, [slug, selectProject]);
 
-  // Forward all WebSocket events to per-entity stores + count events
+  // Forward all WebSocket events to per-entity stores + count events + track timestamps
   useEffect(() => {
     const unsub = onAny((event) => {
       dispatchWsEvent(event);
       incrementEvents();
+      setLastEventTime(Date.now());
+      if (event.timestamp) {
+        setLastEventTimestamp(event.timestamp);
+      }
     });
     return unsub;
   }, [onAny, incrementEvents]);
@@ -57,14 +102,18 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
                 — {detail.goal}
               </span>
             )}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-3">
               <DebugToggle slug={slug} />
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${
-                  connected ? "bg-green-500" : "bg-red-500"
-                }`}
-                title={connected ? "WebSocket connected" : "WebSocket disconnected"}
-              />
+              <div className="flex items-center gap-1.5" title={connStyle.label}>
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-full ${connStyle.color}`}
+                />
+                {lastEventTime && connectionState === "connected" && (
+                  <span className="text-[10px] text-gray-400 hidden sm:inline">
+                    {formatTimeAgo(lastEventTime)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -80,4 +129,12 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
       </div>
     </div>
   );
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
 }

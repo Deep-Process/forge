@@ -14,9 +14,9 @@ export const useDecisionStore = createEntityStore<Decision>({
 });
 
 export async function createDecision(slug: string, data: DecisionCreate[]): Promise<string[]> {
-  return withCreateLoading(useDecisionStore, () => decisionsApi.create(slug, data));
+  return withCreateLoading(useDecisionStore, () => decisionsApi.create(slug, data), { slug, entityPath: "decisions" });
 }
 
 export async function updateDecision(slug: string, id: string, data: DecisionUpdate): Promise<void> {
-  return withUpdate(useDecisionStore, (item) => item.id, id, () => decisionsApi.update(slug, id, data));
+  return withUpdate(useDecisionStore, (item) => item.id, id, () => decisionsApi.update(slug, id, data), data, { slug, entityPath: "decisions" });
 }

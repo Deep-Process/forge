@@ -7,6 +7,7 @@ export interface EntitySliceState<T> {
   items: T[];
   count: number;
   loading: boolean;
+  saving: boolean;
   error: string | null;
 }
 
@@ -42,6 +43,7 @@ export function createEntityStore<T>(config: EntityStoreConfig<T>) {
     items: [],
     count: 0,
     loading: false,
+    saving: false,
     error: null,
 
     fetchAll: async (slug, params) => {
@@ -118,47 +120,117 @@ export function createEntityStore<T>(config: EntityStoreConfig<T>) {
       }
     },
 
-    clear: () => set({ items: [], count: 0, loading: false, error: null }),
+    clear: () => set({ items: [], count: 0, loading: false, saving: false, error: null }),
   }));
 }
 
 // --- CRUD Helpers ---
+
+import { mutate as swrMutate } from "swr";
+import { trackMutation } from "@/lib/mutationTracker";
 
 type StoreApi<T> = {
   getState: () => EntitySliceState<T>;
   setState: (partial: Partial<EntitySliceState<T>>) => void;
 };
 
+/** Options for triggering SWR revalidation after mutation. */
+export interface SWRRevalidateOpts {
+  slug: string;
+  entityPath: string;
+}
+
+/**
+ * Create with saving spinner (no optimistic add — server is truth per D-007).
+ * Sets `saving: true` while the API call is in flight.
+ * After success, triggers SWR revalidation to fetch the created entity.
+ */
 export async function withCreateLoading<T>(
   store: StoreApi<T>,
   fn: () => Promise<{ added: string[]; total: number }>,
+  swr?: SWRRevalidateOpts,
 ): Promise<string[]> {
-  store.setState({ loading: true, error: null });
+  store.setState({ saving: true, error: null });
   try {
     const res = await fn();
-    store.setState({ loading: false });
+    // Track created IDs to suppress WS echo
+    for (const id of res.added) {
+      trackMutation(id);
+    }
+    store.setState({ saving: false });
+    // Revalidate SWR cache so migrated pages show the new entity
+    if (swr) {
+      revalidateSWR(swr);
+    }
     return res.added;
   } catch (e) {
-    store.setState({ error: (e as Error).message, loading: false });
+    store.setState({ error: (e as Error).message, saving: false });
     throw e;
   }
 }
 
+/**
+ * Optimistic update with rollback on error.
+ * Immediately applies the update to the UI, then confirms via API.
+ * If API fails, rolls back to previous state.
+ * After success, triggers SWR revalidation for migrated pages.
+ */
 export async function withUpdate<T>(
   store: StoreApi<T>,
   getItemId: (item: T) => string,
   id: string,
   fn: () => Promise<T>,
+  optimisticData?: Partial<T>,
+  swr?: SWRRevalidateOpts,
 ): Promise<void> {
+  const prevState = store.getState();
+  const prevItem = prevState.items.find((item) => getItemId(item) === id);
+
+  // Optimistic update: apply changes immediately
+  if (optimisticData && prevItem) {
+    store.setState({
+      items: prevState.items.map((item) =>
+        getItemId(item) === id ? { ...item, ...optimisticData } : item,
+      ),
+    } as Partial<EntitySliceState<T>>);
+  }
+
   try {
     const updated = await fn();
+    trackMutation(id);
+    // Apply server response (authoritative)
     const state = store.getState();
     store.setState({
       items: state.items.map((item) =>
         getItemId(item) === id ? updated : item,
       ),
     } as Partial<EntitySliceState<T>>);
+    // Revalidate SWR cache for migrated pages
+    if (swr) {
+      revalidateSWR(swr);
+    }
   } catch (e) {
-    store.setState({ error: (e as Error).message });
+    // Rollback on error
+    if (prevItem) {
+      const state = store.getState();
+      store.setState({
+        items: state.items.map((item) =>
+          getItemId(item) === id ? prevItem : item,
+        ),
+        error: (e as Error).message,
+      } as Partial<EntitySliceState<T>>);
+    } else {
+      store.setState({ error: (e as Error).message });
+    }
   }
+}
+
+/** Trigger SWR revalidation for an entity list. */
+function revalidateSWR(opts: SWRRevalidateOpts): void {
+  const pattern = `/projects/${opts.slug}/${opts.entityPath}`;
+  swrMutate(
+    (key) => typeof key === "string" && key.startsWith(pattern),
+    undefined,
+    { revalidate: true },
+  );
 }
