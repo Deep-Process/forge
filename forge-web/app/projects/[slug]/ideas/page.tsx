@@ -48,7 +48,7 @@ export default function IdeasPage() {
       {slices.ideas.error && <p className="text-sm text-red-600 mb-2">{slices.ideas.error}</p>}
       <div className="space-y-3">
         {filtered.map((idea) => (
-          <IdeaCard key={idea.id} idea={idea} onEdit={(i) => { setEditingIdea(i); setFormOpen(true); }} />
+          <IdeaCard key={idea.id} idea={idea} slug={slug} onEdit={(i) => { setEditingIdea(i); setFormOpen(true); }} />
         ))}
         {!slices.ideas.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No ideas{statusFilter ? ` with status ${statusFilter}` : ""}</p>

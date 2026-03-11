@@ -1,20 +1,22 @@
+import Link from "next/link";
 import type { Objective } from "@/lib/types";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 
 interface ObjectiveCardProps {
   objective: Objective;
+  slug: string;
   onEdit?: (objective: Objective) => void;
 }
 
-export function ObjectiveCard({ objective, onEdit }: ObjectiveCardProps) {
+export function ObjectiveCard({ objective, slug, onEdit }: ObjectiveCardProps) {
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
       <div className="flex items-start justify-between mb-1">
-        <div className="flex items-center gap-2">
+        <Link href={`/projects/${slug}/objectives/${objective.id}`} className="flex items-center gap-2">
           <span className="text-xs text-gray-400">{objective.id}</span>
           <Badge variant={statusVariant(objective.status)}>{objective.status}</Badge>
           <Badge>{objective.appetite}</Badge>
-        </div>
+        </Link>
         {onEdit && (
           <button
             onClick={() => onEdit(objective)}
@@ -24,8 +26,10 @@ export function ObjectiveCard({ objective, onEdit }: ObjectiveCardProps) {
           </button>
         )}
       </div>
-      <h3 className="font-medium text-sm">{objective.title}</h3>
-      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{objective.description}</p>
+      <Link href={`/projects/${slug}/objectives/${objective.id}`}>
+        <h3 className="font-medium text-sm">{objective.title}</h3>
+        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{objective.description}</p>
+      </Link>
       {objective.key_results.length > 0 && (
         <div className="mt-2 space-y-1">
           {objective.key_results.map((kr, i) => {

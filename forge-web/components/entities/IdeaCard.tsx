@@ -1,23 +1,25 @@
+import Link from "next/link";
 import type { Idea } from "@/lib/types";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 
 interface IdeaCardProps {
   idea: Idea;
+  slug: string;
   onEdit?: (idea: Idea) => void;
 }
 
-export function IdeaCard({ idea, onEdit }: IdeaCardProps) {
+export function IdeaCard({ idea, slug, onEdit }: IdeaCardProps) {
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
       <div className="flex items-start justify-between mb-1">
-        <div className="flex items-center gap-2">
+        <Link href={`/projects/${slug}/ideas/${idea.id}`} className="flex items-center gap-2">
           <span className="text-xs text-gray-400">{idea.id}</span>
           <Badge variant={statusVariant(idea.status)}>{idea.status}</Badge>
           <Badge>{idea.category}</Badge>
           <Badge variant={idea.priority === "HIGH" ? "danger" : idea.priority === "LOW" ? "default" : "warning"}>
             {idea.priority}
           </Badge>
-        </div>
+        </Link>
         {onEdit && (
           <button
             onClick={() => onEdit(idea)}
@@ -27,10 +29,12 @@ export function IdeaCard({ idea, onEdit }: IdeaCardProps) {
           </button>
         )}
       </div>
-      <h3 className="font-medium text-sm">{idea.title}</h3>
-      {idea.description && (
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{idea.description}</p>
-      )}
+      <Link href={`/projects/${slug}/ideas/${idea.id}`}>
+        <h3 className="font-medium text-sm">{idea.title}</h3>
+        {idea.description && (
+          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{idea.description}</p>
+        )}
+      </Link>
       {idea.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {idea.tags.map((t) => (

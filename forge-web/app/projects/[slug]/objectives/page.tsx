@@ -48,7 +48,7 @@ export default function ObjectivesPage() {
       {slices.objectives.error && <p className="text-sm text-red-600 mb-2">{slices.objectives.error}</p>}
       <div className="space-y-3">
         {filtered.map((o) => (
-          <ObjectiveCard key={o.id} objective={o} onEdit={(obj) => { setEditingObj(obj); setFormOpen(true); }} />
+          <ObjectiveCard key={o.id} objective={o} slug={slug} onEdit={(obj) => { setEditingObj(obj); setFormOpen(true); }} />
         ))}
         {!slices.objectives.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No objectives{statusFilter ? ` with status ${statusFilter}` : ""}</p>
