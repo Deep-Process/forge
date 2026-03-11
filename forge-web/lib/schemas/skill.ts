@@ -13,7 +13,7 @@ export const skillCreateSchema = z.object({
   description: z.string().default(""),
   category: skillCategory.default("custom"),
   skill_md_content: z.string().optional(),
-  evals_json: z.array(z.record(z.unknown())).default([]),
+  evals_json: z.array(z.record(z.string(), z.unknown())).default([]),
   tags: z.array(z.string()).default([]),
   scopes: z.array(z.string()).default([]),
 });
@@ -24,7 +24,7 @@ export const skillUpdateSchema = z.object({
   category: skillCategory.optional(),
   status: skillStatus.optional(),
   skill_md_content: z.string().optional(),
-  evals_json: z.array(z.record(z.unknown())).optional(),
+  evals_json: z.array(z.record(z.string(), z.unknown())).optional(),
   tags: z.array(z.string()).optional(),
   scopes: z.array(z.string()).optional(),
 });
