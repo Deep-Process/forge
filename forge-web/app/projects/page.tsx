@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useProjectStore } from "@/stores/projectStore";
 import { Card } from "@/components/shared/Card";
@@ -13,6 +13,7 @@ export default function ProjectsPage() {
   const [newSlug, setNewSlug] = useState("");
   const [newGoal, setNewGoal] = useState("");
   const [creating, setCreating] = useState(false);
+  const fetchedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProjects();
@@ -20,9 +21,12 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     slugs.forEach((slug) => {
-      if (!statuses[slug]) fetchStatus(slug);
+      if (!fetchedRef.current.has(slug)) {
+        fetchedRef.current.add(slug);
+        fetchStatus(slug);
+      }
     });
-  }, [slugs, statuses, fetchStatus]);
+  }, [slugs, fetchStatus]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

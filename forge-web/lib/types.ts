@@ -30,7 +30,7 @@ export type LessonCategory =
   | "decision-reversed" | "tool-insight" | "architecture-lesson"
   | "process-improvement" | "market-insight";
 export type LessonSeverity = "critical" | "important" | "minor";
-export type ChangeAction = "create" | "edit" | "delete" | "rename" | "move";
+export type ChangeAction = "create" | "edit" | "delete" | "rename" | "move" | "verify";
 export type ObjectiveStatus = "ACTIVE" | "ACHIEVED" | "ABANDONED" | "PAUSED";
 export type ACTemplateCategory =
   | "performance" | "security" | "quality" | "functionality"

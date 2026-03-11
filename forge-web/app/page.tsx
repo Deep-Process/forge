@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useProjectStore } from "@/stores/projectStore";
 import { Card } from "@/components/shared/Card";
 
 export default function DashboardPage() {
   const { slugs, statuses, loading, error, fetchProjects, fetchStatus } = useProjectStore();
+  const fetchedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  // Fetch status for each project once slugs are loaded
+  // Fetch status for each project once (tracked by ref to avoid re-render loops)
   useEffect(() => {
     slugs.forEach((slug) => {
-      if (!statuses[slug]) fetchStatus(slug);
+      if (!fetchedRef.current.has(slug)) {
+        fetchedRef.current.add(slug);
+        fetchStatus(slug);
+      }
     });
-  }, [slugs, statuses, fetchStatus]);
+  }, [slugs, fetchStatus]);
 
   return (
     <div>

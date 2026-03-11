@@ -19,13 +19,19 @@ export default function ProjectDashboardPage() {
     if (slug) {
       fetchStatus(slug);
       fetchEntities(slug, "tasks");
-      fetchEntities(slug, "decisions", { status: "OPEN" });
+      fetchEntities(slug, "decisions");
       fetchEntities(slug, "changes");
+      fetchEntities(slug, "objectives");
+      fetchEntities(slug, "ideas");
+      fetchEntities(slug, "knowledge");
+      fetchEntities(slug, "guidelines");
+      fetchEntities(slug, "lessons");
     }
   }, [slug, fetchStatus, fetchEntities]);
 
   const tasks = slices.tasks.items as import("@/lib/types").Task[];
-  const openDecisions = slices.decisions.items as import("@/lib/types").Decision[];
+  const allDecisions = slices.decisions.items as import("@/lib/types").Decision[];
+  const openDecisions = allDecisions.filter((d) => d.status === "OPEN");
   const recentChanges = (slices.changes.items as import("@/lib/types").ChangeRecord[]).slice(-5).reverse();
 
   // Task status distribution
