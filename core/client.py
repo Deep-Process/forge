@@ -1011,29 +1011,339 @@ class JSONBackend(ForgeBackend):
 # API Backend (platform mode — stub for T-020)
 # ---------------------------------------------------------------------------
 
+class ForgeRemoteError(Exception):
+    """Error from forge-api HTTP response."""
+    def __init__(self, status: int, detail: Any) -> None:
+        self.status = status
+        self.detail = detail
+        super().__init__(f"HTTP {status}: {detail}")
+
+
 class APIBackend(ForgeBackend):
     """Backend using forge-api REST endpoints.
 
-    Stub implementation — all methods raise NotImplementedError.
-    Full implementation in T-020 (cli-remote-mode).
+    Makes HTTP requests to a forge-api server for all operations.
+    Authentication via X-API-Key header.
     """
 
     def __init__(self, api_url: str, api_key: str = "") -> None:
+        import json as _json
+        import urllib.request
+        import urllib.error
+        self._json = _json
+        self._urllib_request = urllib.request
+        self._urllib_error = urllib.error
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
-        self.headers = {"X-API-Key": api_key} if api_key else {}
 
     def _url(self, path: str) -> str:
         return f"{self.api_url}/api/v1{path}"
 
-    def __getattr__(self, name: str) -> Any:
-        """All unimplemented methods raise NotImplementedError."""
-        def _not_implemented(*args: Any, **kwargs: Any) -> Any:
-            raise NotImplementedError(
-                f"APIBackend.{name}() not yet implemented. "
-                f"Install forge-api and use T-020 to enable remote mode."
-            )
-        return _not_implemented
+    def _request(self, method: str, path: str,
+                 data: Any = None,
+                 params: dict[str, str] | None = None) -> Any:
+        """Make HTTP request to forge-api and return parsed JSON response."""
+        url = self._url(path)
+        if params:
+            qs = "&".join(f"{k}={self._urllib_request.quote(str(v))}"
+                          for k, v in params.items() if v is not None)
+            if qs:
+                url += ("&" if "?" in url else "?") + qs
+
+        body = None
+        if data is not None:
+            body = self._json.dumps(data).encode("utf-8")
+
+        headers: dict[str, str] = {}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+
+        req = self._urllib_request.Request(url, data=body, headers=headers, method=method)
+        try:
+            with self._urllib_request.urlopen(req) as resp:
+                if resp.status == 204:
+                    return None
+                return self._json.loads(resp.read().decode("utf-8"))
+        except self._urllib_error.HTTPError as e:
+            try:
+                detail = self._json.loads(e.read().decode("utf-8"))
+            except Exception:
+                detail = e.reason
+            raise ForgeRemoteError(e.code, detail) from e
+
+    def _get(self, path: str, params: dict[str, str] | None = None) -> Any:
+        return self._request("GET", path, params=params)
+
+    def _post(self, path: str, data: Any = None, params: dict[str, str] | None = None) -> Any:
+        return self._request("POST", path, data=data, params=params)
+
+    def _patch(self, path: str, data: Any = None) -> Any:
+        return self._request("PATCH", path, data=data)
+
+    def _delete(self, path: str) -> Any:
+        return self._request("DELETE", path)
+
+    # -- Projects --
+
+    def list_projects(self) -> list[str]:
+        res = self._get("/projects")
+        return res.get("projects", [])
+
+    def get_project_status(self, project: str) -> dict:
+        return self._get(f"/projects/{project}/status")
+
+    def init_project(self, project: str, goal: str) -> dict:
+        return self._post("/projects", {"slug": project, "goal": goal})
+
+    # -- Pipeline --
+
+    def add_tasks(self, project: str, tasks: list[dict]) -> list[dict]:
+        res = self._post(f"/projects/{project}/tasks", tasks)
+        return res  # {added: [...], total: N}
+
+    def get_next_task(self, project: str, agent: str | None = None) -> dict | None:
+        params = {"agent": agent} if agent else None
+        try:
+            return self._post(f"/projects/{project}/tasks/next", {}, params=params)
+        except ForgeRemoteError as e:
+            if e.status == 404:
+                return None
+            raise
+
+    def complete_task(self, project: str, task_id: str,
+                      agent: str | None = None, reasoning: str = "") -> dict:
+        return self._post(f"/projects/{project}/tasks/{task_id}/complete",
+                          {"reasoning": reasoning})
+
+    def fail_task(self, project: str, task_id: str, reason: str) -> dict:
+        return self._patch(f"/projects/{project}/tasks/{task_id}",
+                           {"status": "FAILED", "failed_reason": reason})
+
+    def update_task(self, project: str, data: dict) -> dict:
+        task_id = data.get("id")
+        body = {k: v for k, v in data.items() if k != "id"}
+        return self._patch(f"/projects/{project}/tasks/{task_id}", body)
+
+    def remove_task(self, project: str, task_id: str) -> bool:
+        try:
+            self._delete(f"/projects/{project}/tasks/{task_id}")
+            return True
+        except ForgeRemoteError:
+            return False
+
+    def get_task_context(self, project: str, task_id: str) -> dict:
+        return self._get(f"/projects/{project}/tasks/{task_id}/context")
+
+    def get_project_config(self, project: str) -> dict:
+        detail = self._get(f"/projects/{project}")
+        return detail.get("config", {})
+
+    def set_project_config(self, project: str, config: dict) -> None:
+        self._patch(f"/projects/{project}", {"config": config})
+
+    # -- Decisions --
+
+    def add_decisions(self, project: str, decisions: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/decisions", decisions)
+
+    def read_decisions(self, project: str, status: str | None = None,
+                       task_id: str | None = None) -> list[dict]:
+        params: dict[str, str] = {}
+        if status:
+            params["status"] = status
+        if task_id:
+            params["task_id"] = task_id
+        res = self._get(f"/projects/{project}/decisions", params)
+        return res.get("decisions", [])
+
+    def update_decisions(self, project: str, updates: list[dict]) -> list[dict]:
+        updated = []
+        for upd in updates:
+            d_id = upd.get("id")
+            res = self._patch(f"/projects/{project}/decisions/{d_id}", upd)
+            updated.append(res)
+        return updated
+
+    # -- Changes --
+
+    def record_changes(self, project: str, changes: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/changes", changes)
+
+    def read_changes(self, project: str, task_id: str | None = None) -> list[dict]:
+        params = {"task_id": task_id} if task_id else None
+        res = self._get(f"/projects/{project}/changes", params)
+        return res.get("changes", [])
+
+    def auto_changes(self, project: str, task_id: str,
+                     reasoning: str = "") -> list[dict]:
+        params = {"task_id": task_id} if task_id else None
+        res = self._post(f"/projects/{project}/changes/auto", {}, params=params)
+        return res.get("changes", [])
+
+    # -- Knowledge --
+
+    def add_knowledge(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/knowledge", items)
+
+    def read_knowledge(self, project: str, status: str | None = None,
+                       category: str | None = None) -> list[dict]:
+        params: dict[str, str] = {}
+        if status:
+            params["status"] = status
+        if category:
+            params["category"] = category
+        res = self._get(f"/projects/{project}/knowledge", params)
+        return res.get("knowledge", [])
+
+    def update_knowledge(self, project: str, updates: list[dict]) -> list[dict]:
+        updated = []
+        for upd in updates:
+            k_id = upd.get("id")
+            res = self._patch(f"/projects/{project}/knowledge/{k_id}", upd)
+            updated.append(res)
+        return updated
+
+    def link_knowledge(self, project: str, links: list[dict]) -> list[dict]:
+        results = []
+        for link in links:
+            k_id = link.get("knowledge_id")
+            body = {
+                "entity_type": link["entity_type"],
+                "entity_id": link["entity_id"],
+                "relation": link.get("relation", "reference"),
+            }
+            res = self._post(f"/projects/{project}/knowledge/{k_id}/link", body)
+            results.append(res)
+        return results
+
+    def knowledge_impact(self, project: str, knowledge_id: str) -> dict:
+        return self._get(f"/projects/{project}/knowledge/{knowledge_id}/impact")
+
+    # -- Guidelines --
+
+    def add_guidelines(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/guidelines", items)
+
+    def read_guidelines(self, project: str, scope: str | None = None,
+                        weight: str | None = None) -> list[dict]:
+        params: dict[str, str] = {}
+        if scope:
+            params["scope"] = scope
+        if weight:
+            params["weight"] = weight
+        res = self._get(f"/projects/{project}/guidelines", params)
+        return res.get("guidelines", [])
+
+    def update_guidelines(self, project: str, updates: list[dict]) -> list[dict]:
+        updated = []
+        for upd in updates:
+            g_id = upd.get("id")
+            res = self._patch(f"/projects/{project}/guidelines/{g_id}", upd)
+            updated.append(res)
+        return updated
+
+    def get_guideline_context(self, project: str,
+                              scopes: list[str] | None = None) -> str:
+        params = {"scopes": ",".join(scopes)} if scopes else None
+        res = self._get(f"/projects/{project}/guidelines/context", params)
+        # API returns {must: [...], should: [...], may: [...], total: N}
+        lines = []
+        for weight in ("must", "should", "may"):
+            for g in res.get(weight, []):
+                w = weight.upper()
+                lines.append(f"[{w}] {g.get('id', '')} [{g.get('scope', '')}]: {g.get('content', '')}")
+        return "\n".join(lines)
+
+    # -- Objectives --
+
+    def add_objectives(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/objectives", items)
+
+    def read_objectives(self, project: str,
+                        status: str | None = None) -> list[dict]:
+        params = {"status": status} if status else None
+        res = self._get(f"/projects/{project}/objectives", params)
+        return res.get("objectives", [])
+
+    def update_objectives(self, project: str, updates: list[dict]) -> list[dict]:
+        updated = []
+        for upd in updates:
+            o_id = upd.get("id")
+            res = self._patch(f"/projects/{project}/objectives/{o_id}", upd)
+            updated.append(res)
+        return updated
+
+    # -- Ideas --
+
+    def add_ideas(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/ideas", items)
+
+    def read_ideas(self, project: str, status: str | None = None) -> list[dict]:
+        params = {"status": status} if status else None
+        res = self._get(f"/projects/{project}/ideas", params)
+        return res.get("ideas", [])
+
+    def update_ideas(self, project: str, updates: list[dict]) -> list[dict]:
+        updated = []
+        for upd in updates:
+            i_id = upd.get("id")
+            res = self._patch(f"/projects/{project}/ideas/{i_id}", upd)
+            updated.append(res)
+        return updated
+
+    def commit_idea(self, project: str, idea_id: str) -> dict:
+        return self._post(f"/projects/{project}/ideas/{idea_id}/commit", {})
+
+    # -- Lessons --
+
+    def add_lessons(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/lessons", items)
+
+    def read_lessons(self, project: str) -> list[dict]:
+        res = self._get(f"/projects/{project}/lessons")
+        return res.get("lessons", [])
+
+    def promote_lesson(self, project: str, lesson_id: str,
+                       target: str = "guideline", **kwargs: Any) -> dict:
+        body: dict[str, Any] = {"target": target}
+        body.update(kwargs)
+        return self._post(f"/projects/{project}/lessons/{lesson_id}/promote", body)
+
+    # -- AC Templates --
+
+    def add_ac_templates(self, project: str, items: list[dict]) -> list[dict]:
+        return self._post(f"/projects/{project}/ac-templates", items)
+
+    def read_ac_templates(self, project: str,
+                          category: str | None = None) -> list[dict]:
+        params = {"category": category} if category else None
+        res = self._get(f"/projects/{project}/ac-templates", params)
+        return res.get("templates", [])
+
+    def instantiate_ac_template(self, project: str, template_id: str,
+                                params: dict) -> str:
+        res = self._post(f"/projects/{project}/ac-templates/{template_id}/instantiate",
+                         {"params": params})
+        return res.get("criterion", "")
+
+    # -- Gates --
+
+    def configure_gates(self, project: str, gates: list[dict]) -> None:
+        self._post(f"/projects/{project}/gates", gates)
+
+    def check_gates(self, project: str,
+                    task_id: str | None = None) -> list[dict]:
+        params = {"task": task_id} if task_id else None
+        res = self._post(f"/projects/{project}/gates/check", {}, params=params)
+        return res.get("gates", [])
+
+    # -- Context assembly --
+
+    def assemble_context(self, project: str, task_id: str,
+                         contract: Any = None) -> dict:
+        return self._get(f"/projects/{project}/tasks/{task_id}/context")
 
 
 # ---------------------------------------------------------------------------

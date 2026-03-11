@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
+import { useWebSocket } from "@/lib/hooks/useWebSocket";
+import { useEntityStore } from "@/stores/entityStore";
 
 interface NavItem {
   label: string;
@@ -13,6 +15,7 @@ interface NavItem {
 const entityNav: NavItem[] = [
   { label: "Overview", segment: "" },
   { label: "Tasks", segment: "tasks" },
+  { label: "Board", segment: "board" },
   { label: "Decisions", segment: "decisions" },
   { label: "Objectives", segment: "objectives" },
   { label: "Ideas", segment: "ideas" },
@@ -28,10 +31,18 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const slug = params.slug as string;
   const { details, selectProject } = useProjectStore();
   const detail = details[slug];
+  const { connected, onAny } = useWebSocket(slug);
+  const handleEvent = useEntityStore((s) => s.handleEvent);
 
   useEffect(() => {
     if (slug) selectProject(slug);
   }, [slug, selectProject]);
+
+  // Forward all WebSocket events to the entity store
+  useEffect(() => {
+    const unsub = onAny(handleEvent);
+    return unsub;
+  }, [onAny, handleEvent]);
 
   const basePath = `/projects/${slug}`;
 
@@ -43,6 +54,12 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           <Link href="/projects" className="hover:text-gray-600">Projects</Link>
           <span>/</span>
           <span className="text-gray-700 font-medium">{slug}</span>
+          <span
+            className={`ml-auto inline-block h-2.5 w-2.5 rounded-full ${
+              connected ? "bg-green-500" : "bg-red-500"
+            }`}
+            title={connected ? "WebSocket connected" : "WebSocket disconnected"}
+          />
         </div>
         {detail && (
           <p className="text-sm text-gray-500">{detail.goal}</p>

@@ -1,0 +1,248 @@
+"""
+Anthropic (Claude) LLM provider.
+
+Implements LLMProvider Protocol using the Anthropic Messages API.
+Requires: anthropic package (pip install anthropic).
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, AsyncIterator
+
+from core.llm.provider import (
+    CompletionConfig,
+    CompletionResult,
+    Message,
+    ProviderCapabilities,
+    ProviderError,
+    StreamChunk,
+    TokenUsage,
+    ToolDefinition,
+)
+
+# Model capability map — updated as new models release
+_MODEL_CAPS: dict[str, dict[str, Any]] = {
+    "claude-opus-4-20250514": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 32_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.015,
+        "cost_output": 0.075,
+    },
+    "claude-sonnet-4-20250514": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 16_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.003,
+        "cost_output": 0.015,
+    },
+    "claude-haiku-3-5-20241022": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 8_192,
+        "supports_vision": True,
+        "supports_thinking": False,
+        "cost_input": 0.0008,
+        "cost_output": 0.004,
+    },
+}
+
+_DEFAULT_CAPS = {
+    "max_context_window": 200_000,
+    "max_output_tokens": 8_192,
+    "supports_vision": True,
+    "supports_thinking": False,
+    "cost_input": 0.003,
+    "cost_output": 0.015,
+}
+
+
+def _convert_tools(tools: list[ToolDefinition] | None) -> list[dict] | None:
+    """Convert generic ToolDefinition list to Anthropic tool format."""
+    if not tools:
+        return None
+    return [
+        {
+            "name": t.name,
+            "description": t.description,
+            "input_schema": t.parameters if t.parameters else {"type": "object", "properties": {}},
+        }
+        for t in tools
+    ]
+
+
+def _convert_messages(messages: list[Message], config: CompletionConfig) -> tuple[str, list[dict]]:
+    """Split system prompt from messages, convert to Anthropic format.
+
+    Returns (system_prompt, api_messages).
+    """
+    system = config.system_prompt or ""
+    api_msgs: list[dict] = []
+
+    for msg in messages:
+        if msg.role == "system":
+            # Anthropic puts system in a separate parameter
+            if system:
+                system += "\n\n"
+            system += msg.content
+        elif msg.role == "tool":
+            api_msgs.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": msg.tool_call_id or "",
+                        "content": msg.content,
+                    }
+                ],
+            })
+        else:
+            api_msgs.append({
+                "role": msg.role,
+                "content": msg.content,
+            })
+
+    return system, api_msgs
+
+
+class AnthropicProvider:
+    """LLM provider for Anthropic Claude models.
+
+    Args:
+        api_key: Anthropic API key.
+        model: Default model ID (can be overridden in CompletionConfig).
+        base_url: Optional custom base URL.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "claude-sonnet-4-20250514",
+        base_url: str | None = None,
+    ) -> None:
+        try:
+            import anthropic
+        except ImportError as e:
+            raise ImportError(
+                "anthropic package required: pip install anthropic"
+            ) from e
+
+        kwargs: dict[str, Any] = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = anthropic.AsyncAnthropic(**kwargs)
+        self._model = model
+
+    async def complete(
+        self,
+        messages: list[Message],
+        config: CompletionConfig,
+    ) -> CompletionResult:
+        model = config.model or self._model
+        system, api_msgs = _convert_messages(messages, config)
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": api_msgs,
+            "max_tokens": config.max_tokens,
+            "temperature": config.temperature,
+        }
+        if system:
+            kwargs["system"] = system
+        tools = _convert_tools(config.tools)
+        if tools:
+            kwargs["tools"] = tools
+        if config.stop_sequences:
+            kwargs["stop_sequences"] = config.stop_sequences
+
+        try:
+            response = await self._client.messages.create(**kwargs)
+        except Exception as e:
+            raise ProviderError(f"Anthropic API error: {e}") from e
+
+        # Extract text content
+        content = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                content += block.text
+            elif hasattr(block, "type") and block.type == "tool_use":
+                content += json.dumps({
+                    "tool_use": {
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                })
+
+        usage = TokenUsage(
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
+
+        return CompletionResult(
+            content=content,
+            model=response.model,
+            usage=usage,
+            stop_reason=response.stop_reason or "",
+        )
+
+    async def stream(
+        self,
+        messages: list[Message],
+        config: CompletionConfig,
+    ) -> AsyncIterator[StreamChunk]:
+        model = config.model or self._model
+        system, api_msgs = _convert_messages(messages, config)
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": api_msgs,
+            "max_tokens": config.max_tokens,
+            "temperature": config.temperature,
+        }
+        if system:
+            kwargs["system"] = system
+        tools = _convert_tools(config.tools)
+        if tools:
+            kwargs["tools"] = tools
+        if config.stop_sequences:
+            kwargs["stop_sequences"] = config.stop_sequences
+
+        try:
+            async with self._client.messages.stream(**kwargs) as stream:
+                async for event in stream:
+                    if hasattr(event, "type"):
+                        if event.type == "content_block_delta":
+                            delta = event.delta
+                            if hasattr(delta, "text"):
+                                yield StreamChunk(content=delta.text)
+                        elif event.type == "message_stop":
+                            msg = await stream.get_final_message()
+                            yield StreamChunk(
+                                content="",
+                                is_final=True,
+                                usage=TokenUsage(
+                                    input_tokens=msg.usage.input_tokens,
+                                    output_tokens=msg.usage.output_tokens,
+                                ),
+                            )
+        except Exception as e:
+            raise ProviderError(f"Anthropic streaming error: {e}") from e
+
+    def capabilities(self) -> ProviderCapabilities:
+        caps = _MODEL_CAPS.get(self._model, _DEFAULT_CAPS)
+        return ProviderCapabilities(
+            provider_name="anthropic",
+            model_id=self._model,
+            max_context_window=caps["max_context_window"],
+            max_output_tokens=caps["max_output_tokens"],
+            supports_streaming=True,
+            supports_tool_use=True,
+            supports_json_mode=False,  # Anthropic uses prefill instead
+            supports_vision=caps["supports_vision"],
+            supports_thinking=caps["supports_thinking"],
+            cost_per_1k_input=caps["cost_input"],
+            cost_per_1k_output=caps["cost_output"],
+        )

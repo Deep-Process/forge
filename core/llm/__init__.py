@@ -46,6 +46,8 @@ from core.llm.context import (
     estimate_tokens,
 )
 
+from core.llm.providers import ProviderRegistry, get_provider
+
 __all__ = [
     # Provider
     "CompletionConfig",
@@ -75,4 +77,7 @@ __all__ = [
     "SectionDef",
     "SECTION_DEFS",
     "estimate_tokens",
+    # Providers
+    "ProviderRegistry",
+    "get_provider",
 ]
