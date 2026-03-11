@@ -10,6 +10,7 @@ import { DebugToggle } from "@/components/debug/DebugToggle";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { BottomPanel } from "@/components/debug/BottomPanel";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { useDebugPanelStore } from "@/stores/debugPanelStore";
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="flex h-full -m-6">
+      {/* Command palette (Cmd+K / Ctrl+K) */}
+      <CommandPalette />
+
       {/* Project sidebar */}
       <ProjectSidebar slug={slug} />
 
