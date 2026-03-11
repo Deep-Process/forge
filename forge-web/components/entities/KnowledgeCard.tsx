@@ -45,7 +45,7 @@ export function KnowledgeCard({ knowledge: k, slug, onEdit, staleInfo }: Knowled
       <div className="flex items-start justify-between mb-1">
         <Link
           href={`/projects/${slug}/knowledge/${k.id}`}
-          className="flex items-center gap-2 hover:underline"
+          className="flex items-center gap-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-forge-500 rounded"
         >
           <span className="text-xs text-gray-400">{k.id}</span>
           <Badge variant={statusVariant(k.status)}>{k.status}</Badge>
