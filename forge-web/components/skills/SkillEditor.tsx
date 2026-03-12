@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { skills as skillsApi, ApiError, fetchBlob } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { Button } from "@/components/shared/Button";
+import { SkillFileTree } from "./SkillFileTree";
 import { parseFrontmatter } from "@/lib/utils/parseFrontmatter";
 import { getCategoryColor, categoryLabel } from "@/lib/utils/categoryColors";
 import type {
   Skill,
   SkillStatus,
   SkillUpdate,
+  SkillFile,
   SkillUsageEntry,
   TESLintFinding,
   PromotionHistoryEntry,
@@ -77,6 +79,21 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   const [usageData, setUsageData] = useState<SkillUsageEntry[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
 
+  // Multi-file state
+  const [activeFile, setActiveFile] = useState("SKILL.md");
+  const [files, setFiles] = useState<SkillFile[]>(() => {
+    const res = skill?.resources as Record<string, unknown> | undefined;
+    return (res?.files as SkillFile[] | undefined) ?? [];
+  });
+  const [fileContents, setFileContents] = useState<Record<string, string>>(() => {
+    const res = skill?.resources as Record<string, unknown> | undefined;
+    const fs = (res?.files as SkillFile[] | undefined) ?? [];
+    const map: Record<string, string> = {};
+    for (const f of fs) map[f.path] = f.content;
+    return map;
+  });
+  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
+
   // Auto-parse frontmatter on content change (debounced)
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
@@ -98,9 +115,49 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   }, [tab, skill]);
 
   const handleContentChange = (val: string) => {
-    setContent(val);
-    setDirty(true);
+    if (activeFile === "SKILL.md") {
+      setContent(val);
+      setDirty(true);
+    } else {
+      setFileContents((prev) => ({ ...prev, [activeFile]: val }));
+      setDirtyFiles((prev) => new Set(prev).add(activeFile));
+    }
   };
+
+  // File tree handlers
+  const handleFileSelect = useCallback((path: string) => {
+    setActiveFile(path);
+  }, []);
+
+  const handleFileAdd = useCallback((folder: string, name: string) => {
+    const path = `${folder}${name}`;
+    if (files.some((f) => f.path === path)) return; // duplicate
+    const fileType = folder === "scripts/" ? "script" as const
+      : folder === "references/" ? "reference" as const
+      : folder === "assets/" ? "asset" as const
+      : "other" as const;
+    const newFile: SkillFile = { path, content: "", file_type: fileType };
+    setFiles((prev) => [...prev, newFile]);
+    setFileContents((prev) => ({ ...prev, [path]: "" }));
+    setDirtyFiles((prev) => new Set(prev).add(path));
+    setActiveFile(path);
+  }, [files]);
+
+  const handleFileDelete = useCallback((path: string) => {
+    if (!confirm(`Delete ${path}?`)) return;
+    setFiles((prev) => prev.filter((f) => f.path !== path));
+    setFileContents((prev) => {
+      const next = { ...prev };
+      delete next[path];
+      return next;
+    });
+    setDirtyFiles((prev) => {
+      const next = new Set(prev);
+      next.add("__deleted__"); // mark dirty to trigger save
+      return next;
+    });
+    if (activeFile === path) setActiveFile("SKILL.md");
+  }, [activeFile]);
 
   // Save
   const handleSave = async () => {
@@ -132,6 +189,18 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
           scopes: formScopes.split(",").map((s) => s.trim()).filter(Boolean),
         };
         await skillsApi.update(skill.id, data);
+
+        // Save bundled files if any changed
+        if (dirtyFiles.size > 0) {
+          const updatedFiles: SkillFile[] = files.map((f) => ({
+            ...f,
+            content: fileContents[f.path] ?? f.content,
+          }));
+          await skillsApi.replaceFiles(skill.id, updatedFiles);
+          setFiles(updatedFiles);
+          setDirtyFiles(new Set());
+        }
+
         setDirty(false);
         onSaved?.();
       }
@@ -276,7 +345,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
         <Button
           size="sm"
           onClick={handleSave}
-          disabled={saving || (!dirty && !isCreate)}
+          disabled={saving || (!dirty && dirtyFiles.size === 0 && !isCreate)}
         >
           {saving ? "Saving..." : isCreate ? "Create" : "Save"}
         </Button>
@@ -310,11 +379,27 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
         </div>
       )}
 
-      {/* Two-column layout */}
+      {/* Three-column layout: file tree | editor | tabs panel */}
       <div className="flex flex-1 min-h-0">
-        {/* Left: Editor */}
+        {/* Left: File tree (edit mode only, not create) */}
+        {!isCreate && (
+          <div className="w-48 flex-shrink-0 border-r bg-gray-50 overflow-y-auto">
+            <div className="px-2 py-1.5 border-b text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+              Files
+            </div>
+            <SkillFileTree
+              files={files}
+              activeFile={activeFile}
+              onSelect={handleFileSelect}
+              onAdd={handleFileAdd}
+              onDelete={handleFileDelete}
+            />
+          </div>
+        )}
+
+        {/* Center: Editor */}
         <div className="flex-1 flex flex-col border-r min-w-0">
-          {/* Edit/Preview toggle */}
+          {/* Edit/Preview toggle + active file indicator */}
           <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-50 border-b text-xs">
             <button
               onClick={() => setPreview(false)}
@@ -328,23 +413,40 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
             >
               Preview
             </button>
-            {dirty && <span className="text-amber-500 ml-2">Unsaved changes</span>}
+            {!isCreate && (
+              <span className="text-gray-400 ml-2 font-mono">{activeFile}</span>
+            )}
+            {(dirty || dirtyFiles.size > 0) && (
+              <span className="text-amber-500 ml-2">Unsaved changes</span>
+            )}
           </div>
 
           {/* Content area */}
-          {preview ? (
-            <div className="flex-1 overflow-auto p-4">
-              <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
-            </div>
-          ) : (
-            <textarea
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              className="flex-1 p-4 font-mono text-sm resize-none focus:outline-none"
-              placeholder={`---\nname: My Skill\nversion: "1.0.0"\ndescription: "What this skill does"\nallowed-tools: [Read, Glob, Grep]\n---\n\n# My Skill\n\n## Procedure\n\n1. First step...\n2. Second step...\n\n## Output Format\n\n...\n\n## Success Criteria\n\n...\n\n## Rules\n\n- ...`}
-              spellCheck={false}
-            />
-          )}
+          {(() => {
+            const isSkillMd = activeFile === "SKILL.md";
+            const currentContent = isSkillMd ? content : (fileContents[activeFile] ?? "");
+
+            if (preview) {
+              return (
+                <div className="flex-1 overflow-auto p-4">
+                  <pre className="whitespace-pre-wrap font-mono text-sm">{currentContent}</pre>
+                </div>
+              );
+            }
+
+            return (
+              <textarea
+                key={activeFile}
+                value={currentContent}
+                onChange={(e) => handleContentChange(e.target.value)}
+                className="flex-1 p-4 font-mono text-sm resize-none focus:outline-none"
+                placeholder={isSkillMd
+                  ? `---\nname: My Skill\nversion: "1.0.0"\ndescription: "What this skill does"\nallowed-tools: [Read, Glob, Grep]\n---\n\n# My Skill\n\n## Procedure\n\n1. First step...\n2. Second step...\n\n## Output Format\n\n...\n\n## Success Criteria\n\n...\n\n## Rules\n\n- ...`
+                  : `# ${activeFile}\n\nFile content goes here...`}
+                spellCheck={false}
+              />
+            );
+          })()}
         </div>
 
         {/* Right: Tabs panel */}
