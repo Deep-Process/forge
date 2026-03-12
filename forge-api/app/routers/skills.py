@@ -1,4 +1,8 @@
-"""Skills router — CRUD + lint + promote + generate + import/export + categories."""
+"""Skills router — CRUD + lint + promote + generate + import/export + categories + git sync.
+
+Refactored to use file-based SkillStorageService (per-skill directories)
+instead of monolithic skills.json.  Routing by skill name (slug) instead of ID.
+"""
 
 from __future__ import annotations
 
@@ -13,15 +17,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app.dependencies import get_storage
-from app.routers._helpers import (
-    _get_lock,
-    emit_event,
-    find_item_or_404,
-    load_global_entity,
-    next_id,
-    save_global_entity,
-)
+from app.dependencies import get_skill_storage, get_git_sync, get_storage
+from app.routers._helpers import emit_event
 from app.services.frontmatter import (
     generate_frontmatter,
     merge_frontmatter_to_metadata,
@@ -33,14 +30,12 @@ from app.services.agentskills_validator import (
     validate_skill_structure,
 )
 from app.services.teslint import check_teslint_available, run_teslint
+from app.services.skill_storage import SkillStorageService
+from app.services.git_sync import GitSyncService, GitSyncNotConfigured, GitSyncError
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
-# ---------------------------------------------------------------------------
-# Storage key — skills are global, stored in _global/skills.json
-# ---------------------------------------------------------------------------
-_ENTITY = "skills"
-_LOCK_NS = "_global"  # Lock namespace (not a file path)
+_WS_NS = "_global"
 
 DEFAULT_CATEGORIES = [
     "workflow", "analysis", "generation", "validation",
@@ -70,10 +65,9 @@ DEFAULT_CATEGORY_COLORS: dict[str, str] = {
 class SkillCreate(BaseModel):
     name: str
     description: str = ""
-    category: str = "custom"
+    categories: list[str] = ["custom"]
     skill_md_content: str | None = None
     evals_json: list[dict] = []
-    resources: dict = {}
     teslint_config: dict | None = None
     tags: list[str] = []
     scopes: list[str] = []
@@ -81,33 +75,32 @@ class SkillCreate(BaseModel):
 
 
 class SkillUpdate(BaseModel):
-    name: str | None = None
     description: str | None = None
-    category: str | None = None
+    categories: list[str] | None = None
     status: Literal["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"] | None = None
     skill_md_content: str | None = None
     evals_json: list[dict] | None = None
-    resources: dict | None = None
     teslint_config: dict | None = None
     tags: list[str] | None = None
     scopes: list[str] | None = None
+    sync: bool | None = None
 
 
 class SkillImportRequest(BaseModel):
     content: str
     filename: str | None = None
-    category: str | None = None
+    categories: list[str] | None = None
 
 
 class SkillGenerateRequest(BaseModel):
     description: str
-    category: str | None = None
+    categories: list[str] | None = None
     examples: list[str] = []
     style_hints: str | None = None
 
 
 class BulkExportRequest(BaseModel):
-    skill_ids: list[str] | None = None
+    names: list[str] | None = None
     format: Literal["json", "zip"] = "zip"
 
 
@@ -121,14 +114,13 @@ class PromoteRequest(BaseModel):
     force: bool = False
 
 
-class SkillFile(BaseModel):
-    path: str
-    content: str
-    file_type: Literal["script", "reference", "asset", "other"] = "other"
+class FileMoveRequest(BaseModel):
+    old_path: str
+    new_path: str
 
 
-class SkillFilesUpdate(BaseModel):
-    files: list[SkillFile]
+class GitPushRequest(BaseModel):
+    message: str = "Sync skills"
 
 
 # ---------------------------------------------------------------------------
@@ -139,18 +131,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _ensure_data(data: dict) -> dict:
-    """Ensure skills data has proper structure."""
-    if "skills" not in data:
-        data["skills"] = []
-    if "config" not in data:
-        data["config"] = {}
-    if "custom_categories" not in data.get("config", {}):
-        data.setdefault("config", {})["custom_categories"] = []
-    return data
-
-
-def _get_all_categories(data: dict) -> list[dict]:
+def _get_all_categories(custom_categories: list[dict] | None = None) -> list[dict]:
     """Return all categories (defaults + custom) with colors."""
     categories = []
     for key in DEFAULT_CATEGORIES:
@@ -160,7 +141,7 @@ def _get_all_categories(data: dict) -> list[dict]:
             "color": DEFAULT_CATEGORY_COLORS.get(key, "slate"),
             "is_default": True,
         })
-    for cat in data.get("config", {}).get("custom_categories", []):
+    for cat in (custom_categories or []):
         categories.append({
             "key": cat["key"],
             "label": cat.get("label", cat["key"].capitalize()),
@@ -170,64 +151,17 @@ def _get_all_categories(data: dict) -> list[dict]:
     return categories
 
 
-def _valid_category_keys(data: dict) -> set[str]:
-    """Return set of valid category keys (defaults + custom)."""
-    keys = set(DEFAULT_CATEGORIES)
-    for cat in data.get("config", {}).get("custom_categories", []):
-        keys.add(cat["key"])
-    return keys
-
-
-def _matches_filter(skill: dict, **filters) -> bool:
-    """Check if skill matches all given filters."""
-    for key, value in filters.items():
-        if value is None:
-            continue
-        if key == "search":
-            q = value.lower()
-            if q not in skill.get("name", "").lower() and q not in skill.get("description", "").lower():
-                return False
-        elif key == "tags":
-            skill_tags = set(skill.get("tags", []))
-            if not skill_tags.intersection(value):
-                return False
-        elif key == "scopes":
-            skill_scopes = set(skill.get("scopes", []))
-            if not skill_scopes.intersection(value):
-                return False
-        elif key in ("category", "status"):
-            if skill.get(key) != value:
-                return False
-    return True
-
-
-async def _check_skill_in_use(storage, skill_id: str) -> list[dict]:
-    """Scan all projects for IN_PROGRESS tasks referencing this skill."""
-    from app.routers._helpers import load_entity
-    in_use = []
-    try:
-        projects = await asyncio.to_thread(storage.list_projects)
-        for proj in projects:
-            try:
-                tracker = await load_entity(storage, proj, "tracker")
-                for task in tracker.get("tasks", []):
-                    if task.get("status") != "IN_PROGRESS":
-                        continue
-                    if task.get("skill_id") == skill_id:
-                        in_use.append({
-                            "project": proj,
-                            "task_id": task.get("id"),
-                            "task_name": task.get("name"),
-                        })
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return in_use
+def _slugify(name: str) -> str:
+    """Convert a name to a valid slug."""
+    import re
+    slug = name.lower().strip()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug
 
 
 # ---------------------------------------------------------------------------
-# Fixed-path endpoints (MUST be before parameterized /{skill_id} routes)
+# Fixed-path endpoints (MUST be before parameterized /{name} routes)
 # ---------------------------------------------------------------------------
 
 @router.get("/health")
@@ -241,19 +175,19 @@ async def skills_health():
 async def lint_all_skills(
     status: str | None = Query(None),
     category: str | None = Query(None),
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """Run TESLint on all skills (or filtered). Returns results matrix."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skills = data["skills"]
-
-    if status:
-        skills = [s for s in skills if s.get("status") == status]
-    if category:
-        skills = [s for s in skills if s.get("category") == category]
-
-    lintable = [s for s in skills if s.get("skill_md_content")]
+    skills = await svc.list_skills(status=status, category=category)
+    # Need full skill content for linting — read each
+    lintable = []
+    for entry in skills:
+        try:
+            full = await svc.get_skill(entry["name"])
+            if full.get("skill_md_content"):
+                lintable.append(full)
+        except FileNotFoundError:
+            continue
 
     sem = asyncio.Semaphore(4)
 
@@ -261,13 +195,12 @@ async def lint_all_skills(
         async with sem:
             result = await asyncio.to_thread(
                 run_teslint,
-                skill.get("name", skill["id"]),
+                skill["name"],
                 skill["skill_md_content"],
                 skill.get("teslint_config"),
             )
             return {
-                "skill_id": skill["id"],
-                "skill_name": skill.get("name", ""),
+                "skill_name": skill["name"],
                 "status": skill.get("status", "DRAFT"),
                 "passed": result.passed,
                 "error_count": result.error_count,
@@ -289,72 +222,66 @@ async def lint_all_skills(
 async def import_skill(
     body: SkillImportRequest,
     request: Request,
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """Import a skill from raw SKILL.md content."""
     fm = parse_frontmatter(body.content)
 
-    name = fm.name or body.filename or "Imported Skill"
+    raw_name = fm.name or body.filename or "imported-skill"
+    name = _slugify(raw_name)
     description = fm.description or ""
-    category = body.category or "custom"
+    categories = body.categories or ["custom"]
 
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skills = data["skills"]
-
-        skill_id = next_id(skills, "S")
-        now = _now_iso()
-        skill = {
-            "id": skill_id,
-            "name": name,
+    try:
+        skill = await svc.create_skill(name, {
             "description": description,
-            "category": category,
-            "status": "DRAFT",
-            "skill_md_content": body.content,
-            "evals_json": [],
-            "resources": {},
-            "teslint_config": None,
-            "tags": [],
-            "scopes": [],
-            "promoted_with_warnings": False,
-            "promotion_history": [],
-            "usage_count": 0,
+            "categories": categories,
             "created_by": "import",
-            "created_at": now,
-            "updated_at": now,
-        }
-        skills.append(skill)
-        await save_global_entity(storage, _ENTITY, data)
+        })
+    except ValueError as e:
+        raise HTTPException(422, str(e))
 
-    await emit_event(request, _LOCK_NS, "skill.created", {"id": skill_id})
-    return {"skill_id": skill_id, "name": name, "parsed_frontmatter": fm.raw}
+    # Write the imported SKILL.md content
+    await svc.save_skill(name, content=body.content)
+
+    await emit_event(request, _WS_NS, "skill.created", {"name": name})
+    return {"name": name, "parsed_frontmatter": fm.raw}
 
 
 @router.post("/export-bulk")
-async def export_bulk(body: BulkExportRequest, storage=Depends(get_storage)):
+async def export_bulk(
+    body: BulkExportRequest,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
     """Export multiple skills as JSON or ZIP of .md files."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skills = data["skills"]
-
-    if body.skill_ids:
-        skills = [s for s in skills if s.get("id") in body.skill_ids]
+    all_skills = await svc.list_skills()
+    if body.names:
+        all_skills = [s for s in all_skills if s["name"] in body.names]
 
     if body.format == "json":
-        return {"skills": skills, "count": len(skills)}
+        # Fetch full content
+        full_skills = []
+        for entry in all_skills:
+            try:
+                full_skills.append(await svc.get_skill(entry["name"]))
+            except FileNotFoundError:
+                continue
+        return {"skills": full_skills, "count": len(full_skills)}
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for skill in skills:
-            content = skill.get("skill_md_content") or ""
-            if not content:
-                content = generate_frontmatter(
-                    name=skill.get("name", skill["id"]),
-                    description=skill.get("description", ""),
-                ) + f"\n\n# {skill.get('name', skill['id'])}\n"
-            safe_name = skill.get("name", skill["id"]).replace(" ", "-").replace("/", "_")
-            zf.writestr(f"{safe_name}.SKILL.md", content)
+        for entry in all_skills:
+            try:
+                full = await svc.get_skill(entry["name"])
+                content = full.get("skill_md_content") or ""
+                if not content:
+                    content = generate_frontmatter(
+                        name=entry["name"],
+                        description=entry.get("description", ""),
+                    ) + f"\n\n# {entry['name']}\n"
+                zf.writestr(f"{entry['name']}.SKILL.md", content)
+            except FileNotFoundError:
+                continue
 
     return Response(
         content=buf.getvalue(),
@@ -399,53 +326,159 @@ async def generate_skill(body: SkillGenerateRequest):
 @router.get("/categories")
 async def list_categories(storage=Depends(get_storage)):
     """List all skill categories with colors."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    return {"categories": _get_all_categories(data)}
+    from app.routers._helpers import load_global_entity
+    data = await load_global_entity(storage, "skills")
+    custom = data.get("config", {}).get("custom_categories", [])
+    return {"categories": _get_all_categories(custom)}
 
 
 @router.post("/categories", status_code=201)
 async def add_category(body: CategoryCreate, storage=Depends(get_storage)):
     """Add a custom skill category."""
+    from app.routers._helpers import load_global_entity, save_global_entity, _get_lock
     if body.key in DEFAULT_CATEGORIES:
         raise HTTPException(422, f"Category '{body.key}' is a default and cannot be re-added")
 
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
+    async with _get_lock("_global", "skills"):
+        data = await load_global_entity(storage, "skills")
+        if "config" not in data:
+            data["config"] = {}
+        if "custom_categories" not in data["config"]:
+            data["config"]["custom_categories"] = []
         custom = data["config"]["custom_categories"]
 
         if any(c["key"] == body.key for c in custom):
             raise HTTPException(422, f"Category '{body.key}' already exists")
 
         custom.append({"key": body.key, "label": body.label, "color": body.color})
-        await save_global_entity(storage, _ENTITY, data)
+        await save_global_entity(storage, "skills", data)
 
-    return {"added": body.key, "categories": _get_all_categories(data)}
+    return {"added": body.key, "categories": _get_all_categories(custom)}
 
 
 @router.delete("/categories/{key}")
-async def remove_category(key: str, storage=Depends(get_storage)):
+async def remove_category(
+    key: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+    storage=Depends(get_storage),
+):
     """Remove a custom category. Default categories cannot be removed."""
+    from app.routers._helpers import load_global_entity, save_global_entity, _get_lock
     if key in DEFAULT_CATEGORIES:
         raise HTTPException(422, f"Cannot remove default category '{key}'")
 
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
+    # Check if any skill uses this category
+    skills = await svc.list_skills(category=key)
+    if skills:
+        raise HTTPException(
+            409,
+            f"Cannot remove category '{key}' — used by {len(skills)} skill(s)",
+        )
 
-        using = [s for s in data["skills"] if s.get("category") == key]
-        if using:
-            raise HTTPException(
-                409,
-                f"Cannot remove category '{key}' — used by {len(using)} skill(s)",
-            )
-
-        custom = data["config"]["custom_categories"]
-        data["config"]["custom_categories"] = [c for c in custom if c["key"] != key]
-        await save_global_entity(storage, _ENTITY, data)
+    async with _get_lock("_global", "skills"):
+        data = await load_global_entity(storage, "skills")
+        custom = data.get("config", {}).get("custom_categories", [])
+        data.setdefault("config", {})["custom_categories"] = [
+            c for c in custom if c["key"] != key
+        ]
+        await save_global_entity(storage, "skills", data)
 
     return {"removed": key}
+
+
+# ---------------------------------------------------------------------------
+# Git sync endpoints (fixed paths, before /{name})
+# ---------------------------------------------------------------------------
+
+@router.get("/git/status")
+async def git_status(git_svc=Depends(get_git_sync)):
+    """Get git sync status for the skills repository."""
+    if git_svc is None:
+        return {
+            "configured": False,
+            "message": "FORGE_SKILLS_REPO_URL not set",
+        }
+    try:
+        status = await git_svc.status()
+        return {
+            "configured": True,
+            "initialized": status.initialized,
+            "has_remote": status.has_remote,
+            "branch": status.branch,
+            "ahead": status.ahead,
+            "behind": status.behind,
+            "local_changes": status.local_changes,
+            "last_commit": status.last_commit,
+            "error": status.error,
+        }
+    except GitSyncError as e:
+        return {"configured": True, "error": str(e)}
+
+
+@router.post("/git/pull")
+async def git_pull(
+    request: Request,
+    svc: SkillStorageService = Depends(get_skill_storage),
+    git_svc=Depends(get_git_sync),
+):
+    """Pull latest skills from remote repository."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured (FORGE_SKILLS_REPO_URL not set)")
+    try:
+        result = await git_svc.pull()
+        await emit_event(request, _WS_NS, "skill.synced", {"action": "pull"})
+        return {
+            "success": result.success,
+            "message": result.message,
+            "files_changed": result.files_changed,
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
+
+
+@router.post("/git/push")
+async def git_push(
+    body: GitPushRequest,
+    request: Request,
+    git_svc=Depends(get_git_sync),
+):
+    """Push synced skills to remote repository."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured (FORGE_SKILLS_REPO_URL not set)")
+    try:
+        result = await git_svc.push(body.message)
+        await emit_event(request, _WS_NS, "skill.synced", {"action": "push"})
+        return {
+            "success": result.success,
+            "message": result.message,
+            "files_changed": result.files_changed,
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
+
+
+@router.post("/git/scan")
+async def git_scan(
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
+    """Resync the skill index by scanning all directories."""
+    entries = await svc.resync_index()
+    return {"resynced": len(entries), "skills": [e["name"] for e in entries]}
+
+
+@router.post("/git/init")
+async def git_init(git_svc=Depends(get_git_sync)):
+    """Initialize or clone the git repository for skills."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured (FORGE_SKILLS_REPO_URL not set)")
+    try:
+        result = await git_svc.init_or_clone()
+        return {
+            "success": result.success,
+            "message": result.message,
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -457,212 +490,186 @@ async def list_skills(
     category: str | None = Query(None),
     status: str | None = Query(None),
     tags: str | None = Query(None, description="Comma-separated tag filter"),
-    scopes: str | None = Query(None, description="Comma-separated scope filter"),
     search: str | None = Query(None, description="Search name/description"),
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """List all skills with optional filters."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skills = data["skills"]
-
     tag_list = [t.strip() for t in tags.split(",")] if tags else None
-    scope_list = [s.strip() for s in scopes.split(",")] if scopes else None
-
-    filtered = [
-        s for s in skills
-        if _matches_filter(s, category=category, status=status,
-                           tags=tag_list, scopes=scope_list, search=search)
-    ]
-
-    return {"skills": filtered, "count": len(filtered)}
+    skills = await svc.list_skills(
+        category=category,
+        status=status,
+        tags=tag_list,
+        search=search,
+    )
+    return {"skills": skills, "count": len(skills)}
 
 
 @router.post("", status_code=201)
-async def create_skills(
-    body: list[SkillCreate],
+async def create_skill(
+    body: SkillCreate,
     request: Request,
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
-    """Batch create skills. Returns generated IDs."""
-    if not body:
-        raise HTTPException(422, "At least one skill is required")
+    """Create a new skill."""
+    # Validate name
+    name_result = validate_skill_name(body.name)
+    if not name_result.valid:
+        raise HTTPException(422, f"Invalid name: {'; '.join(name_result.errors)}")
+    if body.description:
+        desc_result = validate_skill_description(body.description)
+        if not desc_result.valid:
+            raise HTTPException(422, f"Invalid description: {'; '.join(desc_result.errors)}")
 
-    # Validate names and descriptions before creating
-    for i, item in enumerate(body):
-        name_result = validate_skill_name(item.name)
-        if not name_result.valid:
-            raise HTTPException(422, f"Skill [{i}] name: {'; '.join(name_result.errors)}")
-        if item.description:
-            desc_result = validate_skill_description(item.description)
-            if not desc_result.valid:
-                raise HTTPException(422, f"Skill [{i}] description: {'; '.join(desc_result.errors)}")
+    name = _slugify(body.name)
+    try:
+        skill = await svc.create_skill(name, {
+            "description": body.description,
+            "categories": body.categories,
+            "tags": body.tags,
+            "scopes": body.scopes,
+            "evals_json": body.evals_json,
+            "teslint_config": body.teslint_config,
+            "created_by": body.created_by,
+        })
+    except ValueError as e:
+        raise HTTPException(422, str(e))
 
-    added = []
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skills = data["skills"]
+    # If custom SKILL.md content provided, write it
+    if body.skill_md_content:
+        await svc.save_skill(name, content=body.skill_md_content)
+        skill = await svc.get_skill(name)
 
-        for item in body:
-            name = item.name
-            description = item.description
-            if item.skill_md_content:
-                meta = merge_frontmatter_to_metadata(item.skill_md_content)
-                if not name and meta.get("name"):
-                    name = meta["name"]
-                if not description and meta.get("description"):
-                    description = meta["description"]
-
-            skill_id = next_id(skills, "S")
-            now = _now_iso()
-            skill = {
-                "id": skill_id,
-                "name": name,
-                "description": description,
-                "category": item.category,
-                "status": "DRAFT",
-                "skill_md_content": item.skill_md_content,
-                "evals_json": item.evals_json,
-                "resources": item.resources,
-                "teslint_config": item.teslint_config,
-                "tags": item.tags,
-                "scopes": item.scopes,
-                "promoted_with_warnings": False,
-                "promotion_history": [],
-                "usage_count": 0,
-                "created_by": item.created_by,
-                "created_at": now,
-                "updated_at": now,
-            }
-            skills.append(skill)
-            added.append(skill_id)
-
-        await save_global_entity(storage, _ENTITY, data)
-
-    for sid in added:
-        await emit_event(request, _LOCK_NS, "skill.created", {"id": sid})
-
-    return {"added": added, "total": len(data["skills"])}
-
-
-# ---------------------------------------------------------------------------
-# Parameterized endpoints (/{skill_id} — AFTER all fixed paths)
-# ---------------------------------------------------------------------------
-
-@router.get("/{skill_id}")
-async def get_skill(skill_id: str, storage=Depends(get_storage)):
-    """Get a single skill by ID."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    await emit_event(request, _WS_NS, "skill.created", {"name": name})
     return skill
 
 
-@router.patch("/{skill_id}")
+# ---------------------------------------------------------------------------
+# Parameterized endpoints (/{name} — AFTER all fixed paths)
+# ---------------------------------------------------------------------------
+
+@router.get("/{name}")
+async def get_skill(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
+    """Get a single skill by name."""
+    try:
+        return await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
+
+
+@router.patch("/{name}")
 async def update_skill(
-    skill_id: str,
+    name: str,
     body: SkillUpdate,
     request: Request,
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """Update a skill. Auto-parses frontmatter when content changes."""
-    # Validate changed name/description
-    if body.name is not None:
-        name_result = validate_skill_name(body.name)
-        if not name_result.valid:
-            raise HTTPException(422, f"Invalid name: {'; '.join(name_result.errors)}")
     if body.description is not None:
         desc_result = validate_skill_description(body.description)
         if not desc_result.valid:
             raise HTTPException(422, f"Invalid description: {'; '.join(desc_result.errors)}")
 
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    try:
+        current = await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
-        updates = body.model_dump(exclude_none=True)
-        if not updates:
-            return skill
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        return current
 
-        if "status" in updates:
-            new_status = updates["status"]
-            current = skill.get("status", "DRAFT")
-            valid_transitions = {
-                "DRAFT": {"DEPRECATED"},
-                "ACTIVE": {"DEPRECATED"},
-                "DEPRECATED": {"ARCHIVED", "ACTIVE"},
-                "ARCHIVED": set(),
-            }
-            if new_status not in valid_transitions.get(current, set()):
-                raise HTTPException(
-                    422,
-                    f"Cannot transition from {current} to {new_status}. "
-                    f"Valid: {valid_transitions.get(current, set())}",
-                )
+    # Validate status transition
+    if "status" in updates:
+        new_status = updates["status"]
+        current_status = current.get("status", "DRAFT")
+        valid_transitions = {
+            "DRAFT": {"DEPRECATED"},
+            "ACTIVE": {"DEPRECATED"},
+            "DEPRECATED": {"ARCHIVED", "ACTIVE"},
+            "ARCHIVED": set(),
+        }
+        if new_status not in valid_transitions.get(current_status, set()):
+            raise HTTPException(
+                422,
+                f"Cannot transition from {current_status} to {new_status}. "
+                f"Valid: {valid_transitions.get(current_status, set())}",
+            )
 
-        if "skill_md_content" in updates and updates["skill_md_content"]:
-            meta = merge_frontmatter_to_metadata(updates["skill_md_content"])
-            if meta.get("name") and "name" not in updates:
-                updates["name"] = meta["name"]
-            if meta.get("description") and "description" not in updates:
-                updates["description"] = meta["description"]
+    # Split into config vs content updates
+    content = updates.pop("skill_md_content", None)
+    config_updates = {}
+    config_keys = {
+        "categories", "tags", "status", "scopes",
+        "evals_json", "teslint_config", "sync", "description",
+    }
+    for key in list(updates.keys()):
+        if key in config_keys:
+            config_updates[key] = updates[key]
 
-        for key, value in updates.items():
-            skill[key] = value
-        skill["updated_at"] = _now_iso()
+    try:
+        await svc.save_skill(
+            name,
+            config=config_updates if config_updates else None,
+            content=content,
+        )
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
-        await save_global_entity(storage, _ENTITY, data)
-
-    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
+    skill = await svc.get_skill(name)
+    await emit_event(request, _WS_NS, "skill.updated", {"name": name})
     return skill
 
 
-@router.delete("/{skill_id}")
+@router.delete("/{name}")
 async def delete_skill(
-    skill_id: str,
+    name: str,
     request: Request,
+    svc: SkillStorageService = Depends(get_skill_storage),
     storage=Depends(get_storage),
 ):
     """Delete a skill. Blocked if used by IN_PROGRESS tasks."""
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        find_item_or_404(data["skills"], skill_id, "Skill")
+    # Check usage
+    in_use = await _check_skill_in_use(storage, name)
+    if in_use:
+        task_list = ", ".join(f"{u['project']}/{u['task_id']}" for u in in_use)
+        raise HTTPException(
+            409,
+            f"Cannot delete skill '{name}' — used by IN_PROGRESS tasks: {task_list}",
+        )
 
-        in_use = await _check_skill_in_use(storage, skill_id)
-        if in_use:
-            task_list = ", ".join(f"{u['project']}/{u['task_id']}" for u in in_use)
-            raise HTTPException(
-                409,
-                f"Cannot delete skill '{skill_id}' — used by IN_PROGRESS tasks: {task_list}",
-            )
+    try:
+        await svc.delete_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
-        data["skills"] = [s for s in data["skills"] if s.get("id") != skill_id]
-        await save_global_entity(storage, _ENTITY, data)
-
-    await emit_event(request, _LOCK_NS, "skill.deleted", {"id": skill_id})
-    return {"removed": skill_id}
+    await emit_event(request, _WS_NS, "skill.deleted", {"name": name})
+    return {"removed": name}
 
 
 # ---------------------------------------------------------------------------
 # Lint endpoint (per-skill)
 # ---------------------------------------------------------------------------
 
-@router.post("/{skill_id}/lint")
-async def lint_skill(skill_id: str, storage=Depends(get_storage)):
+@router.post("/{name}/lint")
+async def lint_skill(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
     """Run TESLint on a skill's SKILL.md content."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    try:
+        skill = await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
     content = skill.get("skill_md_content")
     if not content:
-        raise HTTPException(422, f"Skill '{skill_id}' has no SKILL.md content to lint")
+        raise HTTPException(422, f"Skill '{name}' has no SKILL.md content to lint")
 
     result = await asyncio.to_thread(
-        run_teslint, skill.get("name", skill_id), content, skill.get("teslint_config"),
+        run_teslint, name, content, skill.get("teslint_config"),
     )
 
     findings = [
@@ -672,7 +679,7 @@ async def lint_skill(skill_id: str, storage=Depends(get_storage)):
     ]
 
     return {
-        "skill_id": skill_id,
+        "skill_name": name,
         "success": result.success,
         "passed": result.passed,
         "error_count": result.error_count,
@@ -687,122 +694,125 @@ async def lint_skill(skill_id: str, storage=Depends(get_storage)):
 # Promote endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/{skill_id}/promote")
+@router.post("/{name}/promote")
 async def promote_skill(
-    skill_id: str,
+    name: str,
     body: PromoteRequest,
     request: Request,
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """Promote DRAFT → ACTIVE with 3-gate validation."""
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    try:
+        skill = await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
-        if skill.get("status") != "DRAFT":
-            raise HTTPException(422, f"Only DRAFT skills can be promoted. Current: {skill.get('status')}")
+    if skill.get("status") != "DRAFT":
+        raise HTTPException(422, f"Only DRAFT skills can be promoted. Current: {skill.get('status')}")
 
-        content = skill.get("skill_md_content", "") or ""
-        gate_results = []
+    content = skill.get("skill_md_content", "") or ""
+    gate_results = []
 
-        # Gate 0: agentskills.io compliance
-        spec_result = validate_skill_structure(skill)
-        gate0_passed = spec_result.valid
-        gate0_detail = "agentskills.io compliant" if gate0_passed else "; ".join(spec_result.errors)
-        if spec_result.warnings:
-            gate0_detail += " (warnings: " + "; ".join(spec_result.warnings) + ")"
+    # Gate 0: agentskills.io compliance
+    spec_result = validate_skill_structure(skill)
+    gate0_passed = spec_result.valid
+    gate0_detail = "agentskills.io compliant" if gate0_passed else "; ".join(spec_result.errors)
+    if spec_result.warnings:
+        gate0_detail += " (warnings: " + "; ".join(spec_result.warnings) + ")"
+    gate_results.append({"gate": "agentskills-io", "passed": gate0_passed, "detail": gate0_detail})
+
+    fm = parse_frontmatter(content)
+    gate1_passed = fm.valid and bool(skill.get("name")) and bool(skill.get("description"))
+    gate_results.append({
+        "gate": "frontmatter",
+        "passed": gate1_passed,
+        "detail": (
+            "Valid SKILL.md frontmatter with name and description"
+            if gate1_passed
+            else "Missing: " + ", ".join(fm.errors or ["name or description"])
+        ),
+    })
+
+    evals = skill.get("evals_json", [])
+    gate2_passed = len(evals) >= 1
+    gate_results.append({
+        "gate": "evals",
+        "passed": gate2_passed,
+        "detail": f"{len(evals)} eval(s) defined" if gate2_passed else "At least 1 eval required",
+    })
+
+    gate3_passed = False
+    teslint_error_count = 0
+    teslint_warning_count = 0
+    if content.strip():
+        lint_result = await asyncio.to_thread(
+            run_teslint, name, content, skill.get("teslint_config"),
+        )
+        gate3_passed = lint_result.passed
+        teslint_error_count = lint_result.error_count
+        teslint_warning_count = lint_result.warning_count
         gate_results.append({
-            "gate": "agentskills-io",
-            "passed": gate0_passed,
-            "detail": gate0_detail,
-        })
-
-        fm = parse_frontmatter(content)
-        gate1_passed = fm.valid and bool(skill.get("name")) and bool(skill.get("description"))
-        gate_results.append({
-            "gate": "frontmatter",
-            "passed": gate1_passed,
+            "gate": "teslint",
+            "passed": gate3_passed,
             "detail": (
-                "Valid SKILL.md frontmatter with name and description"
-                if gate1_passed
-                else "Missing: " + ", ".join(fm.errors or ["name or description"])
+                f"TESLint passed ({teslint_warning_count} warnings)"
+                if gate3_passed
+                else lint_result.error_message or f"TESLint: {teslint_error_count} error(s)"
             ),
         })
+    else:
+        gate_results.append({"gate": "teslint", "passed": False, "detail": "No content to lint"})
 
-        evals = skill.get("evals_json", [])
-        gate2_passed = len(evals) >= 1
-        gate_results.append({
-            "gate": "evals",
-            "passed": gate2_passed,
-            "detail": f"{len(evals)} eval(s) defined" if gate2_passed else "At least 1 eval required",
-        })
+    all_passed = gate0_passed and gate1_passed and gate2_passed and gate3_passed
+    can_promote = all_passed or (gate0_passed and gate1_passed and gate2_passed and body.force)
 
-        gate3_passed = False
-        teslint_error_count = 0
-        teslint_warning_count = 0
-        if content.strip():
-            lint_result = await asyncio.to_thread(
-                run_teslint, skill.get("name", skill_id), content, skill.get("teslint_config"),
-            )
-            gate3_passed = lint_result.passed
-            teslint_error_count = lint_result.error_count
-            teslint_warning_count = lint_result.warning_count
-            gate_results.append({
-                "gate": "teslint",
-                "passed": gate3_passed,
-                "detail": (
-                    f"TESLint passed ({teslint_warning_count} warnings)"
-                    if gate3_passed
-                    else lint_result.error_message or f"TESLint: {teslint_error_count} error(s)"
-                ),
-            })
-        else:
-            gate_results.append({"gate": "teslint", "passed": False, "detail": "No content to lint"})
+    if not can_promote:
+        failed = [g for g in gate_results if not g["passed"]]
+        msg = "Promotion blocked: " + "; ".join(f"{g['gate']}: {g['detail']}" for g in failed)
+        if not body.force and not gate3_passed and gate1_passed and gate2_passed:
+            msg += ". Use force=true to override TESLint."
+        raise HTTPException(422, msg)
 
-        all_passed = gate0_passed and gate1_passed and gate2_passed and gate3_passed
-        can_promote = all_passed or (gate0_passed and gate1_passed and gate2_passed and body.force)
+    now = _now_iso()
+    promotion_history = skill.get("promotion_history", [])
+    promotion_history.append({
+        "promoted_at": now,
+        "error_count": teslint_error_count,
+        "warning_count": teslint_warning_count,
+        "forced": body.force and not all_passed,
+        "gates": gate_results,
+    })
 
-        if not can_promote:
-            failed = [g for g in gate_results if not g["passed"]]
-            msg = "Promotion blocked: " + "; ".join(f"{g['gate']}: {g['detail']}" for g in failed)
-            if not body.force and not gate3_passed and gate1_passed and gate2_passed:
-                msg += ". Use force=true to override TESLint."
-            raise HTTPException(422, msg)
-
-        now = _now_iso()
-        skill["status"] = "ACTIVE"
-        skill["promoted_with_warnings"] = not all_passed
-        skill["updated_at"] = now
-        skill.setdefault("promotion_history", []).append({
-            "promoted_at": now,
-            "error_count": teslint_error_count,
-            "warning_count": teslint_warning_count,
-            "forced": body.force and not all_passed,
-            "gates": gate_results,
-        })
-
-        await save_global_entity(storage, _ENTITY, data)
-
-    await emit_event(request, _LOCK_NS, "skill.promoted", {"id": skill_id})
-    return {
-        "skill_id": skill_id,
+    await svc.save_skill(name, config={
         "status": "ACTIVE",
-        "promoted_with_warnings": skill["promoted_with_warnings"],
+        "promoted_with_warnings": not all_passed,
+        "promotion_history": promotion_history,
+    })
+
+    await emit_event(request, _WS_NS, "skill.promoted", {"name": name})
+    return {
+        "name": name,
+        "status": "ACTIVE",
+        "promoted_with_warnings": not all_passed,
         "gates": gate_results,
     }
 
 
 # ---------------------------------------------------------------------------
-# Export (per-skill, parameterized)
+# Usage / validate / export (per-skill)
 # ---------------------------------------------------------------------------
 
-@router.get("/{skill_id}/usage")
-async def skill_usage(skill_id: str, storage=Depends(get_storage)):
+@router.get("/{name}/usage")
+async def skill_usage(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+    storage=Depends(get_storage),
+):
     """Get tasks referencing this skill across all projects."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    find_item_or_404(data["skills"], skill_id, "Skill")
+    try:
+        await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
     from app.routers._helpers import load_entity
     usage = []
@@ -812,7 +822,7 @@ async def skill_usage(skill_id: str, storage=Depends(get_storage)):
             try:
                 tracker = await load_entity(storage, proj, "tracker")
                 for task in tracker.get("tasks", []):
-                    if task.get("skill_id") == skill_id:
+                    if task.get("skill") and name in task["skill"]:
                         usage.append({
                             "project": proj,
                             "task_id": task.get("id"),
@@ -824,36 +834,41 @@ async def skill_usage(skill_id: str, storage=Depends(get_storage)):
     except Exception:
         pass
 
-    return {"skill_id": skill_id, "usage": usage, "count": len(usage)}
+    return {"name": name, "usage": usage, "count": len(usage)}
 
 
-@router.post("/{skill_id}/validate")
-async def validate_skill(skill_id: str, storage=Depends(get_storage)):
-    """Run agentskills.io compliance validation on a skill. No side effects."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+@router.post("/{name}/validate")
+async def validate_skill(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
+    """Run agentskills.io compliance validation on a skill."""
+    try:
+        skill = await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
+
     result = validate_skill_structure(skill)
-    return {"skill_id": skill_id, **result.to_dict()}
+    return {"name": name, **result.to_dict()}
 
 
-@router.get("/{skill_id}/export")
-async def export_skill(skill_id: str, storage=Depends(get_storage)):
+@router.get("/{name}/export")
+async def export_skill(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
     """Export a skill as a downloadable .md file."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    try:
+        skill = await svc.get_skill(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
 
     content = skill.get("skill_md_content") or ""
     if not content:
-        content = generate_frontmatter(
-            name=skill.get("name", skill_id),
-            description=skill.get("description", ""),
-        ) + f"\n\n# {skill.get('name', skill_id)}\n"
+        content = generate_frontmatter(name=name, description=skill.get("description", ""))
+        content += f"\n\n# {name}\n"
 
-    safe_name = skill.get("name", skill_id).replace(" ", "-").replace("/", "_")
-    filename = f"{safe_name}.SKILL.md"
-
+    filename = f"{name}.SKILL.md"
     return Response(
         content=content,
         media_type="text/markdown",
@@ -862,129 +877,124 @@ async def export_skill(skill_id: str, storage=Depends(get_storage)):
 
 
 # ---------------------------------------------------------------------------
-# Skill files CRUD (multi-file support)
+# Skill files CRUD (real files on disk)
 # ---------------------------------------------------------------------------
 
-_ALLOWED_FILE_PREFIXES = ("scripts/", "references/", "assets/")
-_MAX_FILE_COUNT = 50
-_MAX_FILE_SIZE = 100 * 1024  # 100 KB
-
-
-def _validate_file_path(path: str) -> None:
-    """Validate that a file path is safe and in an allowed directory."""
-    if ".." in path:
-        raise HTTPException(400, f"Path traversal not allowed: {path}")
-    if not path:
-        raise HTTPException(400, "Empty file path")
-    # Must be in scripts/, references/, assets/, or root-level (no slash)
-    if "/" in path and not any(path.startswith(p) for p in _ALLOWED_FILE_PREFIXES):
-        raise HTTPException(
-            400,
-            f"Files must be in scripts/, references/, assets/, or at root level: {path}",
-        )
-
-
-@router.put("/{skill_id}/files")
-async def replace_skill_files(
-    skill_id: str,
-    body: SkillFilesUpdate,
-    request: Request,
-    storage=Depends(get_storage),
+@router.get("/{name}/files")
+async def list_skill_files(
+    name: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
-    """Replace the entire files list for a skill."""
-    if len(body.files) > _MAX_FILE_COUNT:
-        raise HTTPException(400, f"Maximum {_MAX_FILE_COUNT} files allowed")
-    for f in body.files:
-        _validate_file_path(f.path)
-        if len(f.content) > _MAX_FILE_SIZE:
-            raise HTTPException(400, f"File too large (max 100KB): {f.path}")
-
-    # Check for duplicate paths
-    paths = [f.path for f in body.files]
-    if len(paths) != len(set(paths)):
-        raise HTTPException(400, "Duplicate file paths not allowed")
-
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skill = find_item_or_404(data["skills"], skill_id, "Skill")
-
-        resources = skill.get("resources") or {}
-        resources["files"] = [f.model_dump() for f in body.files]
-        skill["resources"] = resources
-        skill["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        await save_global_entity(storage, _ENTITY, data)
-
-    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
-    return {"skill_id": skill_id, "file_count": len(body.files)}
+    """List all bundled files for a skill."""
+    try:
+        files = await svc.list_files(name)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
+    return {"name": name, "files": files, "count": len(files)}
 
 
-@router.get("/{skill_id}/files")
-async def list_skill_files(skill_id: str, storage=Depends(get_storage)):
-    """List all files for a skill."""
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
-
-    resources = skill.get("resources") or {}
-    files = resources.get("files", [])
-    return {
-        "skill_id": skill_id,
-        "files": [{"path": f["path"], "file_type": f.get("file_type", "other")} for f in files],
-        "count": len(files),
-    }
-
-
-@router.get("/{skill_id}/files/{file_path:path}")
-async def get_skill_file(skill_id: str, file_path: str, storage=Depends(get_storage)):
+@router.get("/{name}/files/{file_path:path}")
+async def get_skill_file(
+    name: str,
+    file_path: str,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
     """Get a single file's content."""
-    _validate_file_path(file_path)
-
-    data = await load_global_entity(storage, _ENTITY)
-    data = _ensure_data(data)
-    skill = find_item_or_404(data["skills"], skill_id, "Skill")
-
-    resources = skill.get("resources") or {}
-    files = resources.get("files", [])
-    for f in files:
-        if f["path"] == file_path:
-            return {"skill_id": skill_id, "path": f["path"], "content": f["content"], "file_type": f.get("file_type", "other")}
-
-    raise HTTPException(404, f"File not found: {file_path}")
+    try:
+        content = await svc.get_file(name, file_path)
+    except FileNotFoundError:
+        raise HTTPException(404, f"File not found: {file_path}")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"name": name, "path": file_path, "content": content}
 
 
-@router.delete("/{skill_id}/files/{file_path:path}")
+@router.put("/{name}/files/{file_path:path}")
+async def save_skill_file(
+    name: str,
+    file_path: str,
+    body: dict,
+    request: Request,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
+    """Create or update a single file."""
+    content = body.get("content", "")
+    try:
+        await svc.save_file(name, file_path, content)
+    except FileNotFoundError:
+        raise HTTPException(404, f"Skill '{name}' not found")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    await emit_event(request, _WS_NS, "skill.updated", {"name": name})
+    return {"name": name, "path": file_path, "saved": True}
+
+
+@router.delete("/{name}/files/{file_path:path}")
 async def delete_skill_file(
-    skill_id: str,
+    name: str,
     file_path: str,
     request: Request,
-    storage=Depends(get_storage),
+    svc: SkillStorageService = Depends(get_skill_storage),
 ):
     """Delete a single file from a skill."""
-    _validate_file_path(file_path)
+    try:
+        await svc.delete_file(name, file_path)
+    except FileNotFoundError:
+        raise HTTPException(404, f"File not found: {file_path}")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
-    async with _get_lock(_LOCK_NS, _ENTITY):
-        data = await load_global_entity(storage, _ENTITY)
-        data = _ensure_data(data)
-        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    await emit_event(request, _WS_NS, "skill.updated", {"name": name})
+    return {"name": name, "deleted": file_path}
 
-        resources = skill.get("resources") or {}
-        files = resources.get("files", [])
-        original_count = len(files)
-        files = [f for f in files if f["path"] != file_path]
 
-        if len(files) == original_count:
-            raise HTTPException(404, f"File not found: {file_path}")
+@router.post("/{name}/files/move")
+async def move_skill_file(
+    name: str,
+    body: FileMoveRequest,
+    request: Request,
+    svc: SkillStorageService = Depends(get_skill_storage),
+):
+    """Move/rename a file within a skill."""
+    try:
+        await svc.move_file(name, body.old_path, body.new_path)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
-        resources["files"] = files
-        skill["resources"] = resources
-        skill["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await emit_event(request, _WS_NS, "skill.updated", {"name": name})
+    return {"name": name, "moved": body.old_path, "to": body.new_path}
 
-        await save_global_entity(storage, _ENTITY, data)
 
-    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
-    return {"skill_id": skill_id, "deleted": file_path, "remaining": len(files)}
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+async def _check_skill_in_use(storage, skill_name: str) -> list[dict]:
+    """Scan all projects for IN_PROGRESS tasks referencing this skill."""
+    from app.routers._helpers import load_entity
+    in_use = []
+    try:
+        projects = await asyncio.to_thread(storage.list_projects)
+        for proj in projects:
+            try:
+                tracker = await load_entity(storage, proj, "tracker")
+                for task in tracker.get("tasks", []):
+                    if task.get("status") != "IN_PROGRESS":
+                        continue
+                    if task.get("skill") and skill_name in task["skill"]:
+                        in_use.append({
+                            "project": proj,
+                            "task_id": task.get("id"),
+                            "task_name": task.get("name"),
+                        })
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return in_use
 
 
 # ---------------------------------------------------------------------------
@@ -1047,5 +1057,3 @@ This skill does NOT:
 - Make architectural decisions without user input
 - Modify files outside the specified scope
 """
-
-

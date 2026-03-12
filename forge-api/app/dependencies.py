@@ -102,3 +102,49 @@ async def get_tool_registry(request: Request):
 async def get_session_manager(request: Request):
     """Return the app-wide SessionManager (set during lifespan)."""
     return request.app.state.session_manager
+
+
+# ---------------------------------------------------------------------------
+# Skill Storage + Git Sync
+# ---------------------------------------------------------------------------
+
+def get_skill_storage(request: Request):
+    """Return the app-wide SkillStorageService.
+
+    Lazily created and cached on app.state.
+    """
+    svc = getattr(request.app.state, "skill_storage", None)
+    if svc is None:
+        from pathlib import Path
+        from app.services.skill_storage import SkillStorageService
+
+        storage = request.app.state.storage
+        # Derive skills_dir from storage base path if possible
+        base = getattr(storage, "base_dir", None)
+        if base:
+            skills_dir = Path(base) / "_global" / "skills"
+        else:
+            skills_dir = Path("forge_output/_global/skills")
+        svc = SkillStorageService(skills_dir)
+        request.app.state.skill_storage = svc
+    return svc
+
+
+def get_git_sync(request: Request):
+    """Return the app-wide GitSyncService (or None if not configured)."""
+    svc = getattr(request.app.state, "git_sync", None)
+    if svc is None:
+        import os
+        url = os.environ.get("FORGE_SKILLS_REPO_URL", "")
+        if not url:
+            return None
+        from app.services.git_sync import GitSyncService
+
+        skill_storage = get_skill_storage(request)
+        svc = GitSyncService(
+            skills_dir=skill_storage.skills_dir,
+            remote_url=url,
+            skill_storage=skill_storage,
+        )
+        request.app.state.git_sync = svc
+    return svc
