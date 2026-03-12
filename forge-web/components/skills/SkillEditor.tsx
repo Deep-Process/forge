@@ -185,7 +185,11 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   }, [pendingDelete, skill, activeFile]);
 
   const handleDropFiles = useCallback((newFiles: SkillFile[]) => {
-    setFiles((prev) => [...prev, ...newFiles]);
+    // Handle overwrite: replace existing files
+    setFiles((prev) => {
+      const newPaths = new Set(newFiles.map((f) => f.path));
+      return [...prev.filter((f) => !newPaths.has(f.path)), ...newFiles];
+    });
     setFileContents((prev) => {
       const next = { ...prev };
       for (const f of newFiles) next[f.path] = f.content;
@@ -197,6 +201,34 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
       return next;
     });
   }, []);
+
+  const handleMoveFile = useCallback(async (oldPath: string, newPath: string) => {
+    // Call API for existing skills
+    if (skill) {
+      try {
+        await skillsApi.moveFile(skill.name, oldPath, newPath);
+      } catch (e) {
+        setSaveError((e as Error).message);
+        return;
+      }
+    }
+    // Update local state
+    const oldContent = fileContents[oldPath] ?? "";
+    const newFileType = newPath.startsWith("scripts/") ? "script" as const
+      : newPath.startsWith("references/") ? "reference" as const
+      : newPath.startsWith("assets/") ? "asset" as const
+      : "other" as const;
+    setFiles((prev) => prev.map((f) =>
+      f.path === oldPath ? { path: newPath, content: oldContent, file_type: newFileType } : f
+    ));
+    setFileContents((prev) => {
+      const next = { ...prev };
+      next[newPath] = oldContent;
+      delete next[oldPath];
+      return next;
+    });
+    if (activeFile === oldPath) setActiveFile(newPath);
+  }, [skill, fileContents, activeFile]);
 
   // Toggle category in multi-select
   const toggleCategory = useCallback((cat: string) => {
@@ -474,6 +506,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
             onAdd={handleFileAdd}
             onDelete={handleFileDelete}
             onDropFiles={handleDropFiles}
+            onMoveFile={handleMoveFile}
           />
         </div>
 
