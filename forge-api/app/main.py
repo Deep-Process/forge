@@ -27,6 +27,7 @@ from app.routers import (
     ideas,
     knowledge,
     lessons,
+    llm_chat,
     maintenance,
     objectives,
     projects,
@@ -42,7 +43,7 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle — DB pool, Redis, storage adapter."""
+    """Manage application lifecycle — DB pool, Redis, storage adapter, LLM."""
 
     # --- Startup ---
     # Database pool (only when using PostgreSQL storage)
@@ -76,12 +77,50 @@ async def lifespan(app: FastAPI):
     from app.debug_capture import DebugCapture
     app.state.debug_capture = DebugCapture(app.state.storage, app.state.event_bus)
 
+    # LLM Provider Registry — load from providers.toml
+    from pathlib import Path
+    from core.llm.providers.registry import ProviderRegistry
+
+    llm_config_path = Path(settings.llm_config_path)
+    if llm_config_path.exists():
+        app.state.provider_registry = ProviderRegistry.from_toml(llm_config_path)
+    else:
+        app.state.provider_registry = ProviderRegistry()
+
+    # LLM Config — load from _global/llm_config.json or use defaults
+    app.state.llm_config = _load_llm_config()
+
+    # LLM Tool Registry — built-in tools for LLM agents
+    from app.llm.tool_registry import create_default_registry
+    app.state.tool_registry = create_default_registry()
+
     yield
 
     # --- Shutdown ---
     if app.state.db_pool is not None:
         await app.state.db_pool.close()
     await app.state.redis.aclose()
+
+
+def _load_llm_config() -> "LLMConfig":
+    """Load LLM config from _global/llm_config.json or return defaults."""
+    import json
+    import logging
+    from pathlib import Path
+    from app.models.llm_config import LLMConfig
+
+    config_path = Path(settings.json_data_dir) / "_global" / "llm_config.json"
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            return LLMConfig(**data)
+        except Exception:
+            logging.getLogger(__name__).warning(
+                "Failed to load LLM config from %s, using defaults",
+                config_path,
+                exc_info=True,
+            )
+    return LLMConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +213,7 @@ app.include_router(gates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(execution.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(debug.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ai.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(llm_chat.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(skills.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ws.router)
 app.include_router(execution.ws_router)  # Execution WS — own auth, no HTTP deps

@@ -1,4 +1,4 @@
-"""FastAPI dependency injection — database, Redis, storage adapter."""
+"""FastAPI dependency injection — database, Redis, storage adapter, LLM."""
 
 from __future__ import annotations
 
@@ -56,3 +56,41 @@ async def get_storage(request: Request):
 async def get_event_bus(request: Request):
     """Return the app-wide EventBus (set during lifespan)."""
     return getattr(request.app.state, "event_bus", None)
+
+
+# ---------------------------------------------------------------------------
+# LLM Provider Registry + Config
+# ---------------------------------------------------------------------------
+
+async def get_provider_registry(request: Request):
+    """Return the app-wide ProviderRegistry (set during lifespan)."""
+    return request.app.state.provider_registry
+
+
+async def get_llm_config(request: Request):
+    """Return the current LLM config."""
+    return request.app.state.llm_config
+
+
+async def get_llm_provider(request: Request):
+    """Return the default LLM provider instance.
+
+    Returns None if no provider is configured or API key is missing.
+    """
+    from core.llm.provider import ProviderError
+
+    registry = request.app.state.provider_registry
+    config = request.app.state.llm_config
+    try:
+        return registry.get(config.default_provider)
+    except ProviderError:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# LLM Tool Registry
+# ---------------------------------------------------------------------------
+
+async def get_tool_registry(request: Request):
+    """Return the app-wide ToolRegistry (set during lifespan)."""
+    return request.app.state.tool_registry
