@@ -151,6 +151,13 @@ export async function update<T>(path: string, data: unknown): Promise<T> {
   });
 }
 
+export async function put<T>(path: string, data: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function remove<T>(path: string): Promise<T> {
   return request<T>(path, { method: "DELETE" });
 }
@@ -241,7 +248,7 @@ import type {
   EvaluateLessonResponse,
   AssessImpactResponse,
   DebugStatus, DebugSessionSummary, DebugSession,
-  Skill, SkillCreate, SkillUpdate, LintResult, PromoteResult,
+  Skill, SkillCreate, SkillUpdate, SkillFile, LintResult, PromoteResult,
   SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef, SkillUsageEntry,
   ChatSendRequest, ChatSendResponse, ChatSession,
   LLMProvider, LLMProviderTestResult, LLMConfig,
@@ -510,6 +517,15 @@ export const skills = {
     create<{ added: string; categories: SkillCategoryDef[] }>("/skills/categories", data),
   removeCategory: (key: string) =>
     remove<{ removed: string }>(`/skills/categories/${key}`),
+  // File CRUD (multi-file skills)
+  listFiles: (id: string) =>
+    get<{ skill_id: string; files: Array<{ path: string; file_type: string }>; count: number }>(`/skills/${id}/files`),
+  getFile: (id: string, path: string) =>
+    get<{ skill_id: string; path: string; content: string; file_type: string }>(`/skills/${id}/files/${path}`),
+  replaceFiles: (id: string, files: SkillFile[]) =>
+    put<{ skill_id: string; file_count: number }>(`/skills/${id}/files`, { files }),
+  deleteFile: (id: string, path: string) =>
+    remove<{ skill_id: string; deleted: string; remaining: number }>(`/skills/${id}/files/${path}`),
 };
 
 // -- LLM Chat --

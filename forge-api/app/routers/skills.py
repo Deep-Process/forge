@@ -116,6 +116,16 @@ class PromoteRequest(BaseModel):
     force: bool = False
 
 
+class SkillFile(BaseModel):
+    path: str
+    content: str
+    file_type: Literal["script", "reference", "asset", "other"] = "other"
+
+
+class SkillFilesUpdate(BaseModel):
+    files: list[SkillFile]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -802,6 +812,132 @@ async def export_skill(skill_id: str, storage=Depends(get_storage)):
         media_type="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Skill files CRUD (multi-file support)
+# ---------------------------------------------------------------------------
+
+_ALLOWED_FILE_PREFIXES = ("scripts/", "references/", "assets/")
+_MAX_FILE_COUNT = 50
+_MAX_FILE_SIZE = 100 * 1024  # 100 KB
+
+
+def _validate_file_path(path: str) -> None:
+    """Validate that a file path is safe and in an allowed directory."""
+    if ".." in path:
+        raise HTTPException(400, f"Path traversal not allowed: {path}")
+    if not path:
+        raise HTTPException(400, "Empty file path")
+    # Must be in scripts/, references/, assets/, or root-level (no slash)
+    if "/" in path and not any(path.startswith(p) for p in _ALLOWED_FILE_PREFIXES):
+        raise HTTPException(
+            400,
+            f"Files must be in scripts/, references/, assets/, or at root level: {path}",
+        )
+
+
+@router.put("/{skill_id}/files")
+async def replace_skill_files(
+    skill_id: str,
+    body: SkillFilesUpdate,
+    request: Request,
+    storage=Depends(get_storage),
+):
+    """Replace the entire files list for a skill."""
+    if len(body.files) > _MAX_FILE_COUNT:
+        raise HTTPException(400, f"Maximum {_MAX_FILE_COUNT} files allowed")
+    for f in body.files:
+        _validate_file_path(f.path)
+        if len(f.content) > _MAX_FILE_SIZE:
+            raise HTTPException(400, f"File too large (max 100KB): {f.path}")
+
+    # Check for duplicate paths
+    paths = [f.path for f in body.files]
+    if len(paths) != len(set(paths)):
+        raise HTTPException(400, "Duplicate file paths not allowed")
+
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
+        data = _ensure_data(data)
+        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+
+        resources = skill.get("resources") or {}
+        resources["files"] = [f.model_dump() for f in body.files]
+        skill["resources"] = resources
+        skill["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        await save_global_entity(storage, _ENTITY, data)
+
+    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
+    return {"skill_id": skill_id, "file_count": len(body.files)}
+
+
+@router.get("/{skill_id}/files")
+async def list_skill_files(skill_id: str, storage=Depends(get_storage)):
+    """List all files for a skill."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+
+    resources = skill.get("resources") or {}
+    files = resources.get("files", [])
+    return {
+        "skill_id": skill_id,
+        "files": [{"path": f["path"], "file_type": f.get("file_type", "other")} for f in files],
+        "count": len(files),
+    }
+
+
+@router.get("/{skill_id}/files/{file_path:path}")
+async def get_skill_file(skill_id: str, file_path: str, storage=Depends(get_storage)):
+    """Get a single file's content."""
+    _validate_file_path(file_path)
+
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+
+    resources = skill.get("resources") or {}
+    files = resources.get("files", [])
+    for f in files:
+        if f["path"] == file_path:
+            return {"skill_id": skill_id, "path": f["path"], "content": f["content"], "file_type": f.get("file_type", "other")}
+
+    raise HTTPException(404, f"File not found: {file_path}")
+
+
+@router.delete("/{skill_id}/files/{file_path:path}")
+async def delete_skill_file(
+    skill_id: str,
+    file_path: str,
+    request: Request,
+    storage=Depends(get_storage),
+):
+    """Delete a single file from a skill."""
+    _validate_file_path(file_path)
+
+    async with _get_lock(_LOCK_NS, _ENTITY):
+        data = await load_global_entity(storage, _ENTITY)
+        data = _ensure_data(data)
+        skill = find_item_or_404(data["skills"], skill_id, "Skill")
+
+        resources = skill.get("resources") or {}
+        files = resources.get("files", [])
+        original_count = len(files)
+        files = [f for f in files if f["path"] != file_path]
+
+        if len(files) == original_count:
+            raise HTTPException(404, f"File not found: {file_path}")
+
+        resources["files"] = files
+        skill["resources"] = resources
+        skill["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        await save_global_entity(storage, _ENTITY, data)
+
+    await emit_event(request, _LOCK_NS, "skill.updated", {"id": skill_id})
+    return {"skill_id": skill_id, "deleted": file_path, "remaining": len(files)}
 
 
 # ---------------------------------------------------------------------------

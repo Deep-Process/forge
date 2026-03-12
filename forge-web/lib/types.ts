@@ -768,6 +768,14 @@ export interface PromotionHistoryEntry {
   gates: Array<{ gate: string; passed: boolean; detail: string }>;
 }
 
+export type SkillFileType = "script" | "reference" | "asset" | "other";
+
+export interface SkillFile {
+  path: string;
+  content: string;
+  file_type: SkillFileType;
+}
+
 export interface Skill {
   id: string;
   name: string;
