@@ -52,6 +52,7 @@ class GitSyncService:
         self.skills_dir = Path(skills_dir)
         self.remote_url = remote_url or os.environ.get("FORGE_SKILLS_REPO_URL", "")
         self._skill_storage = skill_storage  # SkillStorageService for resync
+        self._sync_lock = asyncio.Lock()  # Serialize pull/push operations
 
     def _check_configured(self) -> None:
         """Raise if git remote URL is not configured."""
@@ -144,25 +145,26 @@ class GitSyncService:
         if not (self.skills_dir / ".git").is_dir():
             raise GitSyncError("Not a git repository — run init_or_clone first")
 
-        # Fetch
-        await self._run_git("fetch", "origin")
+        async with self._sync_lock:
+            # Fetch
+            await self._run_git("fetch", "origin")
 
-        # Determine default branch
-        branch = await self._get_default_branch()
+            # Determine default branch
+            branch = await self._get_default_branch()
 
-        # Reset to remote
-        result = await self._run_git("reset", "--hard", f"origin/{branch}")
-        lines = result.stdout.strip().splitlines() if result.stdout else []
+            # Reset to remote
+            result = await self._run_git("reset", "--hard", f"origin/{branch}")
+            lines = result.stdout.strip().splitlines() if result.stdout else []
 
-        # Resync index
-        if self._skill_storage and hasattr(self._skill_storage, "resync_index"):
-            await self._skill_storage.resync_index()
+            # Resync index
+            if self._skill_storage and hasattr(self._skill_storage, "resync_index"):
+                await self._skill_storage.resync_index()
 
-        return GitSyncResult(
-            success=True,
-            message=f"Pulled and reset to origin/{branch}",
-            files_changed=len(lines),
-        )
+            return GitSyncResult(
+                success=True,
+                message=f"Pulled and reset to origin/{branch}",
+                files_changed=len(lines),
+            )
 
     async def push(self, message: str = "Sync skills") -> GitSyncResult:
         """Push synced skills to remote.
@@ -173,42 +175,43 @@ class GitSyncService:
         if not (self.skills_dir / ".git").is_dir():
             raise GitSyncError("Not a git repository — run init_or_clone first")
 
-        # Find skills with sync:true
-        synced_paths = self._get_synced_skill_dirs()
-        if not synced_paths:
+        async with self._sync_lock:
+            # Find skills with sync:true
+            synced_paths = self._get_synced_skill_dirs()
+            if not synced_paths:
+                return GitSyncResult(
+                    success=True,
+                    message="No synced skills to push",
+                )
+
+            # Stage only synced skill directories
+            for skill_path in synced_paths:
+                await self._run_git("add", skill_path)
+
+            # Also add _index.json if present
+            index_path = self.skills_dir / "_index.json"
+            if index_path.exists():
+                await self._run_git("add", "_index.json")
+
+            # Check if there's anything to commit
+            status_result = await self._run_git("status", "--porcelain", check=False)
+            staged = [
+                line for line in status_result.stdout.splitlines()
+                if line and line[0] in ("A", "M", "D", "R")
+            ]
+            if not staged:
+                return GitSyncResult(success=True, message="Nothing to push")
+
+            # Commit and push
+            await self._run_git("commit", "-m", message)
+            branch = await self._get_default_branch()
+            await self._run_git("push", "origin", branch)
+
             return GitSyncResult(
                 success=True,
-                message="No synced skills to push",
+                message=f"Pushed {len(staged)} change(s) to origin/{branch}",
+                files_changed=len(staged),
             )
-
-        # Stage only synced skill directories
-        for skill_path in synced_paths:
-            await self._run_git("add", skill_path)
-
-        # Also add _index.json if present
-        index_path = self.skills_dir / "_index.json"
-        if index_path.exists():
-            await self._run_git("add", "_index.json")
-
-        # Check if there's anything to commit
-        status_result = await self._run_git("status", "--porcelain", check=False)
-        staged = [
-            line for line in status_result.stdout.splitlines()
-            if line and line[0] in ("A", "M", "D", "R")
-        ]
-        if not staged:
-            return GitSyncResult(success=True, message="Nothing to push")
-
-        # Commit and push
-        await self._run_git("commit", "-m", message)
-        branch = await self._get_default_branch()
-        await self._run_git("push", "origin", branch)
-
-        return GitSyncResult(
-            success=True,
-            message=f"Pushed {len(staged)} change(s) to origin/{branch}",
-            files_changed=len(staged),
-        )
 
     async def status(self) -> GitStatus:
         """Get current git status: local changes, ahead/behind counts."""

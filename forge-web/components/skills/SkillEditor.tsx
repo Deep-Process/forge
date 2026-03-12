@@ -988,7 +988,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
                           </span>
                         </div>
                         <div className="space-y-0.5">
-                          {entry.gates.map((g, gi) => (
+                          {(entry.gates ?? []).map((g, gi) => (
                             <div key={gi} className="flex items-center gap-1 text-[10px]">
                               <span className={g.passed ? "text-green-600" : "text-red-600"}>
                                 {g.passed ? "PASS" : "FAIL"}

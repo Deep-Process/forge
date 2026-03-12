@@ -83,6 +83,7 @@ class SkillStorageService:
             skills_dir = Path("forge_output/_global/skills")
         self.skills_dir = Path(skills_dir)
         self._locks: dict[str, asyncio.Lock] = {}
+        self._index_lock = asyncio.Lock()
 
     # -- helpers ----------------------------------------------------------
 
@@ -94,9 +95,7 @@ class SkillStorageService:
         return self.skills_dir / name
 
     def _lock(self, name: str) -> asyncio.Lock:
-        if name not in self._locks:
-            self._locks[name] = asyncio.Lock()
-        return self._locks[name]
+        return self._locks.setdefault(name, asyncio.Lock())
 
     # -- index operations -------------------------------------------------
 
@@ -144,23 +143,25 @@ class SkillStorageService:
             "updated_at": config.get("updated_at", ""),
         }
 
-    def _update_index_entry(self, name: str) -> None:
+    async def _update_index_entry(self, name: str) -> None:
         """Add or update a single skill in the index."""
-        entries = self._read_index()
-        new_entry = self._build_index_entry(name)
-        if new_entry is None:
-            return
-        # Replace existing or append
-        entries = [e for e in entries if e.get("name") != name]
-        entries.append(new_entry)
-        entries.sort(key=lambda e: e.get("name", ""))
-        self._write_index(entries)
+        async with self._index_lock:
+            entries = self._read_index()
+            new_entry = self._build_index_entry(name)
+            if new_entry is None:
+                return
+            # Replace existing or append
+            entries = [e for e in entries if e.get("name") != name]
+            entries.append(new_entry)
+            entries.sort(key=lambda e: e.get("name", ""))
+            self._write_index(entries)
 
-    def _remove_index_entry(self, name: str) -> None:
+    async def _remove_index_entry(self, name: str) -> None:
         """Remove a skill from the index."""
-        entries = self._read_index()
-        entries = [e for e in entries if e.get("name") != name]
-        self._write_index(entries)
+        async with self._index_lock:
+            entries = self._read_index()
+            entries = [e for e in entries if e.get("name") != name]
+            self._write_index(entries)
 
     def _read_config(self, skill_dir: Path) -> dict:
         """Read _config.json from a skill directory."""
@@ -297,12 +298,15 @@ class SkillStorageService:
                 "numbers, and hyphens (e.g. 'my-skill')"
             )
 
+        if len(name) > 100:
+            raise ValueError("Skill name too long (max 100 characters)")
+
         self._ensure_dir()
         skill_dir = self._skill_dir(name)
-        if skill_dir.exists():
-            raise ValueError(f"Skill '{name}' already exists")
 
         async with self._lock(name):
+            if skill_dir.exists():
+                raise ValueError(f"Skill '{name}' already exists")
             skill_dir.mkdir(parents=True)
 
             # Merge initial_config over defaults
@@ -328,7 +332,7 @@ class SkillStorageService:
                 (skill_dir / sub).mkdir(exist_ok=True)
 
             # Update index
-            self._update_index_entry(name)
+            await self._update_index_entry(name)
 
             return self._build_skill_dict(name, config, md_content)
 
@@ -358,7 +362,7 @@ class SkillStorageService:
                 self._write_skill_md(skill_dir, content)
 
             # Update index
-            self._update_index_entry(name)
+            await self._update_index_entry(name)
 
     async def delete_skill(self, name: str) -> None:
         """Delete a skill directory entirely."""
@@ -371,7 +375,7 @@ class SkillStorageService:
             # Clean up lock
             self._locks.pop(name, None)
             # Update index
-            self._remove_index_entry(name)
+            await self._remove_index_entry(name)
 
     # -- file operations --------------------------------------------------
 
@@ -454,7 +458,12 @@ class SkillStorageService:
             raise ValueError(
                 f"File path must start with one of: {', '.join(ALLOWED_FILE_PREFIXES)}"
             )
-        # Prevent directory traversal
+        # Prevent directory traversal via resolved path comparison
         normalized = os.path.normpath(path)
-        if ".." in normalized:
+        if ".." in normalized.split(os.sep) or ".." in normalized.split("/"):
             raise ValueError("Directory traversal is not allowed")
+        # Double-check: resolved path must stay within skills_dir
+        test_base = Path("/safe")
+        resolved = (test_base / normalized).resolve()
+        if not str(resolved).startswith(str(test_base.resolve())):
+            raise ValueError("Path escapes allowed directory")
