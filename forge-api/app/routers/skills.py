@@ -27,6 +27,11 @@ from app.services.frontmatter import (
     merge_frontmatter_to_metadata,
     parse_frontmatter,
 )
+from app.services.agentskills_validator import (
+    validate_skill_name,
+    validate_skill_description,
+    validate_skill_structure,
+)
 from app.services.teslint import check_teslint_available, run_teslint
 
 router = APIRouter(prefix="/skills", tags=["skills"])
@@ -483,6 +488,16 @@ async def create_skills(
     if not body:
         raise HTTPException(422, "At least one skill is required")
 
+    # Validate names and descriptions before creating
+    for i, item in enumerate(body):
+        name_result = validate_skill_name(item.name)
+        if not name_result.valid:
+            raise HTTPException(422, f"Skill [{i}] name: {'; '.join(name_result.errors)}")
+        if item.description:
+            desc_result = validate_skill_description(item.description)
+            if not desc_result.valid:
+                raise HTTPException(422, f"Skill [{i}] description: {'; '.join(desc_result.errors)}")
+
     added = []
     async with _get_lock(_LOCK_NS, _ENTITY):
         data = await load_global_entity(storage, _ENTITY)
@@ -552,6 +567,16 @@ async def update_skill(
     storage=Depends(get_storage),
 ):
     """Update a skill. Auto-parses frontmatter when content changes."""
+    # Validate changed name/description
+    if body.name is not None:
+        name_result = validate_skill_name(body.name)
+        if not name_result.valid:
+            raise HTTPException(422, f"Invalid name: {'; '.join(name_result.errors)}")
+    if body.description is not None:
+        desc_result = validate_skill_description(body.description)
+        if not desc_result.valid:
+            raise HTTPException(422, f"Invalid description: {'; '.join(desc_result.errors)}")
+
     async with _get_lock(_LOCK_NS, _ENTITY):
         data = await load_global_entity(storage, _ENTITY)
         data = _ensure_data(data)
@@ -681,6 +706,18 @@ async def promote_skill(
         content = skill.get("skill_md_content", "") or ""
         gate_results = []
 
+        # Gate 0: agentskills.io compliance
+        spec_result = validate_skill_structure(skill)
+        gate0_passed = spec_result.valid
+        gate0_detail = "agentskills.io compliant" if gate0_passed else "; ".join(spec_result.errors)
+        if spec_result.warnings:
+            gate0_detail += " (warnings: " + "; ".join(spec_result.warnings) + ")"
+        gate_results.append({
+            "gate": "agentskills-io",
+            "passed": gate0_passed,
+            "detail": gate0_detail,
+        })
+
         fm = parse_frontmatter(content)
         gate1_passed = fm.valid and bool(skill.get("name")) and bool(skill.get("description"))
         gate_results.append({
@@ -723,8 +760,8 @@ async def promote_skill(
         else:
             gate_results.append({"gate": "teslint", "passed": False, "detail": "No content to lint"})
 
-        all_passed = gate1_passed and gate2_passed and gate3_passed
-        can_promote = all_passed or (gate1_passed and gate2_passed and body.force)
+        all_passed = gate0_passed and gate1_passed and gate2_passed and gate3_passed
+        can_promote = all_passed or (gate0_passed and gate1_passed and gate2_passed and body.force)
 
         if not can_promote:
             failed = [g for g in gate_results if not g["passed"]]
@@ -788,6 +825,16 @@ async def skill_usage(skill_id: str, storage=Depends(get_storage)):
         pass
 
     return {"skill_id": skill_id, "usage": usage, "count": len(usage)}
+
+
+@router.post("/{skill_id}/validate")
+async def validate_skill(skill_id: str, storage=Depends(get_storage)):
+    """Run agentskills.io compliance validation on a skill. No side effects."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    skill = find_item_or_404(data["skills"], skill_id, "Skill")
+    result = validate_skill_structure(skill)
+    return {"skill_id": skill_id, **result.to_dict()}
 
 
 @router.get("/{skill_id}/export")
