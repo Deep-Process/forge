@@ -1,16 +1,32 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-10T19:45:00Z",
+  "updated": "2026-03-12T13:31:49Z",
   "changes": [
     {
       "id": "C-143",
       "task_id": "T-103",
       "timestamp": "2026-03-12T20:20:00Z",
       "files": [
-        {"path": "forge-api/app/llm/session_manager.py", "action": "created", "reasoning": "SessionManager with Redis persistence: ChatSession/ChatMessage dataclasses, create/load/save/add_message/update_tokens/delete/list_sessions. Per-session asyncio locks, 24h TTL, event emission, cost estimation."},
-        {"path": "forge-api/app/routers/llm_chat.py", "action": "modified", "reasoning": "Added GET /llm/sessions, GET /llm/sessions/{id}, DELETE /llm/sessions/{id} endpoints"},
-        {"path": "forge-api/app/main.py", "action": "modified", "reasoning": "Initialize SessionManager in lifespan"},
-        {"path": "forge-api/app/dependencies.py", "action": "modified", "reasoning": "Added get_session_manager dependency"}
+        {
+          "path": "forge-api/app/llm/session_manager.py",
+          "action": "created",
+          "reasoning": "SessionManager with Redis persistence: ChatSession/ChatMessage dataclasses, create/load/save/add_message/update_tokens/delete/list_sessions. Per-session asyncio locks, 24h TTL, event emission, cost estimation."
+        },
+        {
+          "path": "forge-api/app/routers/llm_chat.py",
+          "action": "modified",
+          "reasoning": "Added GET /llm/sessions, GET /llm/sessions/{id}, DELETE /llm/sessions/{id} endpoints"
+        },
+        {
+          "path": "forge-api/app/main.py",
+          "action": "modified",
+          "reasoning": "Initialize SessionManager in lifespan"
+        },
+        {
+          "path": "forge-api/app/dependencies.py",
+          "action": "modified",
+          "reasoning": "Added get_session_manager dependency"
+        }
       ],
       "reasoning": "T-103: LLM session manager with Redis persistence, token tracking, cost estimation. Deep-verify found 1 critical (race condition) + 3 important (error handling, event symmetry) — all fixed.",
       "decision_ids": [],
@@ -21,8 +37,16 @@
       "task_id": "T-102",
       "timestamp": "2026-03-12T19:50:00Z",
       "files": [
-        {"path": "forge-api/app/llm/permissions.py", "action": "created", "reasoning": "PermissionEngine with 3-layer merge (defaults → global config → project overrides), PermissionSet.check(), deny_response(). Conservative defaults."},
-        {"path": "forge-api/app/llm/tool_registry.py", "action": "modified", "reasoning": "Integrated permission check in execute() — denied tools return structured error, handler never runs"}
+        {
+          "path": "forge-api/app/llm/permissions.py",
+          "action": "created",
+          "reasoning": "PermissionEngine with 3-layer merge (defaults → global config → project overrides), PermissionSet.check(), deny_response(). Conservative defaults."
+        },
+        {
+          "path": "forge-api/app/llm/tool_registry.py",
+          "action": "modified",
+          "reasoning": "Integrated permission check in execute() — denied tools return structured error, handler never runs"
+        }
       ],
       "reasoning": "T-102: Permission engine with module-level read/write/delete control. Deep-verify: all 5 ACs passed, type annotation improved.",
       "decision_ids": [],
@@ -33,9 +57,21 @@
       "task_id": "T-101",
       "timestamp": "2026-03-12T19:30:00Z",
       "files": [
-        {"path": "forge-api/app/llm/tool_registry.py", "action": "created", "reasoning": "ToolRegistry with 4 global tools (search, get, list, getProject) + 4 skill tools (updateContent, updateMetadata, runLint, getOther). Tools wrap real storage calls with JSON Schema definitions and context-type filtering."},
-        {"path": "forge-api/app/main.py", "action": "modified", "reasoning": "Initialize tool_registry in lifespan via create_default_registry()"},
-        {"path": "forge-api/app/dependencies.py", "action": "modified", "reasoning": "Added get_tool_registry dependency for DI"}
+        {
+          "path": "forge-api/app/llm/tool_registry.py",
+          "action": "created",
+          "reasoning": "ToolRegistry with 4 global tools (search, get, list, getProject) + 4 skill tools (updateContent, updateMetadata, runLint, getOther). Tools wrap real storage calls with JSON Schema definitions and context-type filtering."
+        },
+        {
+          "path": "forge-api/app/main.py",
+          "action": "modified",
+          "reasoning": "Initialize tool_registry in lifespan via create_default_registry()"
+        },
+        {
+          "path": "forge-api/app/dependencies.py",
+          "action": "modified",
+          "reasoning": "Added get_tool_registry dependency for DI"
+        }
       ],
       "reasoning": "T-101: LLM tool registry foundation. Deep-verify found 2 critical bugs (TESLint call signature, missing score field) and 1 important issue (no concurrency locks on writes) — all fixed.",
       "decision_ids": [],
@@ -46,10 +82,26 @@
       "task_id": "T-100",
       "timestamp": "2026-03-12T19:00:00Z",
       "files": [
-        {"path": "forge-api/app/main.py", "action": "modified", "reasoning": "ProviderRegistry initialization in lifespan — loads from providers.toml, stores on app.state"},
-        {"path": "forge-api/app/dependencies.py", "action": "modified", "reasoning": "Added get_provider_registry, get_llm_config, get_llm_provider FastAPI dependencies"},
-        {"path": "forge-api/app/models/llm_config.py", "action": "created", "reasoning": "LLM config models: LLMConfig, LLMFeatureFlags, LLMModulePermission, LLMConfigUpdate"},
-        {"path": "forge-api/app/routers/llm_chat.py", "action": "created", "reasoning": "LLM chat router: GET /providers, POST /providers/test, GET/PUT /config"}
+        {
+          "path": "forge-api/app/main.py",
+          "action": "modified",
+          "reasoning": "ProviderRegistry initialization in lifespan — loads from providers.toml, stores on app.state"
+        },
+        {
+          "path": "forge-api/app/dependencies.py",
+          "action": "modified",
+          "reasoning": "Added get_provider_registry, get_llm_config, get_llm_provider FastAPI dependencies"
+        },
+        {
+          "path": "forge-api/app/models/llm_config.py",
+          "action": "created",
+          "reasoning": "LLM config models: LLMConfig, LLMFeatureFlags, LLMModulePermission, LLMConfigUpdate"
+        },
+        {
+          "path": "forge-api/app/routers/llm_chat.py",
+          "action": "created",
+          "reasoning": "LLM chat router: GET /providers, POST /providers/test, GET/PUT /config"
+        }
       ],
       "reasoning": "T-100 foundation: LLM provider activation and config model. All code was implemented in prior sessions — verified all 6 AC met.",
       "decision_ids": [],
@@ -60,13 +112,31 @@
       "task_id": "T-114",
       "timestamp": "2026-03-12T18:45:00Z",
       "files": [
-        {"path": "forge-api/app/routers/skills.py", "action": "modified", "reasoning": "Added GET /skills/{id}/usage endpoint — scans all projects for tasks with matching skill_id, returns [{project, task_id, task_name, status}]"},
-        {"path": "forge-web/lib/types.ts", "action": "modified", "reasoning": "Added SkillUsageEntry interface"},
-        {"path": "forge-web/lib/api.ts", "action": "modified", "reasoning": "Added skills.usage() API client method + imported SkillUsageEntry type"},
-        {"path": "forge-web/components/skills/SkillEditor.tsx", "action": "modified", "reasoning": "Added Usage tab with lazy-loaded task list, clickable links, status badges, count from skill.usage_count, and empty state"}
+        {
+          "path": "forge-api/app/routers/skills.py",
+          "action": "modified",
+          "reasoning": "Added GET /skills/{id}/usage endpoint — scans all projects for tasks with matching skill_id, returns [{project, task_id, task_name, status}]"
+        },
+        {
+          "path": "forge-web/lib/types.ts",
+          "action": "modified",
+          "reasoning": "Added SkillUsageEntry interface"
+        },
+        {
+          "path": "forge-web/lib/api.ts",
+          "action": "modified",
+          "reasoning": "Added skills.usage() API client method + imported SkillUsageEntry type"
+        },
+        {
+          "path": "forge-web/components/skills/SkillEditor.tsx",
+          "action": "modified",
+          "reasoning": "Added Usage tab with lazy-loaded task list, clickable links, status badges, count from skill.usage_count, and empty state"
+        }
       ],
       "reasoning": "Usage tab for SkillEditor: backend endpoint scans all projects, frontend shows task list with status badges and clickable links. Lazy-loads on tab selection.",
-      "decision_ids": ["D-032"],
+      "decision_ids": [
+        "D-032"
+      ],
       "commit": "299002e5"
     },
     {
@@ -74,10 +144,16 @@
       "task_id": "T-113",
       "timestamp": "2026-03-12T18:25:00Z",
       "files": [
-        {"path": "forge-web/components/forms/TaskForm.tsx", "action": "modified", "reasoning": "Added scope-based skill filtering: watch scopes, pass ?scopes= to API, show optgroup with Recommended vs All skills, re-fetch on scope change"}
+        {
+          "path": "forge-web/components/forms/TaskForm.tsx",
+          "action": "modified",
+          "reasoning": "Added scope-based skill filtering: watch scopes, pass ?scopes= to API, show optgroup with Recommended vs All skills, re-fetch on scope change"
+        }
       ],
       "reasoning": "TaskForm skill dropdown now uses existing backend scope filtering. When task has scopes selected, dropdown shows scope-matched skills in 'Recommended' optgroup first, then remaining skills in 'All skills' optgroup.",
-      "decision_ids": ["D-033"],
+      "decision_ids": [
+        "D-033"
+      ],
       "commit": "e042edd0"
     },
     {
@@ -85,11 +161,21 @@
       "task_id": "T-112",
       "timestamp": "2026-03-12T18:10:00Z",
       "files": [
-        {"path": "forge-api/app/services/teslint.py", "action": "modified", "reasoning": "Added module-not-found detection after subprocess.run (handles case where python exists but teslint isn't installed) + check_teslint_available() health check function"},
-        {"path": "forge-api/app/routers/skills.py", "action": "modified", "reasoning": "Added GET /skills/health endpoint with TESLint availability check, imported check_teslint_available"}
+        {
+          "path": "forge-api/app/services/teslint.py",
+          "action": "modified",
+          "reasoning": "Added module-not-found detection after subprocess.run (handles case where python exists but teslint isn't installed) + check_teslint_available() health check function"
+        },
+        {
+          "path": "forge-api/app/routers/skills.py",
+          "action": "modified",
+          "reasoning": "Added GET /skills/health endpoint with TESLint availability check, imported check_teslint_available"
+        }
       ],
       "reasoning": "TESLint is not a real PyPI package. Instead of adding a non-existent dependency, implemented robust graceful fallback: module-not-found detection in subprocess call + health endpoint for runtime diagnostics.",
-      "decision_ids": ["D-031"],
+      "decision_ids": [
+        "D-031"
+      ],
       "commit": "9da51a9e"
     },
     {
@@ -2730,6 +2816,524 @@
       "action": "modified",
       "summary": "Hide skill dropdown in edit mode, show read-only skill_id",
       "timestamp": "2026-03-11T20:03:01.142Z"
+    },
+    {
+      "id": "C-144",
+      "task_id": "T-128",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Removed dedicated AI Chat and Generate with AI features from SkillEditor.tsx (96 lines deleted). Cleaned imports, state variables, callbacks, and JSX blocks.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Removed dedicated AI Chat and Generate with AI features from SkillEditor.tsx (96 lines deleted). Cleaned imports, state variables, callbacks, and JSX blocks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 679,
+      "lines_removed": 97,
+      "group_id": "T-128",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T12:59:53Z"
+    },
+    {
+      "id": "C-145",
+      "task_id": "T-128",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Removed dedicated AI Chat (LLMChat panel, GenerateSkillModal, all AI state/callbacks). 96 lines deleted.",
+      "reasoning_trace": [
+        {
+          "step": "removal",
+          "detail": "Removed imports (GenerateSkillModal, LLMChat, useSWR, useCallback, LLMConfig), AI_PANEL_KEY constant, state variables (showGenerate, aiOpen), llmConfig fetch, toggleAi callback, handleGenerated callback, Escape handler, Generate with AI button, AI Chat button, AI Chat panel (desktop+mobile), and Generate modal JSX"
+        },
+        {
+          "step": "verification",
+          "detail": "Build passes, deep-verify clean, no dangling references"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 96,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:00:20Z"
+    },
+    {
+      "id": "C-146",
+      "task_id": "T-129",
+      "file": "forge-api/app/routers/skills.py",
+      "action": "edit",
+      "summary": "Added SkillFile/SkillFilesUpdate models, path validation, and 4 file CRUD endpoints (PUT/GET/GET-single/DELETE)",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 136,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:06:22Z"
+    },
+    {
+      "id": "C-147",
+      "task_id": "T-129",
+      "file": "forge-web/lib/types.ts",
+      "action": "edit",
+      "summary": "Added SkillFileType and SkillFile interface for multi-file skills",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:06:22Z"
+    },
+    {
+      "id": "C-148",
+      "task_id": "T-129",
+      "file": "forge-web/lib/api.ts",
+      "action": "edit",
+      "summary": "Added put() helper and 4 skill file API methods (listFiles, getFile, replaceFiles, deleteFile)",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 18,
+      "lines_removed": 1,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:06:22Z"
+    },
+    {
+      "id": "C-149",
+      "task_id": "T-129",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added multi-file support: SkillFile model, path validation (no traversal, allowed dirs only), 4 CRUD endpoints with proper locking/events. Frontend types and API client updated. Build passes. Deep-verify found and fixed 4 bugs (wrong lock/event signatures).",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added multi-file support: SkillFile model, path validation (no traversal, allowed dirs only), 4 CRUD endpoints with proper locking/events. Frontend types and API client updated. Build passes. Deep-verify found and fixed 4 bugs (wrong lock/event signatures)."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 194,
+      "lines_removed": 24,
+      "group_id": "T-129",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:06:30Z"
+    },
+    {
+      "id": "C-150",
+      "task_id": "T-129",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added multi-file support: SkillFile model, path validation (no traversal, allowed dirs only), 4 CRUD endpoints with proper locking/events. Frontend types and API client updated. Build passes. Deep-verify found and fixed 4 bugs (wrong lock/event signatures).",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added multi-file support: SkillFile model, path validation (no traversal, allowed dirs only), 4 CRUD endpoints with proper locking/events. Frontend types and API client updated. Build passes. Deep-verify found and fixed 4 bugs (wrong lock/event signatures)."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 681,
+      "lines_removed": 97,
+      "group_id": "T-129",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:06:30Z"
+    },
+    {
+      "id": "C-151",
+      "task_id": "T-130",
+      "file": "forge-web/components/skills/SkillFileTree.tsx",
+      "action": "create",
+      "summary": "File tree component with collapsible folders, add/delete, SKILL.md protection",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 178,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:10:54Z"
+    },
+    {
+      "id": "C-152",
+      "task_id": "T-130",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Three-column layout with file tree, multi-file state tracking, updated save handler for bundled files",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 144,
+      "lines_removed": 21,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:10:54Z"
+    },
+    {
+      "id": "C-153",
+      "task_id": "T-130",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added SkillFileTree component and integrated into SkillEditor as three-column layout. Multi-file state tracking with per-file dirty detection. Save syncs SKILL.md + bundled files. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added SkillFileTree component and integrated into SkillEditor as three-column layout. Multi-file state tracking with per-file dirty detection. Save syncs SKILL.md + bundled files. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 260,
+      "lines_removed": 24,
+      "group_id": "T-130",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:11:04Z"
+    },
+    {
+      "id": "C-154",
+      "task_id": "T-130",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added SkillFileTree component and integrated into SkillEditor as three-column layout. Multi-file state tracking with per-file dirty detection. Save syncs SKILL.md + bundled files. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added SkillFileTree component and integrated into SkillEditor as three-column layout. Multi-file state tracking with per-file dirty detection. Save syncs SKILL.md + bundled files. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 683,
+      "lines_removed": 97,
+      "group_id": "T-130",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:11:04Z"
+    },
+    {
+      "id": "C-155",
+      "task_id": "T-131",
+      "file": "forge-api/app/llm/tool_registry.py",
+      "action": "edit",
+      "summary": "Added 4 skill file handlers and registered addSkillFile, removeSkillFile, listSkillFiles, getSkillFileContent tools",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 236,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:14:14Z"
+    },
+    {
+      "id": "C-156",
+      "task_id": "T-131",
+      "file": "forge-web/lib/capabilities.ts",
+      "action": "edit",
+      "summary": "Added 4 skill file capabilities to skills scope in CAPABILITY_CONTRACTS",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 4,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:14:14Z"
+    },
+    {
+      "id": "C-157",
+      "task_id": "T-131",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added 4 LLM tool handlers (add/remove/list/get skill files) with path validation, size limits, proper permissions. Registered in ToolRegistry with skill context type. Updated capabilities.ts. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added 4 LLM tool handlers (add/remove/list/get skill files) with path validation, size limits, proper permissions. Registered in ToolRegistry with skill context type. Updated capabilities.ts. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 326,
+      "lines_removed": 24,
+      "group_id": "T-131",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:14:21Z"
+    },
+    {
+      "id": "C-158",
+      "task_id": "T-131",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added 4 LLM tool handlers (add/remove/list/get skill files) with path validation, size limits, proper permissions. Registered in ToolRegistry with skill context type. Updated capabilities.ts. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added 4 LLM tool handlers (add/remove/list/get skill files) with path validation, size limits, proper permissions. Registered in ToolRegistry with skill context type. Updated capabilities.ts. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 685,
+      "lines_removed": 97,
+      "group_id": "T-131",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:14:21Z"
+    },
+    {
+      "id": "C-159",
+      "task_id": "T-132",
+      "file": "forge-api/app/services/agentskills_validator.py",
+      "action": "create",
+      "summary": "agentskills.io spec validators: name, description, md length, frontmatter, allowed tools, full structure",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 179,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:18:44Z"
+    },
+    {
+      "id": "C-160",
+      "task_id": "T-132",
+      "file": "forge-api/app/routers/skills.py",
+      "action": "edit",
+      "summary": "Integrated validation on create/update (422), Gate 0 on promote, POST /validate endpoint",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 51,
+      "lines_removed": 2,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:18:44Z"
+    },
+    {
+      "id": "C-161",
+      "task_id": "T-132",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created agentskills_validator.py with 6 validators. Integrated into skills router: create/update validation (422), Gate 0 on promote (cannot force past spec violations), POST /validate endpoint. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created agentskills_validator.py with 6 validators. Integrated into skills router: create/update validation (422), Gate 0 on promote (cannot force past spec violations), POST /validate endpoint. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 392,
+      "lines_removed": 24,
+      "group_id": "T-132",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:18:50Z"
+    },
+    {
+      "id": "C-162",
+      "task_id": "T-132",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created agentskills_validator.py with 6 validators. Integrated into skills router: create/update validation (422), Gate 0 on promote (cannot force past spec violations), POST /validate endpoint. Deep-verify passed all 10 checks.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created agentskills_validator.py with 6 validators. Integrated into skills router: create/update validation (422), Gate 0 on promote (cannot force past spec violations), POST /validate endpoint. Deep-verify passed all 10 checks."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 687,
+      "lines_removed": 97,
+      "group_id": "T-132",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:18:50Z"
+    },
+    {
+      "id": "C-163",
+      "task_id": "T-133",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added drag & drop file upload: SkillFileTree rewritten with DnD handlers, file classification, validation, visual feedback; SkillEditor wired with handleDropFiles callback",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Added drag & drop file upload: SkillFileTree rewritten with DnD handlers, file classification, validation, visual feedback; SkillEditor wired with handleDropFiles callback"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 430,
+      "lines_removed": 24,
+      "group_id": "T-133",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:23:39Z"
+    },
+    {
+      "id": "C-164",
+      "task_id": "T-133",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added drag & drop file upload: SkillFileTree rewritten with DnD handlers, file classification, validation, visual feedback; SkillEditor wired with handleDropFiles callback",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Added drag & drop file upload: SkillFileTree rewritten with DnD handlers, file classification, validation, visual feedback; SkillEditor wired with handleDropFiles callback"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 689,
+      "lines_removed": 97,
+      "group_id": "T-133",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:23:39Z"
+    },
+    {
+      "id": "C-165",
+      "task_id": "T-133",
+      "file": "forge-web/components/skills/SkillFileTree.tsx",
+      "action": "edit",
+      "summary": "Rewrote with native HTML5 drag & drop: handleDragOver/handleDragLeave/handleDrop, classifyFile auto-routing, ALLOWED_EXTENSIONS validation, MAX_DROP_FILES/MAX_FILE_SIZE limits, visual overlay feedback, error display",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:23:48Z"
+    },
+    {
+      "id": "C-166",
+      "task_id": "T-133",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Added handleDropFiles callback merging dropped files into files/fileContents/dirtyFiles state; passed onDropFiles prop to SkillFileTree",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:23:48Z"
+    },
+    {
+      "id": "C-167",
+      "task_id": "T-134",
+      "file": "forge-api/app/llm/context_resolver.py",
+      "action": "edit",
+      "summary": "Extended _resolve_skill to extract resources.files, add compact file listing to data dict, include file_tools hint for LLM. No content inlined, safe fallback for skills without files.",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:26:35Z"
+    },
+    {
+      "id": "C-168",
+      "task_id": "T-134",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Extended _resolve_skill with file listing and tool hints in data dict. Deep-verify 7/7 PASS. No regression for empty files.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Extended _resolve_skill with file listing and tool hints in data dict. Deep-verify 7/7 PASS. No regression for empty files."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 510,
+      "lines_removed": 24,
+      "group_id": "T-134",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:26:41Z"
+    },
+    {
+      "id": "C-169",
+      "task_id": "T-134",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Extended _resolve_skill with file listing and tool hints in data dict. Deep-verify 7/7 PASS. No regression for empty files.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Extended _resolve_skill with file listing and tool hints in data dict. Deep-verify 7/7 PASS. No regression for empty files."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 691,
+      "lines_removed": 97,
+      "group_id": "T-134",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:26:41Z"
+    },
+    {
+      "id": "C-170",
+      "task_id": "T-135",
+      "file": "forge-web/lib/types.ts",
+      "action": "edit",
+      "summary": "Added ValidationResult interface matching backend /validate response shape",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:31:43Z"
+    },
+    {
+      "id": "C-171",
+      "task_id": "T-135",
+      "file": "forge-web/lib/api.ts",
+      "action": "edit",
+      "summary": "Added validate() method calling POST /skills/{id}/validate, imported ValidationResult type",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:31:43Z"
+    },
+    {
+      "id": "C-172",
+      "task_id": "T-135",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Added validation state, handleValidate callback, Spec Validation section in metadata tab with validate button, line count warning, error/warning display, and post-save auto-validation",
+      "reasoning_trace": [],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:31:43Z"
+    },
+    {
+      "id": "C-173",
+      "task_id": "T-135",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added ValidationResult type, validate API method, and Spec Validation UI in metadata tab with standalone validate button, line count warning, error/warning display, and post-save auto-validation. Deep-verify 6/6 PASS.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added ValidationResult type, validate API method, and Spec Validation UI in metadata tab with standalone validate button, line count warning, error/warning display, and post-save auto-validation. Deep-verify 6/6 PASS."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 590,
+      "lines_removed": 24,
+      "group_id": "T-135",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:31:49Z"
+    },
+    {
+      "id": "C-174",
+      "task_id": "T-135",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added ValidationResult type, validate API method, and Spec Validation UI in metadata tab with standalone validate button, line count warning, error/warning display, and post-save auto-validation. Deep-verify 6/6 PASS.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added ValidationResult type, validate API method, and Spec Validation UI in metadata tab with standalone validate button, line count warning, error/warning display, and post-save auto-validation. Deep-verify 6/6 PASS."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 693,
+      "lines_removed": 97,
+      "group_id": "T-135",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T13:31:49Z"
     }
   ]
 }

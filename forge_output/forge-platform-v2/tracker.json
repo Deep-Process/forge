@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-12T13:30:00Z",
+  "updated": "2026-03-12T17:28:46Z",
   "config": {},
   "tasks": [
     {
@@ -2827,7 +2827,10 @@
         "WebSocket passes through Docker networking",
         "No stale build issues (L-007/L-013 addressed)"
       ],
-      "scopes": ["infrastructure", "integration"],
+      "scopes": [
+        "infrastructure",
+        "integration"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -2858,7 +2861,10 @@
         "Shared components handle edge cases (null, empty, error)",
         "Findings documented with severity ratings"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -2889,7 +2895,10 @@
         "Status transitions validated",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -2920,7 +2929,10 @@
         "Risk-specific fields (severity, likelihood, mitigation) display",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -2952,7 +2964,10 @@
         "Ideas CRUD + hierarchy + commit verified",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -2983,7 +2998,10 @@
         "AC Templates instantiate with params verified",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3015,7 +3033,11 @@
         "Task-skill integration verified",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing", "skills"],
+      "scopes": [
+        "frontend",
+        "testing",
+        "skills"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3047,7 +3069,11 @@
         "Project settings page verified",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing", "debug"],
+      "scopes": [
+        "frontend",
+        "testing",
+        "debug"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3079,7 +3105,10 @@
         "SWR hooks integrate correctly with stores",
         "Findings documented with severity"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3100,7 +3129,14 @@
       "completed_at": "2026-03-12T12:30:00Z",
       "failed_reason": null,
       "depends_on": [
-        "T-090", "T-091", "T-092", "T-093", "T-094", "T-095", "T-096", "T-097"
+        "T-090",
+        "T-091",
+        "T-092",
+        "T-093",
+        "T-094",
+        "T-095",
+        "T-096",
+        "T-097"
       ],
       "parallel": false,
       "conflicts_with": [],
@@ -3111,7 +3147,11 @@
         "Changes committed with proper reasoning",
         "Bug count documented for O-006 KR-2"
       ],
-      "scopes": ["frontend", "backend", "testing"],
+      "scopes": [
+        "frontend",
+        "backend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3129,7 +3169,6 @@
       "type": "chore",
       "status": "DONE",
       "started_at": "2026-03-12T12:30:00Z",
-      "completed_at": "2026-03-12T13:00:00Z",
       "completed_at": null,
       "failed_reason": null,
       "depends_on": [
@@ -3146,7 +3185,10 @@
         "Edge case coverage documented (target: 80%)",
         "All MINOR bugs from deep-verify fixed"
       ],
-      "scopes": ["frontend", "testing"],
+      "scopes": [
+        "frontend",
+        "testing"
+      ],
       "origin": "O-006",
       "knowledge_ids": [],
       "skill": null,
@@ -3177,11 +3219,19 @@
         "POST /api/v1/llm/providers/test returns success with real Claude response",
         "No mock data — real API call to Anthropic"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": true, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      }
     },
     {
       "id": "T-101",
@@ -3193,7 +3243,9 @@
       "started_at": "2026-03-12T19:05:00Z",
       "completed_at": "2026-03-12T19:30:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100"],
+      "depends_on": [
+        "T-100"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3204,11 +3256,19 @@
         "Tool execution calls real Forge API logic (not mock)",
         "get_tools filters by context type and permissions"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-102",
@@ -3220,7 +3280,9 @@
       "started_at": "2026-03-12T19:35:00Z",
       "completed_at": "2026-03-12T19:50:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100"],
+      "depends_on": [
+        "T-100"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3230,11 +3292,19 @@
         "Denied tool calls return structured error",
         "Project permissions override global permissions"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-103",
@@ -3246,7 +3316,9 @@
       "started_at": "2026-03-12T19:55:00Z",
       "completed_at": "2026-03-12T20:20:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100"],
+      "depends_on": [
+        "T-100"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3259,11 +3331,19 @@
         "GET /api/v1/llm/sessions lists sessions",
         "GET /api/v1/llm/sessions/{id} returns full history"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-104",
@@ -3275,7 +3355,12 @@
       "started_at": "2026-03-12T08:30:00Z",
       "completed_at": "2026-03-12T09:15:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100", "T-101", "T-102", "T-103"],
+      "depends_on": [
+        "T-100",
+        "T-101",
+        "T-102",
+        "T-103"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3288,11 +3373,19 @@
         "Loop terminates on end_turn or cancellation",
         "Token usage tracked across iterations"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": true, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": true,
+        "e2e": false
+      }
     },
     {
       "id": "T-105",
@@ -3304,7 +3397,9 @@
       "started_at": "2026-03-12T09:30:00Z",
       "completed_at": "2026-03-12T09:50:00Z",
       "failed_reason": null,
-      "depends_on": ["T-104"],
+      "depends_on": [
+        "T-104"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3318,11 +3413,20 @@
         "PUT /api/v1/llm/config updates config",
         "Router mounted in main.py"
       ],
-      "scopes": ["backend", "ai", "llm", "api"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm",
+        "api"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": true, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      }
     },
     {
       "id": "T-106",
@@ -3334,7 +3438,9 @@
       "started_at": "2026-03-12T09:50:00Z",
       "completed_at": "2026-03-12T10:15:00Z",
       "failed_reason": null,
-      "depends_on": ["T-105"],
+      "depends_on": [
+        "T-105"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3346,11 +3452,19 @@
         "react-markdown and remark-gfm in dependencies",
         "Chat types defined in types.ts"
       ],
-      "scopes": ["frontend", "ai", "llm"],
+      "scopes": [
+        "frontend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-107",
@@ -3362,7 +3476,9 @@
       "started_at": "2026-03-12T10:15:00Z",
       "completed_at": "2026-03-12T10:35:00Z",
       "failed_reason": null,
-      "depends_on": ["T-106"],
+      "depends_on": [
+        "T-106"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3376,11 +3492,20 @@
         "Auto-scroll on new messages",
         "Responsive (320px+ width)"
       ],
-      "scopes": ["frontend", "ai", "llm", "ui"],
+      "scopes": [
+        "frontend",
+        "ai",
+        "llm",
+        "ui"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-108",
@@ -3392,7 +3517,9 @@
       "started_at": "2026-03-12T09:15:00Z",
       "completed_at": "2026-03-12T09:30:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100"],
+      "depends_on": [
+        "T-100"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3403,11 +3530,19 @@
         "Per-request resolution (fresh data)",
         "Truncation for large entities"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-109",
@@ -3419,7 +3554,10 @@
       "started_at": "2026-03-12T09:37:00Z",
       "completed_at": "2026-03-12T09:50:00Z",
       "failed_reason": null,
-      "depends_on": ["T-100", "T-106"],
+      "depends_on": [
+        "T-100",
+        "T-106"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3432,11 +3570,20 @@
         "Toast feedback",
         "Linked from settings navigation"
       ],
-      "scopes": ["frontend", "ai", "llm", "ui"],
+      "scopes": [
+        "frontend",
+        "ai",
+        "llm",
+        "ui"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-110",
@@ -3448,7 +3595,10 @@
       "started_at": "2026-03-12T09:30:00Z",
       "completed_at": "2026-03-12T09:36:00Z",
       "failed_reason": null,
-      "depends_on": ["T-107", "T-108"],
+      "depends_on": [
+        "T-107",
+        "T-108"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3462,11 +3612,21 @@
         "Responsive on small screens",
         "E2E: message -> tool call -> skill updated -> UI refreshed"
       ],
-      "scopes": ["frontend", "ai", "llm", "skills", "ui"],
+      "scopes": [
+        "frontend",
+        "ai",
+        "llm",
+        "skills",
+        "ui"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": true}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": true
+      }
     },
     {
       "id": "T-111",
@@ -3478,7 +3638,9 @@
       "started_at": "2026-03-12T09:51:00Z",
       "completed_at": "2026-03-12T10:05:00Z",
       "failed_reason": null,
-      "depends_on": ["T-105"],
+      "depends_on": [
+        "T-105"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3490,11 +3652,19 @@
         "Events emitted for Debug Console",
         "No regression on existing heuristic suggestions"
       ],
-      "scopes": ["backend", "ai", "llm"],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
       "origin": "O-010",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": true, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      }
     },
     {
       "id": "T-112",
@@ -3515,11 +3685,19 @@
         "POST /skills/{id}/promote TESLint gate works (or skips gracefully)",
         "No regression on existing skill CRUD endpoints"
       ],
-      "scopes": ["backend", "skills", "infrastructure"],
+      "scopes": [
+        "backend",
+        "skills",
+        "infrastructure"
+      ],
       "origin": "O-009",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": true, "e2e": false},
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      },
       "reasoning": "TESLint is not a real PyPI package — chose graceful fallback path. Added: (1) module-not-found detection in run_teslint for Docker where python exists but teslint isn't installed, (2) check_teslint_available() health check function, (3) GET /skills/health endpoint. Existing FileNotFoundError + force-promote fallbacks preserved."
     },
     {
@@ -3541,11 +3719,18 @@
         "Scopes filter uses existing GET /skills?scopes= API param",
         "Re-fetches when scopes field changes"
       ],
-      "scopes": ["frontend", "skills"],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
       "origin": "O-009",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false},
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      },
       "reasoning": "Scope-based skill filtering: watch scopes field → re-fetch with ?scopes= param → show optgroup 'Recommended (matching scopes)' first, then 'All skills'. Falls back to flat list when no scopes selected. Uses existing backend filter (skills.py _matches_filter)."
     },
     {
@@ -3568,11 +3753,18 @@
         "Empty state shown when no tasks reference this skill",
         "Task IDs are clickable links"
       ],
-      "scopes": ["frontend", "skills"],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
       "origin": "O-009",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false},
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      },
       "reasoning": "Added GET /skills/{id}/usage backend endpoint scanning all projects for tasks with matching skill_id. Frontend: SkillUsageEntry type, API client, Usage tab in SkillEditor with lazy-loading, clickable task links, status badges, and empty state."
     },
     {
@@ -3587,18 +3779,28 @@
       "failed_reason": null,
       "depends_on": [],
       "parallel": true,
-      "conflicts_with": ["T-116", "T-117"],
+      "conflicts_with": [
+        "T-116",
+        "T-117"
+      ],
       "acceptance_criteria": [
         "CSS variables --topnav-height, --left-panel-width, --right-sidebar-width, --right-sidebar-collapsed-width defined in :root",
         "p-6 removed from root layout <main>",
         "--sidebar-width removed or deprecated",
         "Build compiles without errors"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-116",
@@ -3620,11 +3822,18 @@
         "Height uses var(--topnav-height)",
         "Consistent dark theme matching screenshot"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-117",
@@ -3645,11 +3854,18 @@
         "Left panel renders declared content or collapses when empty",
         "Collapse state persists to localStorage"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-118",
@@ -3661,7 +3877,11 @@
       "instruction": "1. In forge-web/app/layout.tsx:\n   - Remove <Sidebar /> import and rendering\n   - Add <TopNavBar /> at the top (from T-116)\n   - Wrap children with <LeftPanelProvider> (from T-117)\n   - Body structure: flex flex-col h-screen\n     - TopNavBar (fixed height --topnav-height)\n     - <div className='flex flex-1 overflow-hidden'>\n       - <LeftPanel /> (from T-117, auto-width)\n       - <main className='flex-1 overflow-y-auto'>{children}</main>\n       - <RightSidebarSlot /> (new, see below)\n     - </div>\n2. Create forge-web/components/layout/RightSidebarSlot.tsx:\n   - Container div with width var(--right-sidebar-width) when expanded, var(--right-sidebar-collapsed-width) when collapsed\n   - Defaults to COLLAPSED (per D-038)\n   - Collapse/expand toggle button (thin strip with icon when collapsed)\n   - Drag handle on left edge for resize (min 320px, max 600px)\n   - Width + collapsed state persisted to localStorage\n   - Renders {children} or empty — O-014 will populate this\n   - CSS transitions for smooth collapse/expand\n3. Add pointer event handling for drag-to-resize:\n   - onPointerDown on drag handle captures start position\n   - onPointerMove (on document) calculates new width\n   - onPointerUp releases\n   - document.body.style.userSelect = 'none' during drag\n4. Keep ToastContainer and DebugInit in layout.\n5. Add SWRProvider wrapping everything as before.",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-115", "T-116", "T-117"],
+      "depends_on": [
+        "T-115",
+        "T-116",
+        "T-117"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3674,11 +3894,18 @@
         "Main content fills remaining width",
         "SWRProvider, ToastContainer, DebugInit still present"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-119",
@@ -3690,9 +3917,13 @@
       "instruction": "1. In forge-web/app/projects/[slug]/layout.tsx:\n   - Remove the outer <div className='flex h-full -m-6'> wrapper (the -m-6 hack)\n   - Import useLeftPanel from LeftPanelProvider\n   - Call useLeftPanel(<ProjectSidebar slug={slug} />) to register ProjectSidebar as left panel content\n   - Remove direct <ProjectSidebar /> rendering from this layout\n   - Keep the project header bar (breadcrumb, slug, WS status, debug toggle) as a sub-header within the content area\n   - Keep <BottomPanel /> — it should render below the main content within this layout's flex column\n   - Keep <CommandPalette />\n   - Add padding (p-6) to the scrollable content area since root layout no longer provides it\n2. In forge-web/components/layout/ProjectSidebar.tsx:\n   - Remove the mobile drawer logic (fixed positioning, overlay) — the LeftPanel container handles responsive behavior\n   - Or keep mobile drawer but adjust for new container context\n   - Keep all nav groups, entity counts, collapse behavior\n3. Verify: navigate to /projects/[slug]/* pages — ProjectSidebar appears in left panel, content renders correctly, BottomPanel works.",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-118"],
+      "depends_on": [
+        "T-118"
+      ],
       "parallel": true,
-      "conflicts_with": ["T-120"],
+      "conflicts_with": [
+        "T-120"
+      ],
       "acceptance_criteria": [
         "-m-6 hack removed from project layout",
         "ProjectSidebar renders via LeftPanelProvider in left panel",
@@ -3701,11 +3932,18 @@
         "All 15+ project sub-pages render correctly",
         "Content area has proper padding"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-120",
@@ -3717,9 +3955,13 @@
       "instruction": "1. Create forge-web/components/skills/SkillsLeftPanel.tsx:\n   - Extract the <aside> from skills/page.tsx (lines ~157-196): Section label 'Skills' + Categories nav list\n   - Keep the category filter buttons with counts\n   - Accept selectedCategory and onCategoryChange as props\n   - Style matching the screenshot: dark bg section header, lighter category buttons\n2. In forge-web/app/skills/page.tsx:\n   - Import useLeftPanel and SkillsLeftPanel\n   - Call useLeftPanel(<SkillsLeftPanel ... />) to register in left panel\n   - Remove the inline <aside> and the flex gap-6 wrapper\n   - Remove the lg:hidden / hidden lg:block responsive toggles for categories\n   - Main content fills the workspace directly\n   - Add p-6 padding to content since root layout no longer provides it\n3. In forge-web/app/skills/[id]/page.tsx and skills/new/page.tsx:\n   - Also call useLeftPanel with SkillsLeftPanel (or a simplified version showing 'Section: Skills' without categories)\n   - Add p-6 padding",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-118"],
+      "depends_on": [
+        "T-118"
+      ],
       "parallel": true,
-      "conflicts_with": ["T-119"],
+      "conflicts_with": [
+        "T-119"
+      ],
       "acceptance_criteria": [
         "Skills categories render in left panel via LeftPanelProvider",
         "Inline <aside> removed from skills/page.tsx",
@@ -3727,11 +3969,19 @@
         "Skills list/detail/new pages all show left panel",
         "Content area properly padded"
       ],
-      "scopes": ["frontend", "layout", "skills"],
+      "scopes": [
+        "frontend",
+        "layout",
+        "skills"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-121",
@@ -3743,7 +3993,10 @@
       "instruction": "1. Update calc patterns in these files:\n   - forge-web/app/skills/new/page.tsx: h-[calc(100vh-4rem)] → h-[calc(100vh-var(--topnav-height)-1rem)] or equivalent\n   - forge-web/app/skills/[id]/page.tsx: same pattern\n   - forge-web/app/projects/[slug]/execution/[taskId]/page.tsx: h-[calc(100vh-12rem)] → adjust for --topnav-height\n   - forge-web/components/debug/BottomPanel.tsx: fullscreen h-[calc(100vh-3rem)] → h-[calc(100vh-var(--topnav-height))]\n2. Check all other pages for any remaining hardcoded 100vh calculations: grep for '100vh' across the codebase.\n3. Visual regression sweep — navigate to EVERY route and verify:\n   - / (Dashboard)\n   - /projects (list)\n   - /projects/[slug] (project dashboard + all sub-pages: tasks, objectives, ideas, decisions, knowledge, guidelines, changes, lessons, ac-templates, board, execution, settings, debug)\n   - /skills (list), /skills/[id] (detail), /skills/new\n   - /settings/llm\n4. Check: no overflow, no cut-off content, no scroll issues, BottomPanel works in all states (collapsed/expanded/fullscreen).\n5. Add hidden md:block on LeftPanel and RightSidebarSlot for basic mobile safety.",
       "type": "chore",
       "failed_reason": null,
-      "depends_on": ["T-119", "T-120"],
+      "depends_on": [
+        "T-119",
+        "T-120"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3753,11 +4006,18 @@
         "BottomPanel works in collapsed/expanded/fullscreen",
         "Basic md:block responsive safety on side panels"
       ],
-      "scopes": ["frontend", "layout"],
+      "scopes": [
+        "frontend",
+        "layout"
+      ],
       "origin": "O-012",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": true}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": true
+      }
     },
     {
       "id": "T-122",
@@ -3779,22 +4039,32 @@
         "execute() checks permissions before running handler",
         "Existing single-context_type calls still work unchanged"
       ],
-      "scopes": ["backend", "permissions"],
+      "scopes": [
+        "backend",
+        "permissions"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-123",
       "name": "extend-chat-endpoint-scopes",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-12T15:06:00Z",
+      "completed_at": "2026-03-12T16:00:00Z",
       "description": "Extend POST /api/v1/llm/chat to accept scopes[] and disabled_capabilities[] parameters. Map scopes to context_types using a shared mapping, pass disabled_capabilities as disabled_tools to ToolRegistry.",
       "instruction": "1. In forge-api/app/routers/llm_chat.py:\n   a. Add to ChatRequest model:\n      scopes: list[str] | None = None\n      disabled_capabilities: list[str] | None = None\n   b. Create SCOPE_TO_CONTEXT_TYPE mapping dict:\n      {'skills': 'skill', 'tasks': 'task', 'objectives': 'objective', 'ideas': 'idea', 'decisions': 'decision', 'knowledge': 'knowledge', 'guidelines': 'guideline', 'lessons': 'lesson', 'projects': 'project', 'ac_templates': 'ac_template', 'dashboard': 'global', 'settings': 'global', 'changes': 'change'}\n   c. In the chat endpoint handler:\n      - If scopes provided: map to context_types list using SCOPE_TO_CONTEXT_TYPE\n      - Pass context_types to AgentLoop (which passes to get_tools())\n      - Pass disabled_capabilities as disabled_tools\n      - If scopes is None: fall back to existing context_type behavior (backward compat)\n2. Update forge-web/lib/types.ts ChatSendRequest interface:\n   - Add scopes?: string[]\n   - Add disabled_capabilities?: string[]\n3. Update forge-web/lib/api.ts llm.chat() to pass new fields if present.\n4. Update forge-web/stores/chatStore.ts sendMessage() to accept and pass scopes + disabled_capabilities.",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-122"],
+      "depends_on": [
+        "T-122"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3805,21 +4075,33 @@
         "Frontend types and API client updated",
         "chatStore.sendMessage() passes scopes and disabled_capabilities"
       ],
-      "scopes": ["backend", "frontend", "permissions"],
+      "scopes": [
+        "backend",
+        "frontend",
+        "permissions"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": true, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": true,
+        "e2e": false
+      }
     },
     {
       "id": "T-124",
       "name": "execution-permission-check",
-      "status": "TODO",
+      "status": "DONE",
+      "started_at": "2026-03-12T16:05:00Z",
+      "completed_at": "2026-03-12T16:05:00Z",
       "description": "Add defense-in-depth permission check at tool execution level. Currently tools are filtered before sending to LLM, but execute() does not re-check permissions. Add a check so even if a filtered tool is somehow called, it fails safely.",
       "instruction": "1. In forge-api/app/llm/tool_registry.py execute() method:\n   - Before calling handler, check if tool has required_permission\n   - If it does, verify against self._permissions (need to store permissions on registry or accept as param)\n   - If permission denied, return {'error': 'Permission denied', 'module': module, 'action': action} instead of executing\n2. In AgentLoop: ensure permissions are passed to tool_registry.execute() calls.\n3. Add test: register a tool with required_permission=('skills', 'write'), set permissions to skills.write=False, call execute() — should return error.",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-122"],
+      "depends_on": [
+        "T-122"
+      ],
       "parallel": true,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3828,16 +4110,25 @@
         "Existing tool execution unaffected when permissions are satisfied",
         "Test verifies denied execution"
       ],
-      "scopes": ["backend", "permissions"],
+      "scopes": [
+        "backend",
+        "permissions"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-125",
       "name": "build-scope-resolver-hook",
-      "status": "TODO",
+      "status": "DONE",
+      "started_at": "2026-03-12T16:10:00Z",
+      "completed_at": "2026-03-12T16:15:00Z",
       "description": "Create useScopeResolver() React hook that maps the current pathname to scopes. Also defines the scope-to-context_type mapping and exports it for shared use.",
       "instruction": "1. Create forge-web/hooks/useScopeResolver.ts:\n   - Import usePathname from next/navigation\n   - Define SCOPE_TO_CONTEXT_TYPE mapping (must match backend D-035):\n     { skills: 'skill', tasks: 'task', objectives: 'objective', ideas: 'idea', decisions: 'decision', knowledge: 'knowledge', guidelines: 'guideline', lessons: 'lesson', projects: 'project', ac_templates: 'ac_template', changes: 'change', dashboard: 'global', settings: 'global' }\n   - Route matching logic (ordered, first match wins):\n     /skills/* -> ['skills']\n     /projects/[slug]/tasks/* -> ['tasks']\n     /projects/[slug]/board -> ['tasks']\n     /projects/[slug]/execution/* -> ['tasks']\n     /projects/[slug]/objectives/* -> ['objectives']\n     /projects/[slug]/ideas/* -> ['ideas']\n     /projects/[slug]/decisions/* -> ['decisions']\n     /projects/[slug]/knowledge/* -> ['knowledge']\n     /projects/[slug]/guidelines/* -> ['guidelines']\n     /projects/[slug]/changes/* -> ['changes']\n     /projects/[slug]/lessons/* -> ['lessons']\n     /projects/[slug]/ac-templates/* -> ['ac_templates']\n     /projects/[slug]/settings -> ['settings']\n     /projects/[slug]/debug -> ['debug']\n     /projects/[slug] -> ['projects']\n     /projects -> ['projects']\n     /settings/* -> ['settings']\n     / -> ['dashboard']\n   - Extract project slug from pathname if present\n   - Return: { scopes: string[], primaryScope: string, projectSlug: string | null, contextTypes: string[] }\n   - contextTypes computed by mapping scopes through SCOPE_TO_CONTEXT_TYPE\n2. Also support manual scope overrides:\n   - Accept addedScopes and removedScopes parameters\n   - Return merged scope list: (auto-detected + added) - removed\n3. Export SCOPE_TO_CONTEXT_TYPE for reuse.",
       "type": "feature",
@@ -3852,21 +4143,31 @@
         "Project slug extracted from pathname",
         "contextTypes computed from scopes"
       ],
-      "scopes": ["frontend"],
+      "scopes": [
+        "frontend"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-126",
       "name": "define-capability-contract-registry",
-      "status": "TODO",
+      "status": "DONE",
+      "started_at": "2026-03-12T16:20:00Z",
+      "completed_at": "2026-03-12T16:25:00Z",
       "description": "Define static capability contract definitions per scope — TypeScript data listing what operations the AI can perform in each scope, with availability flags for tools that don't exist yet.",
       "instruction": "1. Create forge-web/lib/capabilities.ts:\n   a. Define types:\n      interface CapabilityDef {\n        id: string;          // e.g., 'list-skills'\n        label: string;       // e.g., 'List all skills'\n        description: string; // e.g., 'View all available skills'\n        action: 'READ' | 'WRITE' | 'DELETE';\n        scope: string;       // e.g., 'skills'\n        toolName: string | null;  // mapped backend tool name, null if not yet implemented\n        available: boolean;  // false if tool doesn't exist yet\n      }\n   b. Define CAPABILITY_CONTRACTS: Record<string, CapabilityDef[]> with entries for 6 scopes:\n      - skills: list (READ, listEntities), search (READ, searchEntities), create (WRITE, updateSkillContent), edit (WRITE, updateSkillContent), delete (DELETE, null, available:false), lint (READ, runSkillLint), promote (WRITE, null, available:false), export (READ, null, available:false)\n      - tasks: list (READ, listEntities), search (READ, searchEntities), show (READ, getEntity), create (WRITE, null, available:false), update (WRITE, null, available:false), complete (WRITE, null, available:false)\n      - objectives: list (READ, listEntities), show (READ, getEntity), create (WRITE, null, available:false), update (WRITE, null, available:false)\n      - ideas: list (READ, listEntities), show (READ, getEntity), create (WRITE, null, available:false), update (WRITE, null, available:false)\n      - decisions: list (READ, listEntities), show (READ, getEntity), create (WRITE, null, available:false), update (WRITE, null, available:false)\n      - knowledge: list (READ, listEntities), show (READ, getEntity), create (WRITE, null, available:false), update (WRITE, null, available:false)\n   c. Export helper function getCapabilitiesForScopes(scopes: string[]): CapabilityDef[] — returns merged capabilities for all given scopes (deduped by id)\n   d. Export helper function getPermissionStatus(capability: CapabilityDef, permissions: LLMPermissions): 'enabled' | 'no-permission' | 'coming-soon'\n      - If !capability.available: return 'coming-soon'\n      - If permission for scope+action is false: return 'no-permission'\n      - Else: return 'enabled'",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-125"],
+      "depends_on": [
+        "T-125"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3876,21 +4177,32 @@
         "getCapabilitiesForScopes() merges capabilities from multiple scopes",
         "getPermissionStatus() correctly returns enabled/no-permission/coming-soon"
       ],
-      "scopes": ["frontend", "permissions"],
+      "scopes": [
+        "frontend",
+        "permissions"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": true, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     },
     {
       "id": "T-127",
       "name": "build-capability-contract-ui",
-      "status": "TODO",
+      "status": "DONE",
+      "started_at": "2026-03-12T16:30:00Z",
+      "completed_at": "2026-03-12T16:35:00Z",
       "description": "Build the CapabilityContract UI component — an expandable list of capabilities with toggle switches, permission status indicators, and 'Coming soon' labels. Used inside the AI Sidebar (O-014).",
       "instruction": "1. Create forge-web/components/ai/CapabilityContract.tsx:\n   a. Props: scopes: string[], disabledCapabilities: string[], onToggle: (capabilityId: string, enabled: boolean) => void\n   b. Use getCapabilitiesForScopes(scopes) from lib/capabilities.ts to get capability list\n   c. Fetch LLM permissions from GET /api/v1/llm/config (or accept as prop from parent)\n   d. For each capability, determine status using getPermissionStatus()\n   e. Render as expandable/collapsible section titled 'Capability contract' with gear icon\n   f. Each capability row:\n      - Label (e.g., 'List all skills')\n      - Action badge (READ in green, WRITE in blue, DELETE in red)\n      - Toggle switch (enabled by default for 'enabled' status)\n      - Toggle disabled + greyed out for 'no-permission' (show 'No permission' in red text)\n      - Toggle disabled + greyed out for 'coming-soon' (show 'Coming soon' in gray text)\n   g. Toggle changes call onToggle callback\n   h. Styling per screenshot: rounded cards, subtle borders, toggle switches matching design\n2. Ensure the component is self-contained and can be embedded in the AI Sidebar (O-014).\n3. The component does NOT manage its own toggle state — the parent (sidebarStore in O-014) owns the state and passes disabledCapabilities.",
       "type": "feature",
       "failed_reason": null,
-      "depends_on": ["T-126"],
+      "depends_on": [
+        "T-126"
+      ],
       "parallel": false,
       "conflicts_with": [],
       "acceptance_criteria": [
@@ -3902,11 +4214,417 @@
         "onToggle callback fires when user toggles a capability",
         "Section is collapsible/expandable"
       ],
-      "scopes": ["frontend", "permissions"],
+      "scopes": [
+        "frontend",
+        "permissions"
+      ],
       "origin": "O-013",
       "knowledge_ids": [],
       "skill": null,
-      "test_requirements": {"unit": false, "integration": false, "e2e": false}
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-128",
+      "name": "remove-ai-chat-from-skill-editor",
+      "description": "Remove the dedicated Generate with AI button, AI Chat toggle, and LLMChat panel from SkillEditor. The global Sidebar AI (O-014) will provide contextual AI assistance on skills pages instead.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [
+        "T-130"
+      ],
+      "skill": null,
+      "instruction": "In forge-web/components/skills/SkillEditor.tsx:\n1. Remove the Generate with AI button (~line 305-306) and GenerateSkillModal component/import\n2. Remove the AI Chat toggle button (~line 308-320)\n3. Remove the LLMChat panel rendering (~lines 702-724) - both desktop and mobile variants\n4. Remove showGenerate, showAiChat state variables and llmConfig fetch\n5. Remove localStorage key forge:skill-editor:ai-panel\n6. Clean up unused imports (LLMChat, GenerateSkillModal)\n7. Simplify the layout - editor takes full available width without chat panel\n8. Keep the SkillEditor 2-column layout (editor left, metadata tabs right) intact",
+      "acceptance_criteria": [
+        "No Generate with AI button in SkillEditor header",
+        "No AI Chat toggle button in SkillEditor header",
+        "No LLMChat panel rendering (desktop or mobile) in SkillEditor",
+        "No localStorage key forge:skill-editor:ai-panel",
+        "SkillEditor still renders correctly with editor + metadata tabs",
+        "Build passes (next build)"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": null,
+      "completed_at": "2026-03-12T13:00:26Z",
+      "failed_reason": null
+    },
+    {
+      "id": "T-129",
+      "name": "extend-skill-model-multi-file",
+      "description": "Extend the backend Skill model to support multi-file skills (SKILL.md + scripts/ + references/ + assets/) by structuring the existing resources dict into a files array. Add API endpoints for file CRUD.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-api/app/routers/skills.py:\n1. Define SkillFile model: {path: str, content: str, file_type: literal[script,reference,asset,other]}\n2. Add SkillFilesUpdate model: {files: list[SkillFile]}\n3. Add PUT /skills/{skill_id}/files - replace entire files list (like gates pattern)\n4. Add GET /skills/{skill_id}/files - list all files\n5. Add GET /skills/{skill_id}/files/{path:path} - get single file content\n6. Add DELETE /skills/{skill_id}/files/{path:path} - delete single file\n7. Store files in the existing resources field as: resources.files = [{path, content, file_type}]\n8. Validate paths: must start with scripts/, references/, assets/, or be at root level. No .. traversal.\n9. Validate file count <= 50 and individual file size <= 100KB content length\n\nDo NOT modify the database migration - resources is already JSONB and can hold this structure.",
+      "acceptance_criteria": [
+        "PUT /skills/{id}/files accepts array of {path, content, file_type}",
+        "GET /skills/{id}/files returns file list",
+        "GET /skills/{id}/files/{path} returns single file",
+        "DELETE /skills/{id}/files/{path} removes file",
+        "Path traversal blocked (no .. in paths)",
+        "File paths must be in allowed directories (scripts/, references/, assets/, root)",
+        "File count limit 50, content size limit 100KB per file",
+        "Existing resources field used (no migration needed)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "skills",
+        "api"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:00:43Z",
+      "completed_at": "2026-03-12T13:06:30Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "b4e84078b79dd96621a1f9101420e480b1607a5e"
+    },
+    {
+      "id": "T-130",
+      "name": "build-file-tree-ui-in-skill-editor",
+      "description": "Add a file tree component to SkillEditor showing SKILL.md + bundled files. Users can select files to edit, add new files, and delete. SKILL.md is always the first entry and cannot be deleted.",
+      "depends_on": [
+        "T-128",
+        "T-129"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-web/components/skills/:\n1. Create SkillFileTree.tsx component:\n   - Props: files (SkillFile[]), activeFile (string), onSelect, onAdd, onDelete\n   - Tree structure: SKILL.md at top (always, not deletable), then scripts/, references/, assets/ folders\n   - Each folder collapsible, shows file count\n   - Add file button per folder (opens inline input for filename)\n   - Delete button per file (with confirmation, except SKILL.md)\n   - Click file to select for editing\n2. Update SkillEditor.tsx:\n   - Replace single textarea with: file tree (left narrow column ~200px) + editor (center)\n   - When SKILL.md selected: show existing textarea for skill_md_content\n   - When other file selected: show textarea for that file content\n   - Track dirty state per file\n   - On save: send skill_md_content + PUT /skills/{id}/files for other files\n3. Update forge-web/lib/types.ts:\n   - Add SkillFile interface: {path: string, content: string, file_type: string}\n4. Update forge-web/lib/api/skills.ts:\n   - Add getFiles(), updateFiles(), deleteFile() API methods\n5. Fetch files on skill load, display in tree",
+      "acceptance_criteria": [
+        "File tree shows SKILL.md + files grouped by directory",
+        "SKILL.md always first and not deletable",
+        "Click file to edit its content in the editor area",
+        "Add file button creates new file in selected directory",
+        "Delete file button with confirmation dialog",
+        "Dirty state tracked per file, save persists all changes",
+        "SkillFile TypeScript interface added to types.ts",
+        "API methods for file CRUD in skills.ts"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:06:37Z",
+      "completed_at": "2026-03-12T13:11:04Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "21ea80c9a69243774641fb03afb4ca037ac5b7d2"
+    },
+    {
+      "id": "T-131",
+      "name": "add-skill-file-llm-tools",
+      "description": "Register 4 new skill-specific LLM tools in ToolRegistry: addSkillFile, removeSkillFile, listSkillFiles, getSkillFileContent. These allow the Sidebar AI to manage multi-file skills.",
+      "depends_on": [
+        "T-129"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-api/app/llm/tool_registry.py:\n1. Add tool addSkillFile:\n   - Parameters: path (string), content (string), file_type (script|reference|asset|other)\n   - Handler: load skill resources.files, append new file, save via PATCH /skills/{id}\n   - Permission: (skills, write)\n   - Context types: [skill]\n2. Add tool removeSkillFile:\n   - Parameters: path (string)\n   - Handler: load skill resources.files, remove matching path, save\n   - Permission: (skills, delete)\n   - Context types: [skill]\n3. Add tool listSkillFiles:\n   - Parameters: none\n   - Handler: load skill, return resources.files paths with file_types\n   - Permission: (skills, read)\n   - Context types: [skill]\n4. Add tool getSkillFileContent:\n   - Parameters: path (string)\n   - Handler: load skill, find file by path, return content\n   - Permission: (skills, read)\n   - Context types: [skill]\n5. Register all 4 tools in _register_tools()\n6. Update forge-web/lib/capabilities.ts: add these 4 tools to skills scope CAPABILITY_CONTRACTS",
+      "acceptance_criteria": [
+        "addSkillFile tool registered and callable by LLM",
+        "removeSkillFile tool registered with delete permission",
+        "listSkillFiles tool returns file paths and types",
+        "getSkillFileContent tool returns file content by path",
+        "All 4 tools scoped to context_type skill only",
+        "Capability contracts updated in frontend capabilities.ts",
+        "Total skill-specific tools: 8 (4 existing + 4 new)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "skills",
+        "ai",
+        "llm"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:11:21Z",
+      "completed_at": "2026-03-12T13:14:21Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "80b23ed3ef6858b7c77b4e51ea940e0ee8f5428d"
+    },
+    {
+      "id": "T-132",
+      "name": "implement-agentskills-io-validation",
+      "description": "Add agentskills.io spec compliance validation for skill names, descriptions, and structure. Validation runs on save, promote, and LLM updateSkillContent.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-api/app/services/:\n1. Create agentskills_validator.py:\n   - validate_skill_name(name): 1-64 chars, lowercase + hyphens only, no consecutive hyphens, no leading/trailing hyphen\n   - validate_skill_description(desc): 1-1024 chars, non-empty\n   - validate_skill_md_length(content): warn if > 500 lines (warning, not error)\n   - validate_frontmatter(content): valid YAML, required fields (name, description)\n   - validate_allowed_tools(tools): space-delimited, known tool names\n   - validate_skill_structure(skill_data) -> ValidationResult: runs all, returns {valid, errors, warnings}\n2. In forge-api/app/routers/skills.py:\n   - On create (POST /skills): run validate_skill_name + validate_skill_description, return 422 on errors\n   - On update (PATCH /skills/{id}): validate if name/description changed\n   - On promote: add as additional gate (Gate 0: agentskills.io compliance) before existing 3 gates\n3. Add endpoint POST /skills/{skill_id}/validate - returns full validation result without side effects",
+      "acceptance_criteria": [
+        "Skill names validated: 1-64 chars, lowercase + hyphens, no consecutive/leading/trailing hyphens",
+        "Skill descriptions validated: 1-1024 chars, non-empty",
+        "SKILL.md > 500 lines produces warning (not error)",
+        "Frontmatter validated for required fields",
+        "POST /skills/{id}/validate endpoint returns validation result",
+        "Promote gate includes agentskills.io validation as Gate 0",
+        "Invalid names rejected with 422 on create/update"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "skills"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:14:28Z",
+      "completed_at": "2026-03-12T13:18:50Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "8b619ff63b2a1bfc44cf91f3166d0beefb1a1234"
+    },
+    {
+      "id": "T-133",
+      "name": "implement-drag-drop-file-upload",
+      "description": "Add drag and drop file upload to the SkillEditor. Users can drop files (.md, .txt, .py, .js, .ts, .json, .yaml) onto the file tree to add them as skill files.",
+      "depends_on": [
+        "T-130"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Implementation using native HTML5 drag and drop API (no library needed):\n1. In forge-web/components/skills/SkillFileTree.tsx or new SkillDropZone.tsx:\n   - Add drop zone overlay that appears when dragging files over the component\n   - On drop: read files via FileReader API, determine file_type from extension\n   - Auto-assign directory: .py/.sh -> scripts/, .md/.txt -> references/, others -> assets/\n   - User can override directory placement\n   - Validate: max 10 files per drop, max 1MB per file\n   - Allowed extensions: .md, .txt, .py, .js, .ts, .json, .yaml, .yml, .sh, .css, .html\n   - Show upload progress/results\n2. After drop: call PUT /skills/{id}/files with merged file list (existing + new)\n3. Visual feedback: border highlight on drag over, file list preview before confirm",
+      "acceptance_criteria": [
+        "Drop zone appears with visual feedback when dragging files over file tree",
+        "Dropped files read client-side and sent to files API",
+        "Auto-directory assignment based on file extension",
+        "Max 10 files per drop, 1MB per file limit enforced",
+        "Allowed extensions validated",
+        "Files appear in file tree after successful upload",
+        "Error messages for rejected files (too large, wrong extension)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:18:57Z",
+      "completed_at": "2026-03-12T13:23:54Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "a712721a692aad90dc6f2830dece177f56589bfd"
+    },
+    {
+      "id": "T-134",
+      "name": "update-context-resolver-skill-files",
+      "description": "Extend the LLM context resolver to include skill files in the context when editing a skill. Sidebar AI should see file tree and have tools to read/manage files.",
+      "depends_on": [
+        "T-131"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-api/app/llm/context_resolver.py:\n1. In _resolve_skill() method: after loading skill data, also load resources.files\n2. Add to context payload section Skill Files:\n   - List of file paths with file_types (compact, no content)\n   - Example: scripts/validate.py (script), references/API.md (reference)\n3. Update system prompt template for skill context:\n   - Add: This skill has N bundled files. Use listSkillFiles, getSkillFileContent, addSkillFile, removeSkillFile to manage them.\n4. Keep context lean - only file paths in system prompt, tool calls for content",
+      "acceptance_criteria": [
+        "Skill context includes file tree listing (paths + types)",
+        "System prompt mentions available files and file management tools",
+        "File content NOT inlined in context (use tools instead)",
+        "Context size stays reasonable (file listing under 200 tokens)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "ai",
+        "llm"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:24:08Z",
+      "completed_at": "2026-03-12T13:26:41Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "02496a83b9b0ed5a0cbf60c4893dd6028f7effa7"
+    },
+    {
+      "id": "T-135",
+      "name": "validation-ui-and-editor-polish",
+      "description": "Wire agentskills.io validation results into SkillEditor UI. Show inline validation errors/warnings in metadata tab. Add validation-on-save with user-friendly error display.",
+      "depends_on": [
+        "T-132",
+        "T-130"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-web/components/skills/SkillEditor.tsx:\n1. On save: call POST /skills/{id}/validate before PATCH, show errors/warnings\n2. In metadata tab: add ValidationResults section showing:\n   - Name validation status (green check or red X with message)\n   - Description validation status\n   - SKILL.md line count with warning if > 500\n   - Frontmatter validation status\n3. Add validate button (separate from save) to check without saving\n4. On promote attempt: show validation + TESLint results together\n5. Style: use existing badge/alert patterns from the codebase\nIn forge-web/lib/api/skills.ts:\n- Add validateSkill(id) method calling POST /skills/{id}/validate",
+      "acceptance_criteria": [
+        "Validation results displayed in metadata tab",
+        "Name/description/frontmatter status shown with icons",
+        "Line count warning displayed if SKILL.md > 500 lines",
+        "Validate button works independently from save",
+        "Save shows validation errors before persisting",
+        "validateSkill() API method added"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T13:26:46Z",
+      "completed_at": "2026-03-12T13:31:49Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "fc7e5d6da481b5ccfa80979f027c2726a04a47ce"
     }
-  ]
+  ],
+  "draft_plan": {
+    "source_idea_id": null,
+    "source_objective_id": "O-011",
+    "created": "2026-03-12T17:28:46Z",
+    "tasks": [
+      {
+        "id": "T-136",
+        "name": "implement-chat-file-upload-backend",
+        "description": "Backend endpoint for uploading files to chat context. Files stored in Redis with 1h TTL. Returns file_id, filename, content for LLM context injection. Supports text extraction from common file types.",
+        "instruction": "1. Create POST /api/v1/chat/files endpoint in forge-api/app/routers/chat.py. Accept multipart file upload (UploadFile). 2. Validate: max 1MB per file, allowed extensions (.md, .txt, .py, .js, .ts, .json, .yaml, .yml, .sh, .css, .html, .pdf). 3. Read file content as text (UTF-8). For .pdf files, use simple text extraction (pdfplumber or fallback to raw read). 4. Store in Redis: key=chat:file:{uuid}, value={filename, content, size, uploaded_at}, TTL=3600s. 5. Return {file_id, filename, size, content_preview (first 200 chars)}. 6. Add GET /api/v1/chat/files/{file_id} to retrieve stored content. 7. Add session-level tracking: associate file_ids with chat session_id. 8. Enforce limit: max 10 files per session (query Redis for session file count).",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "ai"
+        ],
+        "origin": "O-011",
+        "acceptance_criteria": [
+          "POST /api/v1/chat/files accepts multipart file upload and returns file_id",
+          "Files stored in Redis with 1h TTL (key: chat:file:{uuid})",
+          "File size limit 1MB enforced with 413 error",
+          "File type validation rejects unsupported extensions with 422 error",
+          "GET /api/v1/chat/files/{file_id} returns stored file content",
+          "Max 10 files per session enforced with 429 error",
+          "File content available for LLM context injection via session manager"
+        ],
+        "test_requirements": {
+          "unit": true,
+          "integration": false,
+          "e2e": false
+        }
+      },
+      {
+        "id": "T-137",
+        "name": "add-instantiate-ac-template-and-preview-skill-tools",
+        "description": "Add 2 remaining skill-specific LLM tools: instantiateACTemplate (fill AC template with params) and previewSkill (render SKILL.md preview). Brings total skill tools from 8 to 10.",
+        "instruction": "1. In forge-api/app/llm/tool_registry.py, add instantiateACTemplate tool: (a) parameters: template_id (str), params (dict[str,str]), (b) handler: load AC template from storage, call instantiate logic (core/ac_templates.py cmd_instantiate pattern), (c) return {text, from_template, params}, (d) permission: (skills, read), context: skill. 2. Add previewSkill tool: (a) no required parameters (uses current skill from context), (b) handler: load skill content, render frontmatter + body as markdown preview, (c) return {name, description, preview_md, line_count, file_count}, (d) permission: (skills, read), context: skill. 3. Register both in create_default_registry(). 4. Update forge-web/lib/capabilities.ts: add skills-instantiate-ac and skills-preview entries with available: true. 5. Update context_resolver.py system prompt to mention the new tools.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "skills",
+          "ai"
+        ],
+        "origin": "O-011",
+        "acceptance_criteria": [
+          "instantiateACTemplate tool registered in tool_registry with correct handler",
+          "instantiateACTemplate accepts template_id + params, returns filled AC text",
+          "previewSkill tool registered in tool_registry with correct handler",
+          "previewSkill returns rendered SKILL.md preview with metadata (name, line_count, file_count)",
+          "Both tools scoped to skill context_type",
+          "capabilities.ts updated with new tool entries",
+          "Context resolver system prompt mentions both new tools"
+        ],
+        "test_requirements": {
+          "unit": true,
+          "integration": false,
+          "e2e": false
+        }
+      },
+      {
+        "id": "T-138",
+        "name": "implement-chat-file-drop-frontend",
+        "description": "Add drag & drop file zone to Sidebar AI chat component. Dropped files are uploaded to backend (T-136 endpoint), their content injected into LLM context, and shown as file attachment chips in the chat input area.",
+        "instruction": "1. In the Sidebar AI chat component (forge-web/components/chat/ or wherever LlmChat lives), add HTML5 drag & drop handlers (onDragOver, onDrop, onDragLeave). 2. On drop: validate files (max 1MB, allowed types), show upload progress indicator. 3. Call POST /api/v1/chat/files for each file. 4. On success: show file chip in chat input area (filename + size + remove button). 5. Track uploaded file_ids in chat state. 6. When user sends next message, prepend file context: for each attached file, include content in the message payload (or reference file_ids for backend to resolve). 7. Visual: drop zone overlay with dashed border + icon when dragging over chat area. 8. Error handling: show toast for rejected files (wrong type, too large, session limit reached). 9. Files persist in chat input area until explicitly removed or session ends.",
+        "depends_on": [
+          "T-136"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-011",
+        "conflicts_with": [],
+        "acceptance_criteria": [
+          "Dragging files over chat area shows visual drop zone overlay",
+          "Dropping valid files triggers upload to backend endpoint",
+          "Uploaded files appear as removable chips in chat input area",
+          "File content injected into LLM context with next user message",
+          "Invalid files (wrong type, too large) show error toast",
+          "Session limit (10 files) enforced with clear error message",
+          "Remove button on file chip deletes it from pending attachments"
+        ],
+        "test_requirements": {
+          "unit": true,
+          "integration": false,
+          "e2e": false
+        }
+      },
+      {
+        "id": "T-139",
+        "name": "update-o011-kr-progress-and-verify",
+        "description": "Update all 6 KR currents for O-011 to reflect completed work. Deep-verify T-136-T-138. If all KRs met, prepare to mark O-011 ACHIEVED.",
+        "instruction": "1. Deep-verify T-136 (backend file upload): check endpoint correctness, Redis TTL, validation, error responses. 2. Deep-verify T-137 (LLM tools): check tool registration, handler logic, capabilities.ts update. 3. Deep-verify T-138 (frontend file drop): check drop zone UX, upload flow, context injection, error handling. 4. Update O-011 KR currents: KR-1 (split view) → 1, KR-2 (multi-file) → 1, KR-3 (LLM tools) → 10 (exceeds target 8), KR-4 (drag & drop) → 1, KR-5 (agentskills.io) → 1, KR-6 (AI-assisted) → 1. 5. Run: py -m core.objectives update forge-platform-v2 --data with updated KR values. 6. If all KRs at or above target, mark O-011 status ACHIEVED.",
+        "depends_on": [
+          "T-136",
+          "T-137",
+          "T-138"
+        ],
+        "parallel": false,
+        "type": "chore",
+        "scopes": [
+          "general"
+        ],
+        "origin": "O-011",
+        "acceptance_criteria": [
+          "T-136, T-137, T-138 deep-verified with no critical issues",
+          "All 6 KR currents updated to reflect reality",
+          "O-011 marked ACHIEVED if all KRs meet targets"
+        ],
+        "test_requirements": {
+          "unit": false,
+          "integration": false,
+          "e2e": false
+        }
+      }
+    ]
+  }
 }

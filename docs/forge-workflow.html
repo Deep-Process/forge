@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forge — Full Information Flow</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --surface: #131920;
+    --surface2: #1a2230;
+    --border: #2a3545;
+    --text: #d0d8e0;
+    --muted: #6b7d8e;
+    --objective: #bc8cff;
+    --idea: #39d2c0;
+    --research: #79c0ff;
+    --decision: #d29922;
+    --plan: #58a6ff;
+    --task: #58a6ff;
+    --guideline: #3fb950;
+    --change: #f778ba;
+    --compound: #e3b341;
+    --lesson: #e3b341;
+    --knowledge: #d2a8ff;
+    --risk: #f85149;
+    --gate: #f85149;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem 1rem;
+    min-height: 100vh;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.8rem;
+    margin-bottom: 0.3rem;
+    background: linear-gradient(135deg, var(--objective), var(--task));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 2.5rem;
+  }
+
+  /* ===== MAIN CANVAS ===== */
+  .canvas {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ===== PHASE BANNER ===== */
+  .phase {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    margin-top: 2.5rem;
+  }
+
+  .phase:first-child { margin-top: 0; }
+
+  .phase-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .phase-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+  }
+
+  .phase-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .phase-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ===== NODE (main entity box) ===== */
+  .node {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem 1.5rem;
+    margin: 0.5rem 0;
+    position: relative;
+  }
+
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .node-id {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  .node-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .node-role {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 0.5rem;
+  }
+
+  .node-body {
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .node-body code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    background: var(--surface2);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+  }
+
+  /* ===== CONNECTOR (arrow between nodes) ===== */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0;
+    position: relative;
+  }
+
+  .conn-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .conn-arrow {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+
+  .conn-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  /* ===== SIDE LINK (horizontal connections) ===== */
+  .row {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .main-col {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .side-col {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .side-link {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .side-arrow {
+    width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .side-arrow::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 12px;
+    height: 2px;
+    border-top: 2px dashed var(--border);
+  }
+
+  .side-arrow::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    transform: translateY(-50%);
+  }
+
+  .side-arrow.left::before { left: 12px; right: 0; }
+  .side-arrow.left::after { left: 8px; right: auto; }
+
+  .side-node {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    flex: 1;
+  }
+
+  .side-node-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .side-node-body {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    line-height: 1.5;
+  }
+
+  /* ===== PARALLEL TRACKS ===== */
+  .parallel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .parallel-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  /* ===== CYCLE / FEEDBACK ===== */
+  .feedback-box {
+    background: var(--surface);
+    border: 2px dashed;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    margin: 0.5rem 0;
+  }
+
+  .feedback-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .feedback-body {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .feedback-body strong {
+    color: var(--text);
+  }
+
+  /* ===== LOOP ARROW ===== */
+  .loop-container {
+    position: relative;
+    margin: 0.5rem 0;
+  }
+
+  .loop-label {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ===== SPECIFIC COLORS ===== */
+  .n-objective { border-color: var(--objective); }
+  .n-objective .node-id { background: #2d1a4d; color: var(--objective); }
+  .n-objective .node-title { color: var(--objective); }
+
+  .n-idea { border-color: var(--idea); }
+  .n-idea .node-id { background: #0d2d28; color: var(--idea); }
+  .n-idea .node-title { color: var(--idea); }
+
+  .n-research { border-color: var(--research); }
+  .n-research .node-id { background: #0d1f33; color: var(--research); }
+  .n-research .node-title { color: var(--research); }
+
+  .n-plan { border-color: var(--plan); }
+  .n-plan .node-id { background: #0d1f3d; color: var(--plan); }
+  .n-plan .node-title { color: var(--plan); }
+
+  .n-task { border-color: var(--task); }
+  .n-task .node-id { background: #0d1f3d; color: var(--task); }
+  .n-task .node-title { color: var(--task); }
+
+  .n-guideline { border-color: var(--guideline); }
+  .n-guideline .node-id, .n-guideline .side-node-title .node-id { background: #0d2d12; color: var(--guideline); }
+  .n-guideline .node-title, .n-guideline .side-node-title { color: var(--guideline); }
+
+  .n-decision { border-color: var(--decision); }
+  .n-decision .node-id { background: #2d2210; color: var(--decision); }
+  .n-decision .side-node-title { color: var(--decision); }
+
+  .n-change { border-color: var(--change); }
+  .n-change .node-id { background: #2d0d1a; color: var(--change); }
+  .n-change .node-title { color: var(--change); }
+
+  .n-compound { border-color: var(--compound); }
+  .n-compound .node-id { background: #2d2a0d; color: var(--compound); }
+  .n-compound .node-title { color: var(--compound); }
+
+  .n-lesson { border-color: var(--lesson); }
+  .n-lesson .node-id { background: #2d2a0d; color: var(--lesson); }
+  .n-lesson .side-node-title { color: var(--lesson); }
+
+  .n-knowledge { border-color: var(--knowledge); }
+  .n-knowledge .node-id { background: #1f0d33; color: var(--knowledge); }
+  .n-knowledge .side-node-title { color: var(--knowledge); }
+
+  .n-risk { border-color: var(--risk); }
+  .n-risk .side-node-title { color: var(--risk); }
+
+  .n-gate { border-color: var(--gate); }
+  .n-gate .side-node-title { color: var(--gate); }
+
+  /* ===== EMPHASIS ===== */
+  .em-obj { color: var(--objective); }
+  .em-idea { color: var(--idea); }
+  .em-res { color: var(--research); }
+  .em-dec { color: var(--decision); }
+  .em-plan { color: var(--plan); }
+  .em-task { color: var(--task); }
+  .em-guide { color: var(--guideline); }
+  .em-change { color: var(--change); }
+  .em-comp { color: var(--compound); }
+  .em-lesson { color: var(--lesson); }
+  .em-know { color: var(--knowledge); }
+  .em-risk { color: var(--risk); }
+  .em-gate { color: var(--gate); }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+
+  .tag-creates { background: #0d2d12; color: var(--guideline); }
+  .tag-loads { background: #0d1f3d; color: var(--plan); }
+  .tag-produces { background: #2d0d1a; color: var(--change); }
+  .tag-feeds { background: #2d2a0d; color: var(--lesson); }
+  .tag-blocks { background: #2d1510; color: var(--risk); }
+
+  /* ===== PROMOTE ARROWS ===== */
+  .promote-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    flex-wrap: wrap;
+  }
+
+  .promote-arrow {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+
+  /* ===== TASK LOOP BOX ===== */
+  .task-loop {
+    border: 2px solid var(--task);
+    border-radius: 14px;
+    padding: 1.2rem;
+    position: relative;
+    background: var(--surface);
+  }
+
+  .task-loop-label {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--bg);
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--task);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .task-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .task-step {
+    padding: 0.45rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .ts-arr {
+    color: var(--muted);
+    font-size: 1rem;
+    padding: 0 0.15rem;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .row { flex-direction: column; }
+    .side-col { width: 100%; }
+    .side-arrow { display: none; }
+    .parallel, .parallel-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Forge — Full Information Flow</h1>
+<p class="subtitle">Od celu biznesowego do wiedzy organizacyjnej</p>
+
+<div class="canvas">
+
+<!-- ============================================================ -->
+<!--  PHASE 1: WHY — OBJECTIVE                                     -->
+<!-- ============================================================ -->
+<div class="phase">
+  <div class="phase-num" style="background:#2d1a4d; color:var(--objective);">1</div>
+  <div>
+    <div class="phase-label" style="color:var(--objective);">ALIGN — Dlaczego?</div>
+    <div class="phase-desc">Zdefiniuj cel biznesowy i mierzalne wyniki</div>
+  </div>
+  <div class="phase-line"></div>
+  <div style="font-size:0.75rem; color:var(--muted);"><code>/objective</code></div>
+</div>
+
+<div class="row">
+  <div class="main-col">
+    <div class="node n-objective">
+      <div class="node-header">
+        <span class="node-id">O-NNN</span>
+        <span class="node-title">Objective</span>
+      </div>
+      <div class="node-role">"Co chcemy osiągnąć i jak zmierzymy sukces?"</div>
+      <div class="node-body">
+        Cel biznesowy z mierzalnymi <strong>Key Results</strong> (metric + baseline + target + current).<br>
+        <code>scopes</code> — kategorie tematyczne (np. backend, performance) — <strong>propagują w dół</strong> do Ideas i Tasks.<br>
+        <code>assumptions</code> — hipotezy które muszą się sprawdzić (Theory of Change).<br>
+        <code>appetite</code> — budżet wysiłku: small (dni) | medium (tygodnie) | large (miesiące).
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE: Guidelines derived from Objective -->
+  <div class="side-col">
+    <div class="side-link">
+      <div style="width:50px; text-align:center; position:relative;">
+        <div style="border-top: 2px dashed var(--guideline); width: 100%;position:absolute;top:50%;"></div>
+        <div style="position:absolute;top:50%;right:2px;transform:translateY(-50%);color:var(--guideline);">&#9654;</div>
+      </div>
+      <div class="side-node n-guideline">
+        <div class="side-node-title">
+          <span class="node-id" style="background:#0d2d12; color:var(--guideline);">G-NNN</span>
+          Guidelines
+        </div>
+        <div class="side-node-body">
+          <span class="tag tag-creates">derives</span> Objective tworzy standardy projektu<br>
+          <code>derived_from: "O-001"</code> — traceability<br>
+          <code>scope</code> + <code>weight</code> (must | should | may)<br>
+          Gdy O-NNN = ACHIEVED/ABANDONED → review guidelines
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONNECTOR -->
+<div class="connector">
+  <div class="conn-line">
+    <div class="conn-label">scopes + KRs propagują w dół</div>
+    <div class="conn-arrow" style="color:var(--objective);">&#9660;</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  PHASE 2: WHAT — IDEA + DISCOVER                              -->
+<!-- ============================================================ -->
+<div class="phase">
+  <div class="phase-num" style="background:#0d2d28; color:var(--idea);">2</div>
+  <div>
+    <div class="phase-label" style="color:var(--idea);">EXPLORE — Co i jak?</div>
+    <div class="phase-desc">Zaproponuj rozwiązanie, zbadaj opcje, oceń ryzyko</div>
+  </div>
+  <div class="phase-line"></div>
+  <div style="font-size:0.75rem; color:var(--muted);"><code>/idea</code> + <code>/discover</code></div>
+</div>
+
+<div class="row">
+  <div class="main-col">
+    <div class="parallel">
+      <!-- IDEA -->
+      <div class="node n-idea">
+        <div class="node-header">
+          <span class="node-id">I-NNN</span>
+          <span class="node-title">Idea</span>
+        </div>
+        <div class="node-role">"Jak chcemy to osiągnąć?"</div>
+        <div class="node-body">
+          Propozycja rozwiązania. Hierarchiczna (<code>parent_id</code>).<br>
+          <code>advances_key_results: ["O-001/KR-1"]</code> — link do KR<br>
+          <code>scopes</code> — dziedziczy z Objective<br>
+          Relations: depends_on, related_to, supersedes, duplicates<br>
+          <br>
+          <span style="color:var(--muted); font-size:0.75rem;">
+            DRAFT → EXPLORING → APPROVED → COMMITTED
+          </span>
+        </div>
+      </div>
+
+      <!-- RESEARCH / DISCOVER -->
+      <div class="node n-research">
+        <div class="node-header">
+          <span class="node-id">R-NNN</span>
+          <span class="node-title">Research</span>
+          <span style="font-size:0.75rem; color:var(--muted);">(/discover)</span>
+        </div>
+        <div class="node-role">"Co odkryliśmy analizując problem?"</div>
+        <div class="node-body">
+          Structured analysis: deep-explore, deep-risk, deep-architect.<br>
+          <code>linked_entity</code> → O-NNN lub I-NNN<br>
+          <code>key_findings[]</code> — kluczowe ustalenia<br>
+          <code>decision_ids: [D-001, D-002]</code> — decyzje z badania<br>
+          <code>file_path</code> → pełny markdown analizy
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE: Decisions + Risks from discovery -->
+  <div class="side-col">
+    <div class="side-link" style="margin-bottom: 0.5rem;">
+      <div style="width:50px; text-align:center; position:relative;">
+        <div style="border-top: 2px dashed var(--decision); width: 100%;position:absolute;top:50%;"></div>
+        <div style="position:absolute;top:50%;right:2px;transform:translateY(-50%);color:var(--decision);">&#9654;</div>
+      </div>
+      <div class="side-node n-decision">
+        <div class="side-node-title">
+          <span class="node-id" style="background:#2d2210; color:var(--decision);">D-NNN</span>
+          Decisions
+        </div>
+        <div class="side-node-body">
+          <span class="tag tag-creates">exploration</span> opcje, findings, open questions<br>
+          <span class="tag tag-blocks">risk</span> severity, likelihood, mitigation<br>
+          <span class="tag tag-loads">standard</span> architecture, implementation, ...<br>
+          <strong>OPEN decisions blokują taski</strong> (blocked_by_decisions)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONNECTOR -->
+<div class="connector">
+  <div class="conn-line">
+    <div class="conn-label">idea APPROVED → <code>/plan {idea_id}</code></div>
+    <div class="conn-arrow" style="color:var(--idea);">&#9660;</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  PHASE 3: HOW — PLAN                                          -->
+<!-- ============================================================ -->
+<div class="phase">
+  <div class="phase-num" style="background:#0d1f3d; color:var(--plan);">3</div>
+  <div>
+    <div class="phase-label" style="color:var(--plan);">PLAN — Jak to zrobimy?</div>
+    <div class="phase-desc">Dekompozycja na graf zadań z zależnościami</div>
+  </div>
+  <div class="phase-line"></div>
+  <div style="font-size:0.75rem; color:var(--muted);"><code>/plan</code></div>
+</div>
+
+<div class="node n-plan">
+  <div class="node-header">
+    <span class="node-id">PLAN</span>
+    <span class="node-title">Planning (2-fazowe)</span>
+  </div>
+  <div class="node-role">"Rozbij cel na konkretne zadania z zależnościami"</div>
+  <div class="node-body">
+    <div class="task-steps" style="margin-bottom:0.75rem;">
+      <div class="task-step" style="background:#1a2230; color:var(--muted); border:1px solid var(--border);">deep-align</div>
+      <span class="ts-arr">&#10132;</span>
+      <div class="task-step" style="background:#0d1f3d; color:var(--plan); border:1px solid var(--plan);">draft-plan</div>
+      <span class="ts-arr">&#10132;</span>
+      <div class="task-step" style="background:#1a2230; color:var(--muted); border:1px solid var(--border);">human review</div>
+      <span class="ts-arr">&#10132;</span>
+      <div class="task-step" style="background:#0d2d12; color:var(--guideline); border:1px solid var(--guideline);">approve-plan</div>
+      <span class="ts-arr">&#10132;</span>
+      <div class="task-step" style="background:#0d1f3d; color:var(--plan); border:1px solid var(--plan);">Tasks materialized</div>
+    </div>
+    <strong>Plan czyta:</strong> Objective context, Research findings, Guidelines (by scopes), Decisions, Knowledge<br>
+    <strong>Plan tworzy:</strong> DAG tasków z <code>depends_on</code>, <code>conflicts_with</code>, <code>scopes</code>, <code>acceptance_criteria</code><br>
+    Każdy task dziedziczy <code>origin: I-NNN</code> i <code>scopes</code> z Idea/Objective.
+  </div>
+</div>
+
+<!-- CONNECTOR -->
+<div class="connector">
+  <div class="conn-line">
+    <div class="conn-label">plan approved → tasks materialized w tracker</div>
+    <div class="conn-arrow" style="color:var(--plan);">&#9660;</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  PHASE 4: DO — TASK EXECUTION LOOP                             -->
+<!-- ============================================================ -->
+<div class="phase">
+  <div class="phase-num" style="background:#0d1f3d; color:var(--task);">4</div>
+  <div>
+    <div class="phase-label" style="color:var(--task);">EXECUTE — Zrób to!</div>
+    <div class="phase-desc">Pętla: pobierz task → kontekst → implementuj → waliduj → zamknij</div>
+  </div>
+  <div class="phase-line"></div>
+  <div style="font-size:0.75rem; color:var(--muted);"><code>/next</code> | <code>/run</code></div>
+</div>
+
+<div class="task-loop">
+  <div class="task-loop-label">Powtarzaj dla każdego taska (next / run)</div>
+
+  <div class="node n-task" style="border-width:1px; margin-bottom:0.75rem;">
+    <div class="node-header">
+      <span class="node-id">T-NNN</span>
+      <span class="node-title">Task Execution</span>
+    </div>
+    <div class="node-role">"Jedno konkretne zadanie z pełnym kontekstem"</div>
+  </div>
+
+  <!-- What loads into context -->
+  <div style="margin-bottom: 1rem;">
+    <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem; color:var(--plan);">
+      &#128269; CONTEXT ASSEMBLY — co ładuje się do zadania:
+    </div>
+    <div class="parallel-3">
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--guideline); font-weight:700;">Guidelines (G-NNN)</div>
+        <div style="color:var(--muted);">by task.scopes + general<br>weight: must/should/may</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--objective); font-weight:700;">Business Context</div>
+        <div style="color:var(--muted);">origin → Idea → Objective<br>KR progress, status</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--research); font-weight:700;">Research (R-NNN)</div>
+        <div style="color:var(--muted);">from origin idea/objective<br>key_findings, decisions</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--task); font-weight:700;">Dependency Outputs</div>
+        <div style="color:var(--muted);">completed tasks' Changes<br>+ their Decisions</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--risk); font-weight:700;">Active Risks</div>
+        <div style="color:var(--muted);">from origin idea/objective<br>OPEN / ANALYZING risks</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--knowledge); font-weight:700;">Knowledge (K-NNN)</div>
+        <div style="color:var(--muted);">from task.knowledge_ids<br>domain rules, patterns</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Execution steps -->
+  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem; color:var(--task);">
+    &#9881; EXECUTION FLOW:
+  </div>
+  <div class="task-steps">
+    <div class="task-step" style="background:#0d1f3d; color:var(--plan); border:1px solid var(--plan);">load context</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#0d2d28; color:var(--idea); border:1px solid var(--idea);">implement code</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#2d2210; color:var(--decision); border:1px solid var(--decision);">record decisions</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#1a1030; color:var(--change); border:1px solid var(--change);">deep-verify</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#0d2d12; color:var(--guideline); border:1px solid var(--guideline);">guidelines check</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#2d1510; color:var(--gate); border:1px solid var(--gate);">gates</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#1a2230; color:var(--text); border:1px solid var(--border);">git commit</div>
+    <span class="ts-arr">&#10132;</span>
+    <div class="task-step" style="background:#0d2d12; color:var(--guideline); border:1px solid var(--guideline);">complete</div>
+  </div>
+
+  <!-- What it produces -->
+  <div style="margin-top:1rem;">
+    <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem; color:var(--change);">
+      &#128196; PRODUCES:
+    </div>
+    <div class="parallel-3">
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--change); font-weight:700;">Changes (auto)</div>
+        <div style="color:var(--muted);">git diff → changes.json<br>file paths + reasoning trace</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--decision); font-weight:700;">Decisions (D-NNN)</div>
+        <div style="color:var(--muted);">implementation choices<br>architecture, naming, etc.</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:8px; padding:0.6rem; font-size:0.78rem;">
+        <div style="color:var(--gate); font-weight:700;">Gate Results</div>
+        <div style="color:var(--muted);">tests, lint, secrets<br>must pass for DONE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONNECTOR -->
+<div class="connector">
+  <div class="conn-line">
+    <div class="conn-label">wszystkie taski DONE</div>
+    <div class="conn-arrow" style="color:var(--task);">&#9660;</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  PHASE 5: LEARN — COMPOUND                                    -->
+<!-- ============================================================ -->
+<div class="phase">
+  <div class="phase-num" style="background:#2d2a0d; color:var(--compound);">5</div>
+  <div>
+    <div class="phase-label" style="color:var(--compound);">LEARN — Czego się nauczyliśmy?</div>
+    <div class="phase-desc">Wyciągnij wnioski, wzmocnij wiedzę organizacyjną</div>
+  </div>
+  <div class="phase-line"></div>
+  <div style="font-size:0.75rem; color:var(--muted);"><code>/compound</code></div>
+</div>
+
+<div class="node n-compound">
+  <div class="node-header">
+    <span class="node-id">COMPOUND</span>
+    <span class="node-title">/compound — Extraction</span>
+  </div>
+  <div class="node-role">"Przeanalizuj wykonaną pracę i wyciągnij systemowe wnioski"</div>
+  <div class="node-body">
+    Czyta: <strong>cały projekt</strong> — tasks, decisions, changes, research, guidelines violations.<br>
+    Szuka: powtarzalnych wzorców, unikniętych błędów, zwalidowanych decyzji, insights architektonicznych.<br>
+    Produkuje: <strong>Lessons</strong> (L-NNN) — cross-project learning z <code>severity</code> i <code>tags</code>.
+  </div>
+</div>
+
+<!-- CONNECTOR -->
+<div class="connector">
+  <div class="conn-line">
+    <div class="conn-arrow" style="color:var(--compound);">&#9660;</div>
+  </div>
+</div>
+
+<!-- LESSONS -->
+<div class="node n-lesson" style="border-style: dashed;">
+  <div class="node-header">
+    <span class="node-id">L-NNN</span>
+    <span class="node-title">Lessons Learned</span>
+  </div>
+  <div class="node-role">"Wiedza która przetrwa poza ten projekt"</div>
+  <div class="node-body">
+    Kategorie: pattern-discovered, mistake-avoided, decision-validated, tool-insight, architecture-lesson, process-improvement<br>
+    <code>severity</code>: critical | important | minor<br>
+    <code>tags[]</code> — do wyszukiwania cross-project (<code>lessons read-all --tags "caching,redis"</code>)<br>
+    <br>
+    <strong style="color:var(--compound);">Lessons mogą być promowane → stają się trwałą wiedzą organizacyjną:</strong>
+  </div>
+</div>
+
+<!-- PROMOTE ARROWS -->
+<div class="connector" style="padding: 0.75rem 0;">
+  <div class="promote-row">
+    <div class="promote-arrow" style="background:#0d2d12; color:var(--guideline); border: 1px solid var(--guideline);">
+      &#10132; <code>lessons promote L-001</code> &#10132; <strong>Guideline G-NNN</strong>
+    </div>
+    <div class="promote-arrow" style="background:#1f0d33; color:var(--knowledge); border: 1px solid var(--knowledge);">
+      &#10132; <code>lessons promote-knowledge</code> &#10132; <strong>Knowledge K-NNN</strong>
+    </div>
+  </div>
+</div>
+
+<!-- FEEDBACK LOOP -->
+<div class="feedback-box" style="border-color: var(--guideline); background: linear-gradient(135deg, var(--surface) 0%, #0d1a12 100%);">
+  <div class="feedback-header">
+    <span style="font-size:1.2rem;">&#10227;</span>
+    <span style="color:var(--guideline);">FEEDBACK LOOP — Zamknięty obieg wiedzy</span>
+  </div>
+  <div class="feedback-body">
+    <strong class="em-lesson">Lesson L-NNN</strong> promowana do <strong class="em-guide">Guideline G-NNN</strong>
+    → <strong class="em-guide">Guideline</strong> ładowana do kontekstu <strong class="em-task">nowych tasków</strong> (by scopes)
+    → agent stosuje regułę w kolejnych projektach
+    → <strong class="em-comp">/compound</strong> weryfikuje czy reguła działa (decision-validated).<br><br>
+
+    <strong class="em-lesson">Lesson L-NNN</strong> promowana do <strong class="em-know">Knowledge K-NNN</strong>
+    → <strong class="em-know">Knowledge</strong> linkowana do tasków i idei (<code>knowledge_ids</code>)
+    → agent ma kontekst domenowy bez ponownego odkrywania.<br><br>
+
+    <strong class="em-guide">Guidelines</strong> importowane cross-project: <code>guidelines import {project} --source {other}</code><br>
+    <strong class="em-lesson">Lessons</strong> czytane cross-project: <code>lessons read-all --severity critical</code><br><br>
+
+    <span style="color:var(--guideline);">Każdy projekt WZMACNIA następny. Wiedza nigdy nie jest tracona.</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  SUMMARY: FULL TRACK FLOW                                      -->
+<!-- ============================================================ -->
+<div style="margin-top: 3rem;"></div>
+<div class="phase">
+  <div class="phase-num" style="background:var(--surface2); color:var(--text);">&#8721;</div>
+  <div>
+    <div class="phase-label" style="color:var(--text);">FULL PICTURE — Cały przepływ jednym rzutem oka</div>
+  </div>
+  <div class="phase-line"></div>
+</div>
+
+<div class="node" style="border-color:var(--border); padding:1.5rem;">
+  <div style="font-family: 'Cascadia Code','Fira Code',monospace; font-size:0.82rem; line-height:2; overflow-x:auto; white-space:pre;">
+<span class="em-obj">OBJECTIVE</span> <span style="color:var(--muted);">── "dlaczego?" ──────────────────┐</span>
+<span style="color:var(--muted);">    │ scopes, KRs, assumptions                    │</span>
+<span style="color:var(--muted);">    │                                              │ derives</span>
+<span style="color:var(--muted);">    ▼                                              ▼</span>
+<span class="em-idea">IDEA</span> <span style="color:var(--muted);">────── "co zbudować?" ───┐</span>             <span class="em-guide">GUIDELINES</span> <span style="color:var(--muted);">── "standardy" ──┐</span>
+<span style="color:var(--muted);">    │ advances KRs, scopes      │                  │ scope + weight          │</span>
+<span style="color:var(--muted);">    ▼                           ▼                  │                        │</span>
+<span class="em-res">RESEARCH</span> <span style="color:var(--muted);">── "co wiemy?" ──→</span> <span class="em-dec">DECISIONS</span> <span style="color:var(--muted);">── "wybory"</span>   │                        │
+<span style="color:var(--muted);">    │ findings, risks           │ blokują taski    │                        │</span>
+<span style="color:var(--muted);">    ▼                           ▼                  ▼                        │</span>
+<span class="em-plan">PLAN</span> <span style="color:var(--muted);">───── "jak to zrobimy?" ── draft → approve ─→</span> <span class="em-task">TASKS</span> <span style="color:var(--muted);">◄── loads ───────┘</span>
+<span style="color:var(--muted);">                                                   │ DAG: depends_on</span>
+<span style="color:var(--muted);">                                                   │ context: G + O + R + K + D</span>
+<span style="color:var(--muted);">                                                   ▼</span>
+                                               <span class="em-task">EXECUTE</span> <span style="color:var(--muted);">── implement → verify → gates → commit</span>
+<span style="color:var(--muted);">                                                   │ produces: Changes + Decisions</span>
+<span style="color:var(--muted);">                                                   ▼</span>
+                                               <span class="em-comp">COMPOUND</span> <span style="color:var(--muted);">── "czego się nauczyliśmy?"</span>
+<span style="color:var(--muted);">                                                   │ extracts patterns, mistakes, insights</span>
+<span style="color:var(--muted);">                                                   ▼</span>
+                                               <span class="em-lesson">LESSONS</span> <span style="color:var(--muted);">─── cross-project learning</span>
+<span style="color:var(--muted);">                                                   │</span>
+<span style="color:var(--muted);">                                        ┌──────────┼──────────┐</span>
+<span style="color:var(--muted);">                                        ▼          ▼          ▼</span>
+                                    <span class="em-guide">GUIDELINE</span>  <span class="em-know">KNOWLEDGE</span>  <span style="color:var(--muted);">read-all</span>
+<span style="color:var(--muted);">                                     (promote)  (promote)  (cross-project)</span>
+<span style="color:var(--muted);">                                        │          │</span>
+<span style="color:var(--muted);">                                        └────┬─────┘</span>
+<span style="color:var(--muted);">                                             ▼</span>
+<span style="color:var(--muted);">                                      ┌─────────────────┐</span>
+<span style="color:var(--muted);">                                      │</span> <span class="em-guide">NASTĘPNY PROJEKT</span> <span style="color:var(--muted);">│</span>
+<span style="color:var(--muted);">                                      │</span>  <span style="color:var(--muted);">guidelines +</span>    <span style="color:var(--muted);">│</span>
+<span style="color:var(--muted);">                                      │</span>  <span style="color:var(--muted);">knowledge =</span>     <span style="color:var(--muted);">│</span>
+<span style="color:var(--muted);">                                      │</span>  <span style="color:var(--muted);">lepsze taski</span>    <span style="color:var(--muted);">│</span>
+<span style="color:var(--muted);">                                      └─────────────────┘</span>
+</div>
+</div>
+
+</div><!-- canvas -->
+
+</body>
+</html>
