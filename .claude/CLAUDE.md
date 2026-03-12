@@ -288,6 +288,7 @@ Tip: Configure secret scanning as a gate: `{"name": "secrets", "command": "gitle
 | `/guideline {text}` | Add a project guideline (standard, convention, rule) |
 | `/guidelines [scope]` | List/manage guidelines |
 | `/knowledge [id] [action]` | Manage knowledge objects (domain rules, patterns, technical context) |
+| `/research [id] [action]` | Manage research objects (R-NNN structured analysis summaries, linked to objectives/ideas/decisions) |
 | `/ac-template [id] [action]` | Manage AC templates (reusable parameterized acceptance criteria) |
 | `/status` | Show current project status |
 | `/next` | Get and execute next task (includes verification + guidelines check) |
