@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-12T19:24:41Z",
+  "updated": "2026-03-12T19:32:57Z",
   "changes": [
     {
       "id": "C-143",
@@ -4588,6 +4588,253 @@
       "group_id": "T-161",
       "guidelines_checked": [],
       "timestamp": "2026-03-12T19:24:41Z"
+    },
+    {
+      "id": "C-241",
+      "task_id": "T-162",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Added sync controls to skill editor: sync toggle in metadata tab, Sync to Repo button in header, cloud icon indicator showing sync/local status.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Added sync controls to skill editor: sync toggle in metadata tab, Sync to Repo button in header, cloud icon indicator showing sync/local status."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 68,
+      "lines_removed": 3,
+      "group_id": "T-162",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:25:51Z"
+    },
+    {
+      "id": "C-242",
+      "task_id": "T-162",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added sync controls to skill editor: sync toggle in metadata tab, Sync to Repo button in header, cloud icon indicator showing sync/local status.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Added sync controls to skill editor: sync toggle in metadata tab, Sync to Repo button in header, cloud icon indicator showing sync/local status."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 6,
+      "group_id": "T-162",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:25:51Z"
+    },
+    {
+      "id": "C-243",
+      "task_id": "T-162",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added sync controls: toggle in metadata tab (formSync state, persisted via SkillUpdate.sync), Sync to Repo button in header (enables sync + pushes), cloud icon indicator (sync/local label with blue/gray color).",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added sync controls: toggle in metadata tab (formSync state, persisted via SkillUpdate.sync), Sync to Repo button in header (enables sync + pushes), cloud icon indicator (sync/local label with blue/gray color)."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 39,
+      "lines_removed": 1,
+      "group_id": "T-162",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:26:06Z"
+    },
+    {
+      "id": "C-244",
+      "task_id": "T-163",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "All acceptance criteria already met by T-158 (multi-category store), T-159 (multi-select editor + category badges in SkillRow), and T-154 (backend filtering with categories[] contains). No additional code changes needed.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "All acceptance criteria already met by T-158 (multi-category store), T-159 (multi-select editor + category badges in SkillRow), and T-154 (backend filtering with categories[] contains). No additional code changes needed."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 58,
+      "lines_removed": 1,
+      "group_id": "T-163",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:26:32Z"
+    },
+    {
+      "id": "C-245",
+      "task_id": "T-163",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "All acceptance criteria already met by T-158 (multi-category store), T-159 (multi-select editor + category badges in SkillRow), and T-154 (backend filtering with categories[] contains). No additional code changes needed.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "All acceptance criteria already met by T-158 (multi-category store), T-159 (multi-select editor + category badges in SkillRow), and T-154 (backend filtering with categories[] contains). No additional code changes needed."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 14,
+      "lines_removed": 10,
+      "group_id": "T-163",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:26:32Z"
+    },
+    {
+      "id": "C-246",
+      "task_id": "T-164",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created migration script for skills.json -> per-skill directories. Handles category->categories[], SKILL.md + _config.json + bundled files, backup, dry-run, index rebuild, duplicate slug detection.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Created migration script for skills.json -> per-skill directories. Handles category->categories[], SKILL.md + _config.json + bundled files, backup, dry-run, index rebuild, duplicate slug detection."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 96,
+      "lines_removed": 1,
+      "group_id": "T-164",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:28:49Z"
+    },
+    {
+      "id": "C-247",
+      "task_id": "T-164",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created migration script for skills.json -> per-skill directories. Handles category->categories[], SKILL.md + _config.json + bundled files, backup, dry-run, index rebuild, duplicate slug detection.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Created migration script for skills.json -> per-skill directories. Handles category->categories[], SKILL.md + _config.json + bundled files, backup, dry-run, index rebuild, duplicate slug detection."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 14,
+      "group_id": "T-164",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:28:49Z"
+    },
+    {
+      "id": "C-248",
+      "task_id": "T-164",
+      "file": "forge-api/scripts/migrate_skills.py",
+      "action": "create",
+      "summary": "Migration script created: reads skills.json, creates per-skill directories with _config.json + SKILL.md + bundled files, category->categories[], backup to .bak, dry-run flag, duplicate slug detection, _index.json rebuild.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Migration script created: reads skills.json, creates per-skill directories with _config.json + SKILL.md + bundled files, category->categories[], backup to .bak, dry-run flag, duplicate slug detection, _index.json rebuild."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 191,
+      "lines_removed": 0,
+      "group_id": "T-164",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:29:03Z"
+    },
+    {
+      "id": "C-249",
+      "task_id": "T-165",
+      "file": "forge-api/app/services/git_sync.py",
+      "action": "edit",
+      "summary": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 51,
+      "lines_removed": 48,
+      "group_id": "T-165",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:32:57Z"
+    },
+    {
+      "id": "C-250",
+      "task_id": "T-165",
+      "file": "forge-api/app/services/skill_storage.py",
+      "action": "edit",
+      "summary": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 34,
+      "lines_removed": 25,
+      "group_id": "T-165",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:32:57Z"
+    },
+    {
+      "id": "C-251",
+      "task_id": "T-165",
+      "file": "forge-web/components/skills/SkillEditor.tsx",
+      "action": "edit",
+      "summary": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-165",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:32:57Z"
+    },
+    {
+      "id": "C-252",
+      "task_id": "T-165",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 153,
+      "lines_removed": 1,
+      "group_id": "T-165",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:32:57Z"
+    },
+    {
+      "id": "C-253",
+      "task_id": "T-165",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor.",
+      "reasoning_trace": [
+        {
+          "step": "auto",
+          "detail": "Deep-verify fixes: path traversal hardening (resolved path comparison), atomic lock init (setdefault), index-level async lock for concurrent writes, create_skill race fix (exists check inside lock), name length limit, git sync lock for pull/push serialization, null safety for entry.gates in SkillEditor."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 26,
+      "lines_removed": 18,
+      "group_id": "T-165",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-12T19:32:57Z"
     }
   ]
 }
