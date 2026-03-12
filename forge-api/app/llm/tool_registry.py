@@ -8,12 +8,43 @@ and permissions.
 from __future__ import annotations
 
 import asyncio
+import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Awaitable
 
 from core.llm.provider import ToolDefinition
 
-from app.llm.permissions import PermissionSet
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Entity type → storage mapping (single source of truth)
+# ---------------------------------------------------------------------------
+
+_ENTITY_MAP: dict[str, tuple[str | None, str]] = {
+    "tasks": ("tracker", "tasks"),
+    "decisions": ("decisions", "decisions"),
+    "guidelines": ("guidelines", "guidelines"),
+    "ideas": ("ideas", "ideas"),
+    "knowledge": ("knowledge", "knowledge"),
+    "objectives": ("objectives", "objectives"),
+    "changes": ("changes", "changes"),
+    "lessons": ("lessons", "lessons"),
+    "ac_templates": ("ac_templates", "ac_templates"),
+    "skills": (None, "skills"),  # global entity
+}
+
+_ENTITY_TYPE_ENUM = sorted(_ENTITY_MAP.keys())
+
+_SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+
+
+def _validate_project_slug(slug: str) -> str | None:
+    """Validate project slug — no path traversal. Returns error or None."""
+    if not slug or not _SAFE_SLUG_RE.match(slug):
+        return f"Invalid project slug: {slug!r}"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +128,6 @@ class ToolRegistry:
         args: dict[str, Any],
         storage: Any,
         context: dict[str, Any] | None = None,
-        permission_set: PermissionSet | None = None,
     ) -> dict[str, Any]:
         """Execute a tool by name with the given arguments.
 
@@ -106,13 +136,12 @@ class ToolRegistry:
             args: Tool input arguments.
             storage: The storage adapter.
             context: Optional execution context (project, entity info, etc.)
-            permission_set: Optional PermissionSet for permission checking.
 
         Returns:
-            Structured result dict.
+            Structured result dict. On error, returns {"error": "..."}.
 
         Raises:
-            ValueError: If tool not found.
+            ValueError: If tool not found or has no handler.
         """
         tool = self._tools.get(tool_name)
         if tool is None:
@@ -120,14 +149,11 @@ class ToolRegistry:
         if tool.handler is None:
             raise ValueError(f"Tool {tool_name} has no handler")
 
-        # Permission check for tools that require it
-        if tool.required_permission is not None and permission_set is not None:
-            module, action = tool.required_permission
-            if not permission_set.check(module, action):
-                from app.llm.permissions import PermissionEngine
-                return PermissionEngine.deny_response(module, action)
-
-        return await tool.handler(args=args, storage=storage, context=context or {})
+        try:
+            return await tool.handler(args=args, storage=storage, context=context or {})
+        except Exception as e:
+            logger.exception("Tool %s execution failed", tool_name)
+            return {"error": f"Tool execution failed: {type(e).__name__}: {e}"}
 
     def get_llm_definitions(
         self,
@@ -136,6 +162,34 @@ class ToolRegistry:
     ) -> list[ToolDefinition]:
         """Get ToolDefinition list for LLM provider calls."""
         return [t.to_llm_definition() for t in self.get_tools(context_type, permissions)]
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers for handlers
+# ---------------------------------------------------------------------------
+
+async def _load_entity_data(
+    storage: Any,
+    entity_type: str,
+    project: str | None,
+) -> tuple[dict, str] | dict:
+    """Load entity data from storage. Returns (data, list_key) or error dict."""
+    if entity_type not in _ENTITY_MAP:
+        return {"error": f"Unknown entity type: {entity_type}"}
+
+    storage_key, list_key = _ENTITY_MAP[entity_type]
+
+    if storage_key is None:
+        data = await asyncio.to_thread(storage.load_global, entity_type)
+    else:
+        if not project:
+            return {"error": "project is required for project-scoped entities"}
+        err = _validate_project_slug(project)
+        if err:
+            return {"error": err}
+        data = await asyncio.to_thread(storage.load_data, project, storage_key)
+
+    return data, list_key
 
 
 # ---------------------------------------------------------------------------
@@ -153,31 +207,11 @@ async def _handle_search_entities(
     project = args.get("project") or context.get("project")
     filters = args.get("filters", {})
 
-    # Map entity types to their storage entity and list key
-    entity_map = {
-        "tasks": ("tracker", "tasks"),
-        "decisions": ("decisions", "decisions"),
-        "guidelines": ("guidelines", "guidelines"),
-        "ideas": ("ideas", "ideas"),
-        "knowledge": ("knowledge", "knowledge"),
-        "objectives": ("objectives", "objectives"),
-        "changes": ("changes", "changes"),
-        "lessons": ("lessons", "lessons"),
-        "skills": (None, "skills"),  # global entity
-    }
-
-    if entity_type not in entity_map:
-        return {"error": f"Unknown entity type: {entity_type}", "results": []}
-
-    storage_key, list_key = entity_map[entity_type]
-
-    if storage_key is None:
-        # Global entity (skills)
-        data = await asyncio.to_thread(storage.load_global, entity_type)
-    else:
-        if not project:
-            return {"error": "project is required for project-scoped entities", "results": []}
-        data = await asyncio.to_thread(storage.load_data, project, storage_key)
+    result = await _load_entity_data(storage, entity_type, project)
+    if isinstance(result, dict):
+        result["results"] = []
+        return result
+    data, list_key = result
 
     items = data.get(list_key, [])
 
@@ -196,9 +230,10 @@ async def _handle_search_entities(
         items = [item for item in items if item.get(key) == value]
 
     # Limit results
+    total = len(items)
     items = items[:20]
 
-    return {"entity_type": entity_type, "results": items, "count": len(items)}
+    return {"entity_type": entity_type, "results": items, "count": len(items), "total": total}
 
 
 async def _handle_get_entity(
@@ -211,29 +246,10 @@ async def _handle_get_entity(
     entity_id = args.get("entity_id", "")
     project = args.get("project") or context.get("project")
 
-    entity_map = {
-        "tasks": ("tracker", "tasks"),
-        "decisions": ("decisions", "decisions"),
-        "guidelines": ("guidelines", "guidelines"),
-        "ideas": ("ideas", "ideas"),
-        "knowledge": ("knowledge", "knowledge"),
-        "objectives": ("objectives", "objectives"),
-        "changes": ("changes", "changes"),
-        "lessons": ("lessons", "lessons"),
-        "skills": (None, "skills"),
-    }
-
-    if entity_type not in entity_map:
-        return {"error": f"Unknown entity type: {entity_type}"}
-
-    storage_key, list_key = entity_map[entity_type]
-
-    if storage_key is None:
-        data = await asyncio.to_thread(storage.load_global, entity_type)
-    else:
-        if not project:
-            return {"error": "project is required for project-scoped entities"}
-        data = await asyncio.to_thread(storage.load_data, project, storage_key)
+    result = await _load_entity_data(storage, entity_type, project)
+    if isinstance(result, dict):
+        return result
+    data, list_key = result
 
     items = data.get(list_key, [])
     for item in items:
@@ -253,29 +269,11 @@ async def _handle_list_entities(
     project = args.get("project") or context.get("project")
     filters = args.get("filters", {})
 
-    entity_map = {
-        "tasks": ("tracker", "tasks"),
-        "decisions": ("decisions", "decisions"),
-        "guidelines": ("guidelines", "guidelines"),
-        "ideas": ("ideas", "ideas"),
-        "knowledge": ("knowledge", "knowledge"),
-        "objectives": ("objectives", "objectives"),
-        "changes": ("changes", "changes"),
-        "lessons": ("lessons", "lessons"),
-        "skills": (None, "skills"),
-    }
-
-    if entity_type not in entity_map:
-        return {"error": f"Unknown entity type: {entity_type}", "items": []}
-
-    storage_key, list_key = entity_map[entity_type]
-
-    if storage_key is None:
-        data = await asyncio.to_thread(storage.load_global, entity_type)
-    else:
-        if not project:
-            return {"error": "project is required for project-scoped entities", "items": []}
-        data = await asyncio.to_thread(storage.load_data, project, storage_key)
+    result = await _load_entity_data(storage, entity_type, project)
+    if isinstance(result, dict):
+        result["items"] = []
+        return result
+    data, list_key = result
 
     items = data.get(list_key, [])
 
@@ -283,7 +281,11 @@ async def _handle_list_entities(
     for key, value in filters.items():
         items = [item for item in items if item.get(key) == value]
 
-    return {"entity_type": entity_type, "items": items, "count": len(items)}
+    # Limit to prevent token explosion
+    total = len(items)
+    items = items[:100]
+
+    return {"entity_type": entity_type, "items": items, "count": len(items), "total": total}
 
 
 async def _handle_get_project(
@@ -295,6 +297,10 @@ async def _handle_get_project(
     slug = args.get("slug") or context.get("project")
     if not slug:
         return {"error": "slug is required"}
+
+    err = _validate_project_slug(slug)
+    if err:
+        return {"error": err}
 
     try:
         tracker = await asyncio.to_thread(storage.load_data, slug, "tracker")
@@ -325,23 +331,30 @@ async def _handle_update_skill_content(
     context: dict[str, Any],
 ) -> dict[str, Any]:
     """Update a skill's content (the SKILL.md body)."""
-    from app.routers._helpers import _get_lock
-
     skill_id = args.get("skill_id") or context.get("entity_id")
     content = args.get("content", "")
 
     if not skill_id:
         return {"error": "skill_id is required"}
 
-    async with _get_lock("_global", "skills"):
-        data = await asyncio.to_thread(storage.load_global, "skills")
-        skills = data.get("skills", [])
+    data = await asyncio.to_thread(storage.load_global, "skills")
+    skills = data.get("skills", [])
 
-        for skill in skills:
-            if skill.get("id") == skill_id:
-                skill["content"] = content
-                await asyncio.to_thread(storage.save_global, "skills", data)
-                return {"updated": True, "skill_id": skill_id}
+    for skill in skills:
+        if skill.get("id") == skill_id:
+            skill["skill_md_content"] = content
+            # Merge frontmatter metadata
+            try:
+                from app.services.skill_parser import merge_frontmatter_to_metadata
+                meta = merge_frontmatter_to_metadata(content)
+                if meta.get("name"):
+                    skill["name"] = meta["name"]
+                if meta.get("description"):
+                    skill["description"] = meta["description"]
+            except Exception:
+                pass  # frontmatter merge is best-effort
+            await asyncio.to_thread(storage.save_global, "skills", data)
+            return {"updated": True, "skill_id": skill_id}
 
     return {"error": f"Skill {skill_id} not found"}
 
@@ -352,26 +365,23 @@ async def _handle_update_skill_metadata(
     context: dict[str, Any],
 ) -> dict[str, Any]:
     """Update a skill's metadata (category, tags, scopes)."""
-    from app.routers._helpers import _get_lock
-
     skill_id = args.get("skill_id") or context.get("entity_id")
     if not skill_id:
         return {"error": "skill_id is required"}
 
-    async with _get_lock("_global", "skills"):
-        data = await asyncio.to_thread(storage.load_global, "skills")
-        skills = data.get("skills", [])
+    data = await asyncio.to_thread(storage.load_global, "skills")
+    skills = data.get("skills", [])
 
-        for skill in skills:
-            if skill.get("id") == skill_id:
-                if "category" in args and args["category"] is not None:
-                    skill["category"] = args["category"]
-                if "tags" in args and args["tags"] is not None:
-                    skill["tags"] = args["tags"]
-                if "scopes" in args and args["scopes"] is not None:
-                    skill["scopes"] = args["scopes"]
-                await asyncio.to_thread(storage.save_global, "skills", data)
-                return {"updated": True, "skill_id": skill_id, "skill": skill}
+    for skill in skills:
+        if skill.get("id") == skill_id:
+            if "category" in args and args["category"] is not None:
+                skill["category"] = args["category"]
+            if "tags" in args and args["tags"] is not None:
+                skill["tags"] = args["tags"]
+            if "scopes" in args and args["scopes"] is not None:
+                skill["scopes"] = args["scopes"]
+            await asyncio.to_thread(storage.save_global, "skills", data)
+            return {"updated": True, "skill_id": skill_id, "skill": skill}
 
     return {"error": f"Skill {skill_id} not found"}
 
@@ -398,7 +408,7 @@ async def _handle_run_skill_lint(
     if skill is None:
         return {"error": f"Skill {skill_id} not found"}
 
-    content = skill.get("content", "")
+    content = skill.get("skill_md_content", "")
     if not content:
         return {"error": "Skill has no content to lint", "skill_id": skill_id}
 
@@ -413,7 +423,7 @@ async def _handle_run_skill_lint(
             "error_count": result.error_count,
             "warning_count": result.warning_count,
             "findings": [
-                {"rule": f.rule, "severity": f.severity, "message": f.message, "line": f.line}
+                {"rule_id": f.rule_id, "severity": f.severity, "message": f.message, "line": f.line}
                 for f in (result.findings or [])
             ],
             "error": result.error_message,
@@ -441,7 +451,7 @@ async def _handle_get_other_skill(
                 "skill_id": skill_id,
                 "name": skill.get("name", ""),
                 "category": skill.get("category", ""),
-                "content": skill.get("content", ""),
+                "content": skill.get("skill_md_content", ""),
                 "tags": skill.get("tags", []),
             }
 
@@ -466,7 +476,7 @@ def create_default_registry() -> ToolRegistry:
             "properties": {
                 "entity_type": {
                     "type": "string",
-                    "enum": ["tasks", "decisions", "guidelines", "ideas", "knowledge", "objectives", "changes", "lessons", "skills"],
+                    "enum": _ENTITY_TYPE_ENUM,
                     "description": "The type of entity to search.",
                 },
                 "query": {
@@ -498,7 +508,7 @@ def create_default_registry() -> ToolRegistry:
             "properties": {
                 "entity_type": {
                     "type": "string",
-                    "enum": ["tasks", "decisions", "guidelines", "ideas", "knowledge", "objectives", "changes", "lessons", "skills"],
+                    "enum": _ENTITY_TYPE_ENUM,
                     "description": "The type of entity to retrieve.",
                 },
                 "entity_id": {
@@ -519,13 +529,13 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="listEntities",
-        description="List all entities of a given type with optional filters.",
+        description="List all entities of a given type with optional filters. Returns max 100 items.",
         parameters={
             "type": "object",
             "properties": {
                 "entity_type": {
                     "type": "string",
-                    "enum": ["tasks", "decisions", "guidelines", "ideas", "knowledge", "objectives", "changes", "lessons", "skills"],
+                    "enum": _ENTITY_TYPE_ENUM,
                     "description": "The type of entity to list.",
                 },
                 "project": {

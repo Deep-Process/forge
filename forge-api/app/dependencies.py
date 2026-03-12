@@ -93,3 +93,12 @@ async def get_llm_provider(request: Request):
 async def get_tool_registry(request: Request):
     """Return the app-wide ToolRegistry (set during lifespan)."""
     return request.app.state.tool_registry
+
+
+# ---------------------------------------------------------------------------
+# LLM Session Manager
+# ---------------------------------------------------------------------------
+
+async def get_session_manager(request: Request):
+    """Return the app-wide SessionManager (set during lifespan)."""
+    return request.app.state.session_manager

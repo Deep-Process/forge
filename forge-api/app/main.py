@@ -94,6 +94,10 @@ async def lifespan(app: FastAPI):
     from app.llm.tool_registry import create_default_registry
     app.state.tool_registry = create_default_registry()
 
+    # LLM Session Manager — chat conversation persistence in Redis
+    from app.llm.session_manager import SessionManager
+    app.state.session_manager = SessionManager(app.state.redis, app.state.event_bus)
+
     yield
 
     # --- Shutdown ---
