@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { skills as skillsApi } from "@/lib/api";
-import { SkillRow } from "@/components/entities/SkillRow";
+import { SkillRow, type SyncIndicator } from "@/components/entities/SkillRow";
 import { LintResultsMatrix } from "@/components/skills/LintResultsMatrix";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { Button } from "@/components/shared/Button";
@@ -120,6 +120,42 @@ export default function SkillsPage() {
         );
       });
   }, [items, statusFilter, categoryFilter, search]);
+
+  // Per-skill sync indicators from git status local_changes
+  const syncIndicators = useMemo(() => {
+    const map: Record<string, SyncIndicator> = {};
+    if (!gitStatus?.initialized) return map;
+
+    // Parse git status lines like "M skill-name/SKILL.md" or "?? skill-name/"
+    const changedSkills = new Set<string>();
+    const untrackedSkills = new Set<string>();
+    for (const line of (gitStatus.local_changes ?? [])) {
+      // Git porcelain format: "XY path" — X=index, Y=worktree
+      const trimmed = line.trim();
+      const status = trimmed.substring(0, 2);
+      const path = trimmed.substring(3);
+      const skillName = path.split("/")[0];
+      if (!skillName || skillName.startsWith("_") || skillName.startsWith(".")) continue;
+      if (status === "??") {
+        untrackedSkills.add(skillName);
+      } else {
+        changedSkills.add(skillName);
+      }
+    }
+
+    for (const s of items) {
+      if (changedSkills.has(s.name)) {
+        map[s.name] = "modified";
+      } else if (untrackedSkills.has(s.name)) {
+        map[s.name] = "untracked";
+      } else if (s.sync) {
+        map[s.name] = "synced";
+      } else {
+        map[s.name] = "local-only";
+      }
+    }
+    return map;
+  }, [gitStatus, items]);
 
   // Selection handlers
   const toggleSelect = (name: string, checked: boolean) => {
@@ -278,19 +314,29 @@ export default function SkillsPage() {
                 <>
                   {gitStatus.branch ?? "git"}
                   {(gitStatus.behind ?? 0) > 0 && (
-                    <span className="ml-1 text-amber-600">{gitStatus.behind} behind</span>
+                    <span className="ml-1 text-amber-600">&darr;{gitStatus.behind}</span>
                   )}
                   {(gitStatus.ahead ?? 0) > 0 && (
-                    <span className="ml-1 text-green-600">{gitStatus.ahead} ahead</span>
-                  )}
-                  {gitStatus.local_changes && (
-                    <span className="ml-1 text-amber-500">*</span>
+                    <span className="ml-1 text-green-600">&uarr;{gitStatus.ahead}</span>
                   )}
                 </>
               ) : (
                 <span className="text-gray-500">Git not initialized</span>
               )}
             </span>
+            {/* Per-skill sync summary */}
+            {gitStatus.initialized && (() => {
+              const modified = Object.values(syncIndicators).filter((v) => v === "modified").length;
+              const untracked = Object.values(syncIndicators).filter((v) => v === "untracked").length;
+              const synced = Object.values(syncIndicators).filter((v) => v === "synced").length;
+              return (
+                <span className="flex items-center gap-2 text-xs">
+                  {synced > 0 && <span className="text-green-600">{synced} synced</span>}
+                  {modified > 0 && <span className="text-amber-600">{modified} modified</span>}
+                  {untracked > 0 && <span className="text-blue-600">{untracked} new</span>}
+                </span>
+              );
+            })()}
             <div className="flex-1" />
             {gitStatus.initialized ? (
               <>
@@ -405,6 +451,7 @@ export default function SkillsPage() {
               skill={skill}
               selected={selected.has(skill.name)}
               onSelect={toggleSelect}
+              syncIndicator={syncIndicators[skill.name]}
             />
           ))}
         </div>
