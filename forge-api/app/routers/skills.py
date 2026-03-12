@@ -123,6 +123,11 @@ class GitPushRequest(BaseModel):
     message: str = "Sync skills"
 
 
+class SkillsConfigUpdate(BaseModel):
+    repo_url: str | None = None
+    skills_dir: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -479,6 +484,65 @@ async def git_init(git_svc=Depends(get_git_sync)):
         }
     except (GitSyncError, GitSyncNotConfigured) as e:
         raise HTTPException(500, str(e))
+
+
+# ---------------------------------------------------------------------------
+# Config endpoints
+# ---------------------------------------------------------------------------
+
+_SKILLS_CONFIG_PATH = "forge_output/_global/skills_config.json"
+
+
+@router.get("/config")
+async def get_skills_config():
+    """Get skills configuration (repo URL, etc.)."""
+    import os
+    from pathlib import Path
+
+    config_path = Path(_SKILLS_CONFIG_PATH)
+    persisted: dict = {}
+    if config_path.exists():
+        try:
+            persisted = json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return {
+        "repo_url": persisted.get("repo_url", "") or os.environ.get("FORGE_SKILLS_REPO_URL", ""),
+        "skills_dir": persisted.get("skills_dir", ""),
+        "configured_via": "persisted" if persisted.get("repo_url") else (
+            "env" if os.environ.get("FORGE_SKILLS_REPO_URL") else "none"
+        ),
+    }
+
+
+@router.put("/config")
+async def update_skills_config(body: SkillsConfigUpdate, request: Request):
+    """Update skills configuration. Resets cached git sync service."""
+    from pathlib import Path
+
+    config_path = Path(_SKILLS_CONFIG_PATH)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing: dict = {}
+    if config_path.exists():
+        try:
+            existing = json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if body.repo_url is not None:
+        existing["repo_url"] = body.repo_url
+    if body.skills_dir is not None:
+        existing["skills_dir"] = body.skills_dir
+
+    config_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+
+    # Reset cached git_sync so next request picks up new config
+    if hasattr(request.app.state, "git_sync"):
+        request.app.state.git_sync = None
+
+    return existing
 
 
 # ---------------------------------------------------------------------------

@@ -130,12 +130,31 @@ def get_skill_storage(request: Request):
     return svc
 
 
+def _load_skills_config() -> dict:
+    """Load persisted skills config from _global/skills_config.json."""
+    import json
+    from pathlib import Path
+    config_path = Path("forge_output/_global/skills_config.json")
+    if config_path.exists():
+        try:
+            return json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
 def get_git_sync(request: Request):
-    """Return the app-wide GitSyncService (or None if not configured)."""
+    """Return the app-wide GitSyncService (or None if not configured).
+
+    Checks persisted config first, then env var.
+    """
     svc = getattr(request.app.state, "git_sync", None)
     if svc is None:
         import os
-        url = os.environ.get("FORGE_SKILLS_REPO_URL", "")
+
+        # Check persisted config, then env var
+        config = _load_skills_config()
+        url = config.get("repo_url", "") or os.environ.get("FORGE_SKILLS_REPO_URL", "")
         if not url:
             return None
         from app.services.git_sync import GitSyncService

@@ -541,6 +541,11 @@ export const skills = {
     create<{ resynced: number; skills: string[] }>("/skills/git/scan", {}),
   gitInit: () =>
     create<import("@/lib/types").SkillSyncResult>("/skills/git/init", {}),
+  // Config
+  getConfig: () =>
+    get<{ repo_url: string; skills_dir: string; configured_via: string }>("/skills/config"),
+  updateConfig: (data: { repo_url?: string; skills_dir?: string }) =>
+    put<{ repo_url: string; skills_dir: string }>("/skills/config", data),
 };
 
 // -- LLM Chat --

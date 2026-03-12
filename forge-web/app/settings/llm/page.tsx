@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import useSWR from "swr";
-import { llm } from "@/lib/api";
+import { llm, skills as skillsApi } from "@/lib/api";
 import { Badge } from "@/components/shared/Badge";
 import { Button } from "@/components/shared/Button";
 import { useToastStore } from "@/stores/toastStore";
@@ -51,6 +51,7 @@ export default function LLMSettingsPage() {
         </p>
       </div>
       <ProvidersSection />
+      <SkillsGitSyncSection />
       <FeatureFlagsSection />
       <PermissionsSection />
       <LimitsSection />
@@ -152,6 +153,76 @@ function ProvidersSection() {
           {testResult.model && <p className="mt-1">Model: {testResult.model}</p>}
           {testResult.latency_ms != null && <p>Latency: {testResult.latency_ms}ms</p>}
           {testResult.error && <p className="mt-1">{testResult.error}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Skills Git Sync
+// ---------------------------------------------------------------------------
+
+function SkillsGitSyncSection() {
+  const { addToast } = useToastStore();
+  const [repoUrl, setRepoUrl] = useState("");
+  const [configuredVia, setConfiguredVia] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    skillsApi.getConfig().then((config) => {
+      setRepoUrl(config.repo_url ?? "");
+      setConfiguredVia(config.configured_via ?? "none");
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await skillsApi.updateConfig({ repo_url: repoUrl });
+      setConfiguredVia(repoUrl ? "persisted" : "none");
+      addToast({ message: "Skills repo URL saved", action: "updated" });
+    } catch (e) {
+      addToast({ message: (e as Error).message, action: "failed" });
+    } finally {
+      setSaving(false);
+    }
+  }, [repoUrl, addToast]);
+
+  return (
+    <section className="border rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-gray-700 mb-1">Skills Git Sync</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Configure the git repository URL for syncing skills. Can also be set via{" "}
+        <code className="bg-gray-100 px-1 rounded text-[10px]">FORGE_SKILLS_REPO_URL</code> env var.
+      </p>
+
+      {!loaded ? (
+        <p className="text-xs text-gray-400">Loading...</p>
+      ) : (
+        <div className="space-y-3 max-w-lg">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Repository URL</label>
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              placeholder="https://github.com/org/forge-skills.git"
+              className="w-full text-sm border rounded-md px-3 py-1.5 focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            {configuredVia !== "none" && (
+              <span className="text-[10px] text-gray-400">
+                Configured via: {configuredVia}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </section>
