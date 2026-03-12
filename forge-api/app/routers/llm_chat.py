@@ -1,17 +1,22 @@
-"""LLM Chat router — chat endpoint, provider management, config, sessions."""
+"""LLM Chat router — chat endpoint, provider management, config, sessions, file uploads."""
 
 from __future__ import annotations
 
+import io
+import json
 import logging
+import os
 import time
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.dependencies import (
     get_llm_config,
     get_provider_registry,
+    get_redis,
     get_session_manager,
     get_storage,
     get_tool_registry,
@@ -21,6 +26,25 @@ from app.models.llm_config import LLMConfigUpdate
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# File upload constants
+# ---------------------------------------------------------------------------
+
+FILE_TTL_SECONDS = 60 * 60  # 1 hour
+FILE_KEY_PREFIX = "chat:file:"
+SESSION_FILES_KEY_PREFIX = "chat:session:"
+SESSION_FILES_KEY_SUFFIX = ":files"
+
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1 MB
+MAX_FILES_PER_SESSION = 10
+
+ALLOWED_EXTENSIONS = {
+    ".md", ".txt", ".py", ".js", ".ts", ".json",
+    ".yaml", ".yml", ".sh", ".css", ".html", ".pdf",
+}
+
+CONTENT_PREVIEW_LENGTH = 500
 
 
 # ---------------------------------------------------------------------------
@@ -473,3 +497,304 @@ async def delete_session(
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
     return {"deleted": True, "session_id": session_id}
+
+
+# ---------------------------------------------------------------------------
+# File upload endpoints — upload files for LLM context injection
+# ---------------------------------------------------------------------------
+
+class FileUploadResponse(BaseModel):
+    """Response from POST /llm/chat/files."""
+
+    file_id: str
+    filename: str
+    size: int
+    content_type: str
+    content_preview: str
+
+
+@router.post("/chat/files", status_code=201)
+async def upload_chat_file(
+    file: UploadFile,
+    session_id: str = Form(...),
+    redis=Depends(get_redis),
+    manager=Depends(get_session_manager),
+) -> FileUploadResponse:
+    """Upload a file for LLM context injection.
+
+    The file is stored in Redis with a 1h TTL and associated with the
+    given chat session. Max 1MB per file, max 10 files per session.
+
+    Allowed extensions: .md, .txt, .py, .js, .ts, .json, .yaml, .yml,
+    .sh, .css, .html, .pdf
+    """
+    # --- Validate session exists ---
+    session = await manager.load(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session '{session_id}' not found or expired",
+        )
+
+    # --- Validate file extension ---
+    filename = file.filename or "unnamed"
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"File type '{ext}' not allowed. "
+                f"Supported: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            ),
+        )
+
+    # --- Read and validate file size ---
+    content_bytes = await file.read()
+    if len(content_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large ({len(content_bytes)} bytes). Maximum: {MAX_FILE_SIZE} bytes (1MB)",
+        )
+
+    # --- Check per-session file limit ---
+    session_files_key = f"{SESSION_FILES_KEY_PREFIX}{session_id}{SESSION_FILES_KEY_SUFFIX}"
+    current_count = await redis.scard(session_files_key)
+    if current_count >= MAX_FILES_PER_SESSION:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Maximum {MAX_FILES_PER_SESSION} files per session reached",
+        )
+
+    # --- Extract text content ---
+    content_text = ""
+    if ext == ".pdf":
+        content_text = _extract_pdf_text(content_bytes)
+    else:
+        try:
+            content_text = content_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                content_text = content_bytes.decode("latin-1")
+            except UnicodeDecodeError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="File content could not be decoded as text",
+                )
+
+    # --- Store in Redis ---
+    file_id = str(uuid.uuid4())
+    file_key = f"{FILE_KEY_PREFIX}{file_id}"
+
+    file_data = {
+        "file_id": file_id,
+        "filename": filename,
+        "size": len(content_bytes),
+        "content_type": file.content_type or "application/octet-stream",
+        "extension": ext,
+        "session_id": session_id,
+        "content": content_text,
+    }
+
+    # Store file data with 1h TTL
+    await redis.setex(file_key, FILE_TTL_SECONDS, json.dumps(file_data))
+
+    # Track file in session's file set (also with 1h TTL)
+    await redis.sadd(session_files_key, file_id)
+    await redis.expire(session_files_key, FILE_TTL_SECONDS)
+
+    # Build content preview
+    preview = content_text[:CONTENT_PREVIEW_LENGTH]
+    if len(content_text) > CONTENT_PREVIEW_LENGTH:
+        preview += "..."
+
+    logger.info(
+        "Uploaded file %s (%s, %d bytes) for session %s",
+        file_id, filename, len(content_bytes), session_id,
+    )
+
+    return FileUploadResponse(
+        file_id=file_id,
+        filename=filename,
+        size=len(content_bytes),
+        content_type=file.content_type or "application/octet-stream",
+        content_preview=preview,
+    )
+
+
+@router.get("/chat/files")
+async def list_session_files(
+    session_id: str,
+    redis=Depends(get_redis),
+) -> dict[str, Any]:
+    """List all files uploaded for a given session.
+
+    Returns file metadata (without full content) for each file.
+    """
+    session_files_key = f"{SESSION_FILES_KEY_PREFIX}{session_id}{SESSION_FILES_KEY_SUFFIX}"
+    file_ids = await redis.smembers(session_files_key)
+
+    files = []
+    expired_ids = []
+
+    for fid in file_ids:
+        file_key = f"{FILE_KEY_PREFIX}{fid}"
+        raw = await redis.get(file_key)
+        if raw is None:
+            # File expired but still in set — mark for cleanup
+            expired_ids.append(fid)
+            continue
+        file_data = json.loads(raw)
+        preview = file_data.get("content", "")[:CONTENT_PREVIEW_LENGTH]
+        if len(file_data.get("content", "")) > CONTENT_PREVIEW_LENGTH:
+            preview += "..."
+        files.append({
+            "file_id": file_data["file_id"],
+            "filename": file_data["filename"],
+            "size": file_data["size"],
+            "content_type": file_data["content_type"],
+            "extension": file_data["extension"],
+            "content_preview": preview,
+        })
+
+    # Clean up expired file IDs from the session set
+    if expired_ids:
+        await redis.srem(session_files_key, *expired_ids)
+
+    return {"session_id": session_id, "files": files, "count": len(files)}
+
+
+@router.get("/chat/files/{file_id}")
+async def get_chat_file(
+    file_id: str,
+    redis=Depends(get_redis),
+) -> dict[str, Any]:
+    """Retrieve a stored file's content by file_id.
+
+    Returns the file metadata and full text content.
+    File must not have expired (1h TTL).
+    """
+    file_key = f"{FILE_KEY_PREFIX}{file_id}"
+    raw = await redis.get(file_key)
+
+    if raw is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"File '{file_id}' not found or expired",
+        )
+
+    file_data = json.loads(raw)
+    return {
+        "file_id": file_data["file_id"],
+        "filename": file_data["filename"],
+        "size": file_data["size"],
+        "content_type": file_data["content_type"],
+        "extension": file_data["extension"],
+        "session_id": file_data["session_id"],
+        "content": file_data["content"],
+    }
+
+
+@router.delete("/chat/files/{file_id}")
+async def delete_chat_file(
+    file_id: str,
+    redis=Depends(get_redis),
+) -> dict[str, Any]:
+    """Delete a stored file by file_id.
+
+    Also removes the file_id from the session's file set.
+    """
+    file_key = f"{FILE_KEY_PREFIX}{file_id}"
+    raw = await redis.get(file_key)
+
+    if raw is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"File '{file_id}' not found or expired",
+        )
+
+    file_data = json.loads(raw)
+    session_id = file_data.get("session_id", "")
+
+    # Remove file data
+    await redis.delete(file_key)
+
+    # Remove from session file set
+    if session_id:
+        session_files_key = (
+            f"{SESSION_FILES_KEY_PREFIX}{session_id}{SESSION_FILES_KEY_SUFFIX}"
+        )
+        await redis.srem(session_files_key, file_id)
+
+    return {"deleted": True, "file_id": file_id}
+
+
+# ---------------------------------------------------------------------------
+# File content helpers for LLM context injection
+# ---------------------------------------------------------------------------
+
+async def get_session_file_contents(
+    redis,
+    session_id: str,
+) -> list[dict[str, str]]:
+    """Retrieve all file contents for a session — for LLM context injection.
+
+    Returns a list of dicts with 'filename' and 'content' keys.
+    This function is intended to be called from the chat endpoint or
+    context resolver to inject uploaded file content into the LLM prompt.
+    """
+    session_files_key = f"{SESSION_FILES_KEY_PREFIX}{session_id}{SESSION_FILES_KEY_SUFFIX}"
+    file_ids = await redis.smembers(session_files_key)
+
+    results = []
+    for fid in file_ids:
+        file_key = f"{FILE_KEY_PREFIX}{fid}"
+        raw = await redis.get(file_key)
+        if raw is None:
+            continue
+        file_data = json.loads(raw)
+        results.append({
+            "file_id": file_data["file_id"],
+            "filename": file_data["filename"],
+            "content": file_data["content"],
+        })
+
+    return results
+
+
+def _extract_pdf_text(content_bytes: bytes) -> str:
+    """Attempt to extract text from PDF bytes.
+
+    Uses PyPDF2/pypdf if available, otherwise returns a placeholder message.
+    """
+    try:
+        import pypdf
+
+        reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pages.append(text)
+        if pages:
+            return "\n\n".join(pages)
+        return "[PDF uploaded but no extractable text found]"
+    except ImportError:
+        pass
+
+    try:
+        import PyPDF2  # noqa: N813
+
+        reader = PyPDF2.PdfReader(io.BytesIO(content_bytes))
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pages.append(text)
+        if pages:
+            return "\n\n".join(pages)
+        return "[PDF uploaded but no extractable text found]"
+    except ImportError:
+        return "[PDF uploaded — text extraction unavailable (install pypdf)]"
+    except Exception as e:
+        return f"[PDF text extraction failed: {type(e).__name__}]"
