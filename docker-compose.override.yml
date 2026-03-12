@@ -11,18 +11,18 @@ services:
     environment:
       FORGE_DEBUG: "true"
 
-  # forge-web override disabled — using production build from Dockerfile
-  # To re-enable dev mode, uncomment below (requires Linux or WSL2 file system):
-  # forge-web:
-  #   build:
-  #     context: ./forge-web
-  #     target: deps
-  #   volumes:
-  #     - ./forge-web:/app
-  #     - /app/node_modules
-  #   command: npm run dev
-  #   environment:
-  #     NEXT_PUBLIC_API_URL: /api/v1
-  #     NEXT_PUBLIC_WS_URL: ws://localhost:8000
-  #     FORGE_API_INTERNAL_URL: http://forge-api:8000
-  #     NEXT_TELEMETRY_DISABLED: "1"
+  forge-web:
+    build:
+      context: ./forge-web
+      target: deps
+    volumes:
+      - ./forge-web:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_API_URL: /api/v1
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+      FORGE_API_INTERNAL_URL: http://forge-api:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
