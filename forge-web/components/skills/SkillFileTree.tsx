@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { SkillFile } from "@/lib/types";
+import { useState, useCallback } from "react";
+import type { SkillFile, SkillFileType } from "@/lib/types";
 
 const FOLDERS = [
   { prefix: "scripts/", label: "scripts", icon: "S" },
@@ -9,12 +9,27 @@ const FOLDERS = [
   { prefix: "assets/", label: "assets", icon: "A" },
 ] as const;
 
+const ALLOWED_EXTENSIONS = new Set([
+  ".md", ".txt", ".py", ".js", ".ts", ".json", ".yaml", ".yml", ".sh", ".css", ".html",
+]);
+const MAX_DROP_FILES = 10;
+const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+/** Map file extension to target directory and file_type. */
+function classifyFile(name: string): { folder: string; file_type: SkillFileType } {
+  const ext = name.includes(".") ? "." + name.split(".").pop()!.toLowerCase() : "";
+  if ([".py", ".sh", ".js", ".ts"].includes(ext)) return { folder: "scripts/", file_type: "script" };
+  if ([".md", ".txt"].includes(ext)) return { folder: "references/", file_type: "reference" };
+  return { folder: "assets/", file_type: "asset" };
+}
+
 interface SkillFileTreeProps {
   files: SkillFile[];
-  activeFile: string; // "SKILL.md" or file path
+  activeFile: string;
   onSelect: (path: string) => void;
   onAdd: (folder: string, name: string) => void;
   onDelete: (path: string) => void;
+  onDropFiles?: (newFiles: SkillFile[]) => void;
   readOnly?: boolean;
 }
 
@@ -24,11 +39,14 @@ export function SkillFileTree({
   onSelect,
   onAdd,
   onDelete,
+  onDropFiles,
   readOnly,
 }: SkillFileTreeProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [adding, setAdding] = useState<string | null>(null); // folder prefix being added to
+  const [adding, setAdding] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
 
   const toggleFolder = (prefix: string) => {
     setCollapsed((prev) => ({ ...prev, [prefix]: !prev[prefix] }));
@@ -54,8 +72,104 @@ export function SkillFileTree({
     setAdding(null);
   };
 
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (readOnly || !onDropFiles) return;
+    e.dataTransfer.dropEffect = "copy";
+    setDragOver(true);
+  }, [readOnly, onDropFiles]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    setDropError(null);
+
+    if (readOnly || !onDropFiles) return;
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+
+    if (droppedFiles.length > MAX_DROP_FILES) {
+      setDropError(`Max ${MAX_DROP_FILES} files per drop`);
+      return;
+    }
+
+    const errors: string[] = [];
+    const newFiles: SkillFile[] = [];
+    const existingPaths = new Set(files.map((f) => f.path));
+
+    for (const file of droppedFiles) {
+      const ext = file.name.includes(".") ? "." + file.name.split(".").pop()!.toLowerCase() : "";
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        errors.push(`${file.name}: unsupported extension`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: too large (max 1MB)`);
+        continue;
+      }
+
+      const { folder, file_type } = classifyFile(file.name);
+      const path = `${folder}${file.name}`;
+
+      if (existingPaths.has(path)) {
+        errors.push(`${path}: already exists`);
+        continue;
+      }
+
+      try {
+        const content = await file.text();
+        newFiles.push({ path, content, file_type });
+        existingPaths.add(path);
+      } catch {
+        errors.push(`${file.name}: read error`);
+      }
+    }
+
+    if (errors.length > 0) {
+      setDropError(errors.join("; "));
+    }
+    if (newFiles.length > 0) {
+      onDropFiles(newFiles);
+    }
+  }, [readOnly, onDropFiles, files]);
+
   return (
-    <div className="flex flex-col h-full text-xs select-none">
+    <div
+      className={`flex flex-col h-full text-xs select-none relative ${
+        dragOver ? "ring-2 ring-inset ring-forge-400 bg-forge-50/50" : ""
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {dragOver && (
+        <div className="absolute inset-0 flex items-center justify-center bg-forge-50/80 z-10 pointer-events-none">
+          <div className="text-center">
+            <div className="text-forge-600 font-medium text-sm">Drop files here</div>
+            <div className="text-[10px] text-forge-400 mt-0.5">.md .txt .py .js .ts .json .yaml .sh</div>
+          </div>
+        </div>
+      )}
+
+      {/* Drop error */}
+      {dropError && (
+        <div className="px-2 py-1 bg-red-50 text-red-600 text-[10px] border-b border-red-200">
+          {dropError}
+          <button onClick={() => setDropError(null)} className="ml-1 text-red-400 hover:text-red-600">&times;</button>
+        </div>
+      )}
+
       {/* SKILL.md — always first, not deletable */}
       <button
         onClick={() => onSelect("SKILL.md")}

@@ -159,6 +159,20 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
     if (activeFile === path) setActiveFile("SKILL.md");
   }, [activeFile]);
 
+  const handleDropFiles = useCallback((newFiles: SkillFile[]) => {
+    setFiles((prev) => [...prev, ...newFiles]);
+    setFileContents((prev) => {
+      const next = { ...prev };
+      for (const f of newFiles) next[f.path] = f.content;
+      return next;
+    });
+    setDirtyFiles((prev) => {
+      const next = new Set(prev);
+      for (const f of newFiles) next.add(f.path);
+      return next;
+    });
+  }, []);
+
   // Save
   const handleSave = async () => {
     setSaving(true);
@@ -393,6 +407,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
               onSelect={handleFileSelect}
               onAdd={handleFileAdd}
               onDelete={handleFileDelete}
+              onDropFiles={handleDropFiles}
             />
           </div>
         )}
