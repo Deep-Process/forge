@@ -455,7 +455,7 @@ def cmd_update(args):
             new_status = u["status"]
             current_status = k.get("status", "DRAFT")
             if new_status not in VALID_TRANSITIONS.get(current_status, set()):
-                print(f"  ERROR: Invalid transition {current_status} → {new_status} for {u['id']}. "
+                print(f"  WARNING: Invalid transition {current_status} → {new_status} for {u['id']}. "
                       f"Valid: {VALID_TRANSITIONS.get(current_status, set())}",
                       file=sys.stderr)
                 continue
@@ -463,7 +463,7 @@ def cmd_update(args):
         # Content change → new version
         if "content" in u and u["content"] != k.get("content"):
             if not u.get("change_reason"):
-                print(f"  ERROR: Content change for {u['id']} requires 'change_reason'",
+                print(f"  WARNING: Content change for {u['id']} requires 'change_reason'",
                       file=sys.stderr)
                 continue
             new_version = k.get("version", 1) + 1
@@ -524,7 +524,7 @@ def cmd_link(args):
     for ld in link_data:
         k = find_knowledge(data, ld["knowledge_id"])
         if not k:
-            print(f"  ERROR: Knowledge {ld['knowledge_id']} not found", file=sys.stderr)
+            print(f"  WARNING: Knowledge {ld['knowledge_id']} not found", file=sys.stderr)
             continue
 
         # Dedup: check if link already exists

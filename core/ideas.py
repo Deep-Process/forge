@@ -547,7 +547,7 @@ def cmd_update(args):
             new_status = u["status"]
             current = idea["status"]
             if current == "COMMITTED":
-                print(f"  ERROR: Idea {u['id']} is COMMITTED (terminal state), cannot change status", file=sys.stderr)
+                print(f"  WARNING: Idea {u['id']} is COMMITTED (terminal state), cannot change status", file=sys.stderr)
                 continue
             if new_status not in VALID_TRANSITIONS.get(current, set()):
                 print(f"  WARNING: Invalid transition {current}→{new_status} for {u['id']}. "

@@ -208,6 +208,13 @@ CONTRACTS = {
 
 VALID_STATUSES = {"ACTIVE", "ACHIEVED", "ABANDONED", "PAUSED"}
 
+VALID_TRANSITIONS = {
+    "ACTIVE": {"ACHIEVED", "ABANDONED", "PAUSED"},
+    "PAUSED": {"ACTIVE", "ABANDONED"},
+    "ACHIEVED": {"ACTIVE"},      # reopen if KRs regress
+    "ABANDONED": {"ACTIVE"},     # reopen if circumstances change
+}
+
 
 # -- Commands --
 
@@ -491,26 +498,28 @@ def cmd_update(args):
             if field in u:
                 obj[field] = u[field]
 
-        # Status update with lifecycle warning (F-004)
+        # Status update with transition validation and lifecycle warning (F-004)
         if "status" in u:
             new_status = u["status"]
-            if new_status in VALID_STATUSES:
-                old_status = obj["status"]
-                obj["status"] = new_status
-                # Lifecycle warning: check derived guidelines when objective ends
-                if new_status in ("ACHIEVED", "ABANDONED") and old_status == "ACTIVE":
-                    derived = obj.get("derived_guidelines", [])
-                    if derived:
-                        print(f"\n  NOTE: {u['id']} has derived guidelines: {', '.join(derived)}")
-                        if new_status == "ACHIEVED":
-                            print(f"  Review if these guidelines should become permanent standards")
-                            print(f"  or be deprecated now that the objective is achieved.")
-                        else:
-                            print(f"  Review if these guidelines are still relevant")
-                            print(f"  now that the objective is abandoned.")
-            else:
-                print(f"  WARNING: Invalid status '{new_status}' for {u['id']}", file=sys.stderr)
+            old_status = obj.get("status", "ACTIVE")
+            valid_next = VALID_TRANSITIONS.get(old_status, set())
+            if new_status not in valid_next:
+                print(f"  WARNING: Invalid transition {old_status}->{new_status} for {u['id']}. "
+                      f"Valid: {', '.join(sorted(valid_next)) or 'none'}",
+                      file=sys.stderr)
                 continue
+            obj["status"] = new_status
+            # Lifecycle warning: check derived guidelines when objective ends
+            if new_status in ("ACHIEVED", "ABANDONED") and old_status == "ACTIVE":
+                derived = obj.get("derived_guidelines", [])
+                if derived:
+                    print(f"\n  NOTE: {u['id']} has derived guidelines: {', '.join(derived)}")
+                    if new_status == "ACHIEVED":
+                        print(f"  Review if these guidelines should become permanent standards")
+                        print(f"  or be deprecated now that the objective is achieved.")
+                    else:
+                        print(f"  Review if these guidelines are still relevant")
+                        print(f"  now that the objective is abandoned.")
 
         # Key result updates (merge by KR id)
         if "key_results" in u:

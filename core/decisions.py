@@ -440,7 +440,7 @@ def cmd_update(args):
     for u in updates:
         d_id = u["id"]
         if d_id not in decisions_by_id:
-            print(f"  WARNING: Decision {d_id} not found, skipping")
+            print(f"  WARNING: Decision {d_id} not found, skipping", file=sys.stderr)
             continue
 
         d = decisions_by_id[d_id]

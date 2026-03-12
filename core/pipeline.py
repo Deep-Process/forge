@@ -750,6 +750,16 @@ def cmd_complete(args):
         print(f"WARNING: Task {args.task_id} is owned by agent '{task['agent']}', "
               f"not '{agent}'. Completing anyway.", file=sys.stderr)
 
+    # Check blocked_by_decisions are resolved
+    if not force:
+        open_decisions = _load_open_decision_ids(args.project)
+        blocking = _blocked_by_open_decisions(task, open_decisions)
+        if blocking:
+            print(f"WARNING: Task {args.task_id} has OPEN blocking decisions: "
+                  f"{', '.join(blocking)}. Close them first or use --force.",
+                  file=sys.stderr)
+            sys.exit(1)
+
     # Auto-record changes from git before checking
     base_commit = task.get("started_at_commit", "")
     if base_commit:
@@ -1514,15 +1524,29 @@ def cmd_context(args):
         for line in lines:
             print(line)
 
-    # Knowledge context (from task.knowledge_ids + origin idea)
+    # Knowledge context (from task.knowledge_ids + origin idea/objective)
     k_ids = set(task.get("knowledge_ids", []))
-    # Inherit knowledge_ids from origin idea
-    if task.get("origin") and task["origin"].startswith("I-"):
+    origin_k = task.get("origin", "")
+    if origin_k.startswith("I-"):
         if _s.exists(args.project, 'ideas'):
             ideas_data = _s.load_data(args.project, 'ideas')
             for idea in ideas_data.get("ideas", []):
-                if idea["id"] == task["origin"]:
+                if idea["id"] == origin_k:
                     k_ids.update(idea.get("knowledge_ids", []))
+                    # Chain: idea -> advances_key_results -> objective -> knowledge_ids
+                    obj_ids_k = {kr.split("/")[0] for kr in idea.get("advances_key_results", []) if "/" in kr}
+                    if obj_ids_k and _s.exists(args.project, 'objectives'):
+                        obj_data_k = _s.load_data(args.project, 'objectives')
+                        for obj in obj_data_k.get("objectives", []):
+                            if obj["id"] in obj_ids_k:
+                                k_ids.update(obj.get("knowledge_ids", []))
+                    break
+    elif origin_k.startswith("O-"):
+        if _s.exists(args.project, 'objectives'):
+            obj_data_k = _s.load_data(args.project, 'objectives')
+            for obj in obj_data_k.get("objectives", []):
+                if obj["id"] == origin_k:
+                    k_ids.update(obj.get("knowledge_ids", []))
                     break
     if k_ids and _s.exists(args.project, 'knowledge'):
         k_data = _s.load_data(args.project, 'knowledge')

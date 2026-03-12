@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-12T17:28:46Z",
+  "updated": "2026-03-12T18:40:10Z",
   "config": {},
   "tasks": [
     {
@@ -4503,128 +4503,189 @@
       "failed_reason": null,
       "agent": "default",
       "started_at_commit": "fc7e5d6da481b5ccfa80979f027c2726a04a47ce"
+    },
+    {
+      "id": "T-136",
+      "name": "implement-chat-file-upload-backend",
+      "description": "Backend endpoint for uploading files to chat context. Files stored in Redis with 1h TTL. Returns file_id, filename, content for LLM context injection. Supports text extraction from common file types.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create POST /api/v1/chat/files endpoint in forge-api/app/routers/chat.py. Accept multipart file upload (UploadFile). 2. Validate: max 1MB per file, allowed extensions (.md, .txt, .py, .js, .ts, .json, .yaml, .yml, .sh, .css, .html, .pdf). 3. Read file content as text (UTF-8). For .pdf files, use simple text extraction (pdfplumber or fallback to raw read). 4. Store in Redis: key=chat:file:{uuid}, value={filename, content, size, uploaded_at}, TTL=3600s. 5. Return {file_id, filename, size, content_preview (first 200 chars)}. 6. Add GET /api/v1/chat/files/{file_id} to retrieve stored content. 7. Add session-level tracking: associate file_ids with chat session_id. 8. Enforce limit: max 10 files per session (query Redis for session file count).",
+      "acceptance_criteria": [
+        "POST /api/v1/chat/files accepts multipart file upload and returns file_id",
+        "Files stored in Redis with 1h TTL (key: chat:file:{uuid})",
+        "File size limit 1MB enforced with 413 error",
+        "File type validation rejects unsupported extensions with 422 error",
+        "GET /api/v1/chat/files/{file_id} returns stored file content",
+        "Max 10 files per session enforced with 429 error",
+        "File content available for LLM context injection via session manager"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "ai"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T18:13:31Z",
+      "completed_at": "2026-03-12T18:20:14Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "alpha",
+      "started_at_commit": "8a766d1bcceb2412cca16a1bb5b3431941a4f697"
+    },
+    {
+      "id": "T-137",
+      "name": "add-instantiate-ac-template-and-preview-skill-tools",
+      "description": "Add 2 remaining skill-specific LLM tools: instantiateACTemplate (fill AC template with params) and previewSkill (render SKILL.md preview). Brings total skill tools from 8 to 10.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-api/app/llm/tool_registry.py, add instantiateACTemplate tool: (a) parameters: template_id (str), params (dict[str,str]), (b) handler: load AC template from storage, call instantiate logic (core/ac_templates.py cmd_instantiate pattern), (c) return {text, from_template, params}, (d) permission: (skills, read), context: skill. 2. Add previewSkill tool: (a) no required parameters (uses current skill from context), (b) handler: load skill content, render frontmatter + body as markdown preview, (c) return {name, description, preview_md, line_count, file_count}, (d) permission: (skills, read), context: skill. 3. Register both in create_default_registry(). 4. Update forge-web/lib/capabilities.ts: add skills-instantiate-ac and skills-preview entries with available: true. 5. Update context_resolver.py system prompt to mention the new tools.",
+      "acceptance_criteria": [
+        "instantiateACTemplate tool registered in tool_registry with correct handler",
+        "instantiateACTemplate accepts template_id + params, returns filled AC text",
+        "previewSkill tool registered in tool_registry with correct handler",
+        "previewSkill returns rendered SKILL.md preview with metadata (name, line_count, file_count)",
+        "Both tools scoped to skill context_type",
+        "capabilities.ts updated with new tool entries",
+        "Context resolver system prompt mentions both new tools"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "skills",
+        "ai"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T18:13:35Z",
+      "completed_at": "2026-03-12T18:20:16Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "beta",
+      "claimed_at": "2026-03-12T18:13:33Z",
+      "started_at_commit": "8a766d1bcceb2412cca16a1bb5b3431941a4f697"
+    },
+    {
+      "id": "T-138",
+      "name": "implement-chat-file-drop-frontend",
+      "description": "Add drag & drop file zone to Sidebar AI chat component. Dropped files are uploaded to backend (T-136 endpoint), their content injected into LLM context, and shown as file attachment chips in the chat input area.",
+      "depends_on": [
+        "T-136"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In the Sidebar AI chat component (forge-web/components/chat/ or wherever LlmChat lives), add HTML5 drag & drop handlers (onDragOver, onDrop, onDragLeave). 2. On drop: validate files (max 1MB, allowed types), show upload progress indicator. 3. Call POST /api/v1/chat/files for each file. 4. On success: show file chip in chat input area (filename + size + remove button). 5. Track uploaded file_ids in chat state. 6. When user sends next message, prepend file context: for each attached file, include content in the message payload (or reference file_ids for backend to resolve). 7. Visual: drop zone overlay with dashed border + icon when dragging over chat area. 8. Error handling: show toast for rejected files (wrong type, too large, session limit reached). 9. Files persist in chat input area until explicitly removed or session ends.",
+      "acceptance_criteria": [
+        "Dragging files over chat area shows visual drop zone overlay",
+        "Dropping valid files triggers upload to backend endpoint",
+        "Uploaded files appear as removable chips in chat input area",
+        "File content injected into LLM context with next user message",
+        "Invalid files (wrong type, too large) show error toast",
+        "Session limit (10 files) enforced with clear error message",
+        "Remove button on file chip deletes it from pending attachments"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "ai"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T18:20:26Z",
+      "completed_at": "2026-03-12T18:26:32Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "b42284ab23763f6eec05d2a66f854eff5c1c2fab"
+    },
+    {
+      "id": "T-139",
+      "name": "update-o011-kr-progress-and-verify",
+      "description": "Update all 6 KR currents for O-011 to reflect completed work. Deep-verify T-136-T-138. If all KRs met, prepare to mark O-011 ACHIEVED.",
+      "depends_on": [
+        "T-136",
+        "T-137",
+        "T-138"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Deep-verify T-136 (backend file upload): check endpoint correctness, Redis TTL, validation, error responses. 2. Deep-verify T-137 (LLM tools): check tool registration, handler logic, capabilities.ts update. 3. Deep-verify T-138 (frontend file drop): check drop zone UX, upload flow, context injection, error handling. 4. Update O-011 KR currents: KR-1 (split view) → 1, KR-2 (multi-file) → 1, KR-3 (LLM tools) → 10 (exceeds target 8), KR-4 (drag & drop) → 1, KR-5 (agentskills.io) → 1, KR-6 (AI-assisted) → 1. 5. Run: py -m core.objectives update forge-platform-v2 --data with updated KR values. 6. If all KRs at or above target, mark O-011 status ACHIEVED.",
+      "acceptance_criteria": [
+        "T-136, T-137, T-138 deep-verified with no critical issues",
+        "All 6 KR currents updated to reflect reality",
+        "O-011 marked ACHIEVED if all KRs meet targets"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "general"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T18:26:36Z",
+      "completed_at": "2026-03-12T18:30:36Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "6f64fded8bfb72fd71267456e38168e2bc52f457"
+    },
+    {
+      "id": "T-140",
+      "name": "create-research-skill",
+      "description": "Create /research slash command skill for managing R-NNN research objects. Add SKILL.md and register in CLAUDE.md.",
+      "depends_on": [],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "",
+      "acceptance_criteria": [
+        "skills/research/SKILL.md exists with proper frontmatter and procedure",
+        "/research registered in CLAUDE.md slash commands table",
+        "Supports: add, list/filter, show, update, context loading"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "general"
+      ],
+      "origin": "",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-12T18:38:36Z",
+      "completed_at": "2026-03-12T18:40:10Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "1e88be615b689df6c628dace9e70cfc83e4bff4b"
     }
-  ],
-  "draft_plan": {
-    "source_idea_id": null,
-    "source_objective_id": "O-011",
-    "created": "2026-03-12T17:28:46Z",
-    "tasks": [
-      {
-        "id": "T-136",
-        "name": "implement-chat-file-upload-backend",
-        "description": "Backend endpoint for uploading files to chat context. Files stored in Redis with 1h TTL. Returns file_id, filename, content for LLM context injection. Supports text extraction from common file types.",
-        "instruction": "1. Create POST /api/v1/chat/files endpoint in forge-api/app/routers/chat.py. Accept multipart file upload (UploadFile). 2. Validate: max 1MB per file, allowed extensions (.md, .txt, .py, .js, .ts, .json, .yaml, .yml, .sh, .css, .html, .pdf). 3. Read file content as text (UTF-8). For .pdf files, use simple text extraction (pdfplumber or fallback to raw read). 4. Store in Redis: key=chat:file:{uuid}, value={filename, content, size, uploaded_at}, TTL=3600s. 5. Return {file_id, filename, size, content_preview (first 200 chars)}. 6. Add GET /api/v1/chat/files/{file_id} to retrieve stored content. 7. Add session-level tracking: associate file_ids with chat session_id. 8. Enforce limit: max 10 files per session (query Redis for session file count).",
-        "depends_on": [],
-        "parallel": true,
-        "type": "feature",
-        "scopes": [
-          "backend",
-          "ai"
-        ],
-        "origin": "O-011",
-        "acceptance_criteria": [
-          "POST /api/v1/chat/files accepts multipart file upload and returns file_id",
-          "Files stored in Redis with 1h TTL (key: chat:file:{uuid})",
-          "File size limit 1MB enforced with 413 error",
-          "File type validation rejects unsupported extensions with 422 error",
-          "GET /api/v1/chat/files/{file_id} returns stored file content",
-          "Max 10 files per session enforced with 429 error",
-          "File content available for LLM context injection via session manager"
-        ],
-        "test_requirements": {
-          "unit": true,
-          "integration": false,
-          "e2e": false
-        }
-      },
-      {
-        "id": "T-137",
-        "name": "add-instantiate-ac-template-and-preview-skill-tools",
-        "description": "Add 2 remaining skill-specific LLM tools: instantiateACTemplate (fill AC template with params) and previewSkill (render SKILL.md preview). Brings total skill tools from 8 to 10.",
-        "instruction": "1. In forge-api/app/llm/tool_registry.py, add instantiateACTemplate tool: (a) parameters: template_id (str), params (dict[str,str]), (b) handler: load AC template from storage, call instantiate logic (core/ac_templates.py cmd_instantiate pattern), (c) return {text, from_template, params}, (d) permission: (skills, read), context: skill. 2. Add previewSkill tool: (a) no required parameters (uses current skill from context), (b) handler: load skill content, render frontmatter + body as markdown preview, (c) return {name, description, preview_md, line_count, file_count}, (d) permission: (skills, read), context: skill. 3. Register both in create_default_registry(). 4. Update forge-web/lib/capabilities.ts: add skills-instantiate-ac and skills-preview entries with available: true. 5. Update context_resolver.py system prompt to mention the new tools.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "feature",
-        "scopes": [
-          "backend",
-          "skills",
-          "ai"
-        ],
-        "origin": "O-011",
-        "acceptance_criteria": [
-          "instantiateACTemplate tool registered in tool_registry with correct handler",
-          "instantiateACTemplate accepts template_id + params, returns filled AC text",
-          "previewSkill tool registered in tool_registry with correct handler",
-          "previewSkill returns rendered SKILL.md preview with metadata (name, line_count, file_count)",
-          "Both tools scoped to skill context_type",
-          "capabilities.ts updated with new tool entries",
-          "Context resolver system prompt mentions both new tools"
-        ],
-        "test_requirements": {
-          "unit": true,
-          "integration": false,
-          "e2e": false
-        }
-      },
-      {
-        "id": "T-138",
-        "name": "implement-chat-file-drop-frontend",
-        "description": "Add drag & drop file zone to Sidebar AI chat component. Dropped files are uploaded to backend (T-136 endpoint), their content injected into LLM context, and shown as file attachment chips in the chat input area.",
-        "instruction": "1. In the Sidebar AI chat component (forge-web/components/chat/ or wherever LlmChat lives), add HTML5 drag & drop handlers (onDragOver, onDrop, onDragLeave). 2. On drop: validate files (max 1MB, allowed types), show upload progress indicator. 3. Call POST /api/v1/chat/files for each file. 4. On success: show file chip in chat input area (filename + size + remove button). 5. Track uploaded file_ids in chat state. 6. When user sends next message, prepend file context: for each attached file, include content in the message payload (or reference file_ids for backend to resolve). 7. Visual: drop zone overlay with dashed border + icon when dragging over chat area. 8. Error handling: show toast for rejected files (wrong type, too large, session limit reached). 9. Files persist in chat input area until explicitly removed or session ends.",
-        "depends_on": [
-          "T-136"
-        ],
-        "parallel": false,
-        "type": "feature",
-        "scopes": [
-          "frontend",
-          "ai"
-        ],
-        "origin": "O-011",
-        "conflicts_with": [],
-        "acceptance_criteria": [
-          "Dragging files over chat area shows visual drop zone overlay",
-          "Dropping valid files triggers upload to backend endpoint",
-          "Uploaded files appear as removable chips in chat input area",
-          "File content injected into LLM context with next user message",
-          "Invalid files (wrong type, too large) show error toast",
-          "Session limit (10 files) enforced with clear error message",
-          "Remove button on file chip deletes it from pending attachments"
-        ],
-        "test_requirements": {
-          "unit": true,
-          "integration": false,
-          "e2e": false
-        }
-      },
-      {
-        "id": "T-139",
-        "name": "update-o011-kr-progress-and-verify",
-        "description": "Update all 6 KR currents for O-011 to reflect completed work. Deep-verify T-136-T-138. If all KRs met, prepare to mark O-011 ACHIEVED.",
-        "instruction": "1. Deep-verify T-136 (backend file upload): check endpoint correctness, Redis TTL, validation, error responses. 2. Deep-verify T-137 (LLM tools): check tool registration, handler logic, capabilities.ts update. 3. Deep-verify T-138 (frontend file drop): check drop zone UX, upload flow, context injection, error handling. 4. Update O-011 KR currents: KR-1 (split view) → 1, KR-2 (multi-file) → 1, KR-3 (LLM tools) → 10 (exceeds target 8), KR-4 (drag & drop) → 1, KR-5 (agentskills.io) → 1, KR-6 (AI-assisted) → 1. 5. Run: py -m core.objectives update forge-platform-v2 --data with updated KR values. 6. If all KRs at or above target, mark O-011 status ACHIEVED.",
-        "depends_on": [
-          "T-136",
-          "T-137",
-          "T-138"
-        ],
-        "parallel": false,
-        "type": "chore",
-        "scopes": [
-          "general"
-        ],
-        "origin": "O-011",
-        "acceptance_criteria": [
-          "T-136, T-137, T-138 deep-verified with no critical issues",
-          "All 6 KR currents updated to reflect reality",
-          "O-011 marked ACHIEVED if all KRs meet targets"
-        ],
-        "test_requirements": {
-          "unit": false,
-          "integration": false,
-          "e2e": false
-        }
-      }
-    ]
-  }
+  ]
 }

@@ -406,7 +406,7 @@ def cmd_update(args):
             new_status = u["status"]
             current_status = r.get("status", "DRAFT")
             if new_status not in VALID_TRANSITIONS.get(current_status, set()):
-                print(f"  ERROR: Invalid transition {current_status} -> {new_status} for {u['id']}. "
+                print(f"  WARNING: Invalid transition {current_status} -> {new_status} for {u['id']}. "
                       f"Valid: {VALID_TRANSITIONS.get(current_status, set())}",
                       file=sys.stderr)
                 continue
