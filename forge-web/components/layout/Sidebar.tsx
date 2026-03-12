@@ -13,12 +13,14 @@ const globalNav: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "grid" },
   { label: "Projects", href: "/projects", icon: "folder" },
   { label: "Skills", href: "/skills", icon: "skills" },
+  { label: "Settings", href: "/settings/llm", icon: "settings" },
 ];
 
 const iconMap: Record<string, string> = {
   grid: "\u25A6",
   folder: "\u{1F4C1}",
   skills: "\u26A1",
+  settings: "\u2699",
 };
 
 export function Sidebar() {
