@@ -70,6 +70,7 @@ class EntityType(str, Enum):
     EXECUTIONS = "executions"
     DEBUG_SESSIONS = "debug_sessions"
     SKILLS = "skills"
+    RESEARCH = "research"
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +149,11 @@ def default_structure(entity: str, project: str) -> dict:
             "project": project,
             "updated": ts,
             "skills": [],
+        },
+        EntityType.RESEARCH: {
+            "project": project,
+            "updated": ts,
+            "research": [],
         },
     }
 

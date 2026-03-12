@@ -38,12 +38,15 @@ class Message:
         tool_call_id: Optional — set when role="tool" to reference the
             tool invocation this result belongs to.
         name: Optional — tool/function name (used with tool role).
+        tool_calls: Optional — set on assistant messages when the LLM
+            invoked tools. Each dict has "id", "name", "input" keys.
     """
 
     role: str       # "system" | "user" | "assistant" | "tool"
     content: str
     tool_call_id: str | None = None
     name: str | None = None
+    tool_calls: list[dict] | None = None
 
 
 @dataclass
@@ -111,17 +114,20 @@ class CompletionResult:
     """Result of a non-streaming LLM completion.
 
     Attributes:
-        content: The generated text content.
+        content: The generated text content (text blocks only, no tool_use).
         model: Model identifier that produced this result.
         usage: Token consumption breakdown.
         stop_reason: Why generation stopped — "end_turn", "max_tokens",
             "stop_sequence", "tool_use", etc.
+        tool_calls: Structured tool call data when stop_reason="tool_use".
+            Each dict has "id", "name", "input" keys.
     """
 
     content: str = ""
     model: str = ""
     usage: TokenUsage = field(default_factory=TokenUsage)
     stop_reason: str = ""
+    tool_calls: list[dict] = field(default_factory=list)
 
 
 @dataclass

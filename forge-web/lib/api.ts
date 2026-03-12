@@ -243,6 +243,8 @@ import type {
   DebugStatus, DebugSessionSummary, DebugSession,
   Skill, SkillCreate, SkillUpdate, LintResult, PromoteResult,
   SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef, SkillUsageEntry,
+  ChatSendRequest, ChatSendResponse, ChatSession,
+  LLMProvider, LLMProviderTestResult, LLMConfig,
 } from "./types";
 
 // -- Projects --
@@ -508,6 +510,30 @@ export const skills = {
     create<{ added: string; categories: SkillCategoryDef[] }>("/skills/categories", data),
   removeCategory: (key: string) =>
     remove<{ removed: string }>(`/skills/categories/${key}`),
+};
+
+// -- LLM Chat --
+export const llm = {
+  send: (data: ChatSendRequest) =>
+    create<ChatSendResponse>("/llm/chat", data),
+  getSession: (sessionId: string) =>
+    get<ChatSession>(`/llm/sessions/${sessionId}`),
+  listSessions: (limit?: number) =>
+    list<{ sessions: ChatSession[]; count: number }>(
+      "/llm/sessions", limit ? { limit: String(limit) } : undefined),
+  deleteSession: (sessionId: string) =>
+    remove<{ deleted: boolean; session_id: string }>(`/llm/sessions/${sessionId}`),
+  getProviders: () =>
+    get<{ providers: LLMProvider[] }>("/llm/providers"),
+  testProvider: (provider: string) =>
+    create<LLMProviderTestResult>("/llm/providers/test", { provider }),
+  getConfig: () =>
+    get<LLMConfig>("/llm/config"),
+  updateConfig: (data: Partial<LLMConfig>) =>
+    request<LLMConfig>("/llm/config", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
 
 // -- Debug Monitor --

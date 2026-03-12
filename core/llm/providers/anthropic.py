@@ -7,7 +7,6 @@ Requires: anthropic package (pip install anthropic).
 
 from __future__ import annotations
 
-import json
 from typing import Any, AsyncIterator
 
 from core.llm.provider import (
@@ -76,6 +75,12 @@ def _convert_tools(tools: list[ToolDefinition] | None) -> list[dict] | None:
 def _convert_messages(messages: list[Message], config: CompletionConfig) -> tuple[str, list[dict]]:
     """Split system prompt from messages, convert to Anthropic format.
 
+    Handles:
+    - System messages → separate system parameter
+    - Tool results → user messages with tool_result blocks (merged if consecutive)
+    - Assistant messages with tool_calls → structured content blocks
+    - Plain text messages → standard format
+
     Returns (system_prompt, api_messages).
     """
     system = config.system_prompt or ""
@@ -88,16 +93,35 @@ def _convert_messages(messages: list[Message], config: CompletionConfig) -> tupl
                 system += "\n\n"
             system += msg.content
         elif msg.role == "tool":
-            api_msgs.append({
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": msg.tool_call_id or "",
-                        "content": msg.content,
-                    }
-                ],
-            })
+            tool_result_block = {
+                "type": "tool_result",
+                "tool_use_id": msg.tool_call_id or "",
+                "content": msg.content,
+            }
+            # Merge consecutive tool results into one user message
+            # (Anthropic API requires alternating user/assistant)
+            if (api_msgs
+                    and api_msgs[-1].get("role") == "user"
+                    and isinstance(api_msgs[-1].get("content"), list)):
+                api_msgs[-1]["content"].append(tool_result_block)
+            else:
+                api_msgs.append({
+                    "role": "user",
+                    "content": [tool_result_block],
+                })
+        elif msg.role == "assistant" and msg.tool_calls:
+            # Assistant message with tool_use blocks — reconstruct structured content
+            blocks: list[dict] = []
+            if msg.content:
+                blocks.append({"type": "text", "text": msg.content})
+            for tc in msg.tool_calls:
+                blocks.append({
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                })
+            api_msgs.append({"role": "assistant", "content": blocks})
         else:
             api_msgs.append({
                 "role": msg.role,
@@ -162,18 +186,17 @@ class AnthropicProvider:
         except Exception as e:
             raise ProviderError(f"Anthropic API error: {e}") from e
 
-        # Extract text content
+        # Extract text content and tool calls separately
         content = ""
+        tool_calls: list[dict] = []
         for block in response.content:
             if hasattr(block, "text"):
                 content += block.text
             elif hasattr(block, "type") and block.type == "tool_use":
-                content += json.dumps({
-                    "tool_use": {
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input,
-                    }
+                tool_calls.append({
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
                 })
 
         usage = TokenUsage(
@@ -186,6 +209,7 @@ class AnthropicProvider:
             model=response.model,
             usage=usage,
             stop_reason=response.stop_reason or "",
+            tool_calls=tool_calls,
         )
 
     async def stream(

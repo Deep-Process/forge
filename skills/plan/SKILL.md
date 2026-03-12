@@ -25,13 +25,15 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 | R4 | `python -m core.decisions contract add` | Contract for recording decisions | Step 4 — before recording planning decisions |
 | R5 | `python -m core.changes contract` | Contract for recording changes | Reference only |
 | R6 | `skills/deep-align/SKILL.md` | Alignment procedure | Step 3 — before decomposition |
+| R7 | `python -m core.research context {project} --entity {id}` | Research linked to entity | Step 2 — load research context |
+| R8 | `python -m core.objectives show {project} {objective_id}` | Objective details + KRs | Step 2 — if planning from objective |
 
 ## Write Commands
 
 | ID | Command | Effect | When | Contract |
 |----|---------|--------|------|----------|
 | W1 | `python -m core.pipeline init {project} --goal "..."` | Creates tracker.json | Step 3 — create project |
-| W2 | `python -m core.pipeline draft-plan {project} --data '{json}' [--idea I-NNN]` | Stores draft plan for review | Step 5 — after decomposition |
+| W2 | `python -m core.pipeline draft-plan {project} --data '{json}' [--idea I-NNN] [--objective O-NNN]` | Stores draft plan for review | Step 5 — after decomposition |
 | W2b | `python -m core.pipeline approve-plan {project}` | Materializes draft into pipeline | Step 7 — after user approval |
 | W2c | `python -m core.pipeline add-tasks {project} --data '{json}'` | Direct task addition (alternative to draft) | Step 5 — when bypassing draft review |
 | W3 | `python -m core.decisions add {project} --data '{json}'` | Records planning decisions | Step 4 — for architectural choices | `python -m core.decisions contract add` |
@@ -110,10 +112,60 @@ python -m core.ideas show {project} {idea_id}
 python -m core.guidelines context {project} --scopes "{idea_scopes}"
 ```
 
+Load research linked to the idea (R7):
+```bash
+python -m core.research context {project} --entity {idea_id}
+```
+
+If planning from an objective (`/plan O-001`), load the objective context (R8):
+```bash
+python -m core.objectives show {project} {objective_id}
+python -m core.guidelines context {project} --scopes "{objective_scopes}"
+python -m core.research context {project} --entity {objective_id}
+```
+
+Also check for approved ideas advancing this objective:
+```bash
+python -m core.ideas read {project} --status APPROVED
+```
+Filter to ideas with `advances_key_results` referencing this objective's KRs. If found, their research and exploration notes provide additional context for decomposition.
+
 **Must-guidelines are non-negotiable during decomposition:**
 - If a must-guideline says "all endpoints need rate limiting" → include a rate limiting task or subtask
 - If a must-guideline says "use PostgreSQL" → do NOT plan tasks with MongoDB
 - Record a decision if a must-guideline conflicts with the goal (don't silently ignore)
+
+---
+
+### Step 2.5 — Research Readiness Gate
+
+Before planning, verify that all related research/explorations are ready:
+
+```bash
+python -m core.decisions read {project} --type exploration
+```
+
+**Gate rule**: If ANY exploration decision linked to this entity (via `task_id` matching the idea/objective ID) has `ready_for_tracker: false` and status is OPEN, **BLOCK** planning:
+
+```
+BLOCKED: Cannot plan — {N} exploration(s) not ready for tracker.
+  - D-{NNN}: {issue} (ready_for_tracker: false)
+
+Resolve before planning:
+  - Complete exploration: `/discover {entity_id}`
+  - Or mark ready: `python -m core.decisions update {project} --data '[{"id": "D-NNN", "ready_for_tracker": true}]'`
+```
+
+Also warn (but don't block) on HIGH-severity OPEN risks without mitigation:
+
+```
+WARNING: {N} HIGH-severity risk(s) without mitigation plan.
+  - D-{NNN}: {issue}
+
+Consider addressing these before planning, or acknowledge them as accepted risks.
+```
+
+The gate BLOCKS on unready explorations but only WARNS on unmitigated HIGH risks.
 
 ---
 
@@ -136,6 +188,10 @@ already know from the idea, discovery findings, or codebase context.
 **c. If planning from an approved idea** (`/plan I-001`): the idea's description
 and discovery decisions provide most context — ask fewer questions, focus
 only on gaps not covered by prior exploration.
+
+**e. If planning from an objective** (`/plan O-001`): the objective's KRs and
+any linked research provide scope — focus questions on implementation approach
+and prioritization between KRs.
 
 **d. If user says "just plan it"** — proceed but flag your top 2 assumptions
 in planning decisions (Step 6).
@@ -228,8 +284,15 @@ For each task, specify:
 
 Store as draft plan for review (W2):
 ```bash
-python -m core.pipeline draft-plan {project} --data '[...]' --idea {idea_id_if_applicable}
+# If planning from an idea:
+python -m core.pipeline draft-plan {project} --data '[...]' --idea {idea_id}
+
+# If planning from an objective:
+python -m core.pipeline draft-plan {project} --data '[...]' --objective {objective_id}
 ```
+
+When planning from an objective, each task's `origin` is set to the objective ID (e.g., `O-001`).
+If there are APPROVED ideas advancing this objective, consider using them as intermediate origins for specific tasks.
 
 ---
 

@@ -314,7 +314,7 @@ def cmd_init(args):
     print(f"Next: Add tasks with `add-tasks` or run `/plan {args.project}` to decompose the goal.")
 
 
-def _build_task_entry(t: dict, source_idea_id: str = None) -> dict:
+def _build_task_entry(t: dict, source_idea_id: str = None, source_objective_id: str = None) -> dict:
     """Build a task entry dict from raw task data. Single source of truth for task schema."""
     entry = {
         "id": t["id"],
@@ -329,7 +329,7 @@ def _build_task_entry(t: dict, source_idea_id: str = None) -> dict:
         "type": t.get("type", "feature"),
         "blocked_by_decisions": t.get("blocked_by_decisions", []),
         "scopes": t.get("scopes", []),
-        "origin": t.get("origin", source_idea_id or ""),
+        "origin": t.get("origin", source_idea_id or source_objective_id or ""),
         "knowledge_ids": t.get("knowledge_ids", []),
         "status": "TODO",
         "started_at": None,
@@ -341,6 +341,8 @@ def _build_task_entry(t: dict, source_idea_id: str = None) -> dict:
     # If origin not set but source_idea_id exists, set it
     if source_idea_id and not entry["origin"]:
         entry["origin"] = source_idea_id
+    if source_objective_id and not entry["origin"]:
+        entry["origin"] = source_objective_id
     return entry
 
 
@@ -1505,6 +1507,49 @@ def cmd_context(args):
                     print(f"  {content_preview}")
             print()
 
+    # Research context (from task origin -> idea/objective -> research)
+    if _s.exists(args.project, 'research'):
+        r_data = _s.load_data(args.project, 'research')
+        active_research = [r for r in r_data.get("research", [])
+                          if r.get("status") == "ACTIVE"]
+        task_research = []
+        origin = task.get("origin", "")
+
+        if origin.startswith("I-"):
+            # Research linked to origin idea
+            task_research = [r for r in active_research
+                            if r.get("linked_entity_id") == origin
+                            or r.get("linked_idea_id") == origin]
+            # Also research linked to objective (via idea.advances_key_results)
+            if _s.exists(args.project, 'ideas'):
+                ideas_data_r = _s.load_data(args.project, 'ideas')
+                for idea in ideas_data_r.get("ideas", []):
+                    if idea["id"] == origin:
+                        obj_ids_r = {kr.split("/")[0] for kr in idea.get("advances_key_results", []) if "/" in kr}
+                        task_research.extend([r for r in active_research
+                                             if r.get("linked_entity_id") in obj_ids_r
+                                             and r["id"] not in {x["id"] for x in task_research}])
+                        break
+        elif origin.startswith("O-"):
+            # Direct objective origin (from /plan O-001)
+            task_research = [r for r in active_research
+                            if r.get("linked_entity_id") == origin]
+
+        if task_research:
+            seen = set()
+            unique = [r for r in task_research if r["id"] not in seen and not seen.add(r["id"])]
+            print(f"### Research ({len(unique)})")
+            print()
+            for r in sorted(unique, key=lambda x: x["id"]):
+                print(f"**{r['id']}**: {r['title']} [{r['category']}]")
+                if r.get("summary"):
+                    print(f"  {r['summary'][:200]}")
+                for f in (r.get("key_findings") or [])[:5]:
+                    print(f"  - {f}")
+                if r.get("decision_ids"):
+                    print(f"  Related decisions: {', '.join(r['decision_ids'])}")
+            print()
+
     # Test requirements
     test_req = task.get("test_requirements")
     if test_req:
@@ -1523,8 +1568,27 @@ def cmd_context(args):
             print(f"{test_req['description']}")
         print()
 
-    # Business context: trace task → origin idea → objective (F-001: graceful degradation)
-    if task.get("origin") and task["origin"].startswith("I-"):
+    # Business context: trace task → origin → objective (F-001: graceful degradation)
+    origin = task.get("origin", "")
+    if origin.startswith("O-"):
+        # Direct objective origin (from /plan O-001)
+        if _s.exists(args.project, 'objectives'):
+            obj_data = _s.load_data(args.project, 'objectives')
+            for obj in obj_data.get("objectives", []):
+                if obj["id"] == origin:
+                    print("### Business Context")
+                    print()
+                    print(f"**{obj['id']}**: {obj['title']} [{obj['status']}]")
+                    for kr in obj.get("key_results", []):
+                        baseline = kr.get("baseline", 0)
+                        target = kr["target"]
+                        current = kr.get("current", baseline)
+                        pct = _objective_kr_pct(baseline, target, current)
+                        print(f"  {kr['id']}: {kr.get('metric', '')} — {current}/{target} ({pct}%)")
+                    print(f"  Origin: objective {origin}")
+                    print()
+                    break
+    elif origin.startswith("I-"):
         if _s.exists(args.project, 'ideas') and _s.exists(args.project, 'objectives'):
             ideas_data = _s.load_data(args.project, 'ideas')
             obj_data = _s.load_data(args.project, 'objectives')
@@ -1572,6 +1636,12 @@ def cmd_context(args):
                           if d.get("linked_entity_type") == "idea"
                           and d.get("linked_entity_id") == task["origin"]]
             task_risks.extend(idea_risks)
+        # Also show risks from origin objective
+        if task.get("origin") and task["origin"].startswith("O-"):
+            obj_risks = [d for d in risk_decisions
+                         if d.get("linked_entity_type") == "objective"
+                         and d.get("linked_entity_id") == task["origin"]]
+            task_risks.extend(obj_risks)
         if task_risks:
             print(f"### Active Risks ({len(task_risks)})")
             print()
@@ -1662,6 +1732,7 @@ def cmd_draft_plan(args):
     # Store draft (overwrite previous draft)
     tracker["draft_plan"] = {
         "source_idea_id": args.idea if hasattr(args, "idea") and args.idea else None,
+        "source_objective_id": args.objective if hasattr(args, "objective") and args.objective else None,
         "created": now_iso(),
         "tasks": draft_tasks,
     }
@@ -1671,6 +1742,8 @@ def cmd_draft_plan(args):
     print(f"## Draft Plan: {args.project}")
     if tracker["draft_plan"]["source_idea_id"]:
         print(f"Source idea: {tracker['draft_plan']['source_idea_id']}")
+    if tracker["draft_plan"].get("source_objective_id"):
+        print(f"Source objective: {tracker['draft_plan']['source_objective_id']}")
     print(f"Tasks in draft: {len(draft_tasks)}")
     print()
 
@@ -1696,6 +1769,8 @@ def cmd_show_draft(args):
     print(f"## Draft Plan: {args.project}")
     if draft.get("source_idea_id"):
         print(f"Source idea: {draft['source_idea_id']}")
+    if draft.get("source_objective_id"):
+        print(f"Source objective: {draft['source_objective_id']}")
     print(f"Created: {draft.get('created', '')}")
     print(f"Tasks: {len(draft['tasks'])}")
     print()
@@ -1718,6 +1793,7 @@ def cmd_approve_plan(args):
 
     draft_tasks = draft["tasks"]
     source_idea_id = draft.get("source_idea_id")
+    source_objective_id = draft.get("source_objective_id")
 
     # Check for duplicate IDs against existing tasks
     existing_ids = {t["id"] for t in tracker["tasks"]}
@@ -1730,7 +1806,8 @@ def cmd_approve_plan(args):
     # Build task entries (same logic as cmd_add_tasks)
     entries = []
     for t in draft_tasks:
-        entry = _build_task_entry(t, source_idea_id=source_idea_id)
+        entry = _build_task_entry(t, source_idea_id=source_idea_id,
+                                  source_objective_id=source_objective_id)
         entries.append(entry)
 
     # Validate DAG
@@ -1874,6 +1951,7 @@ def main():
     p.add_argument("project")
     p.add_argument("--data", required=True, help="JSON array of tasks (same format as add-tasks)")
     p.add_argument("--idea", default=None, help="Source idea ID (I-NNN)")
+    p.add_argument("--objective", default=None, help="Source objective ID (O-NNN)")
 
     p = sub.add_parser("show-draft", help="Show current draft plan")
     p.add_argument("project")

@@ -104,7 +104,7 @@ CONTRACTS = {
                                  "risk", "feasibility"},
             "severity": {"HIGH", "MEDIUM", "LOW"},
             "likelihood": {"HIGH", "MEDIUM", "LOW"},
-            "linked_entity_type": {"idea", "task"},
+            "linked_entity_type": {"idea", "task", "objective"},
         },
         "types": {
             "alternatives": list,
@@ -117,7 +117,7 @@ CONTRACTS = {
             "ready_for_tracker": bool,
         },
         "invariant_texts": [
-            "task_id must reference an existing task in the pipeline, or idea ID (I-NNN), or special: PLANNING, ONBOARDING, REVIEW, DISCOVERY",
+            "task_id must reference an existing task in the pipeline, or idea ID (I-NNN), or objective ID (O-NNN), or special: PLANNING, ONBOARDING, REVIEW, DISCOVERY",
             "OPEN decisions need human review before proceeding",
             "CLOSED decisions with decided_by='user' are Priority 0 overrides",
             "",
@@ -133,8 +133,8 @@ CONTRACTS = {
             "For type=risk:",
             "  severity: HIGH (project-threatening), MEDIUM (significant), LOW (minor)",
             "  likelihood: HIGH (probable), MEDIUM (possible), LOW (unlikely)",
-            "  linked_entity_type: 'idea' for exploration-phase, 'task' for execution-phase",
-            "  linked_entity_id: ID of linked entity (I-NNN or T-NNN)",
+            "  linked_entity_type: 'idea' for exploration-phase, 'task' for execution-phase, 'objective' for objective-level research",
+            "  linked_entity_id: ID of linked entity (I-NNN, T-NNN, or O-NNN)",
             "  mitigation_plan: how to reduce/eliminate the risk",
             "  resolution_notes: how the risk was resolved (when closing)",
         ],
@@ -676,6 +676,13 @@ def _validate_linked_entity(project: str, d: dict):
             task_ids = {t["id"] for t in tracker_data.get("tasks", [])}
             if entity_id not in task_ids:
                 print(f"WARNING: Task '{entity_id}' not found in tracker.json",
+                      file=sys.stderr)
+    elif entity_type == "objective":
+        if _s.exists(project, 'objectives'):
+            obj_data = _s.load_data(project, 'objectives')
+            obj_ids = {o["id"] for o in obj_data.get("objectives", [])}
+            if entity_id not in obj_ids:
+                print(f"WARNING: Objective '{entity_id}' not found in objectives.json",
                       file=sys.stderr)
 
 

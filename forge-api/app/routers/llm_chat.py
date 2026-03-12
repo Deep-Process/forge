@@ -1,4 +1,4 @@
-"""LLM Chat router — provider management, config, and connection testing."""
+"""LLM Chat router — chat endpoint, provider management, config, sessions."""
 
 from __future__ import annotations
 
@@ -6,10 +6,17 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
-from app.dependencies import get_llm_config, get_provider_registry, get_session_manager
+from app.dependencies import (
+    get_llm_config,
+    get_provider_registry,
+    get_session_manager,
+    get_storage,
+    get_tool_registry,
+    get_event_bus,
+)
 from app.models.llm_config import LLMConfigUpdate
 
 router = APIRouter(prefix="/llm", tags=["llm"])
@@ -40,8 +47,229 @@ class ProviderInfo(BaseModel):
     status: str = "unchecked"
 
 
+class ChatRequest(BaseModel):
+    """Request body for POST /llm/chat."""
+
+    message: str = Field(..., min_length=1, max_length=10_000)
+    context_type: str = Field(default="global", description="Entity context type")
+    context_id: str = Field(default="", description="Entity ID (e.g., SK-001)")
+    project: str = Field(default="", description="Project slug")
+    session_id: str | None = Field(default=None, description="Resume existing session")
+    model: str | None = Field(default=None, description="Override model")
+
+
+class ChatResponse(BaseModel):
+    """Response from POST /llm/chat."""
+
+    session_id: str
+    content: str
+    model: str = ""
+    iterations: int = 0
+    tool_calls: list[dict[str, Any]] = []
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    stop_reason: str = ""
+
+
 # ---------------------------------------------------------------------------
-# Endpoints
+# Chat endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/chat")
+async def chat(
+    request: Request,
+    body: ChatRequest,
+    config=Depends(get_llm_config),
+    registry=Depends(get_provider_registry),
+    tool_registry=Depends(get_tool_registry),
+    session_manager=Depends(get_session_manager),
+    storage=Depends(get_storage),
+    event_bus=Depends(get_event_bus),
+) -> ChatResponse:
+    """Send a message to LLM and get a response with tool-use support.
+
+    Orchestrates: session → context → permissions → agent loop → save.
+    Emits WS events for real-time streaming.
+    """
+    from core.llm.provider import CompletionConfig, Message, ProviderError
+    from app.llm.agent_loop import AgentLoop, StreamEvent
+    from app.llm.context_resolver import ContextResolver
+    from app.llm.permissions import PermissionEngine
+
+    # --- Check feature flag ---
+    _CONTEXT_FLAG_MAP = {
+        "skill": "skills", "task": "tasks", "objective": "objectives",
+        "idea": "ideas", "knowledge": "knowledge", "guideline": "guidelines",
+        "decision": "decisions", "lesson": "lessons", "project": "projects",
+        "ac_template": "ac_templates",
+    }
+    if body.context_type != "global":
+        flag_name = _CONTEXT_FLAG_MAP.get(body.context_type)
+        if flag_name:
+            flags = config.feature_flags
+            if hasattr(flags, flag_name) and not getattr(flags, flag_name, False):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"LLM chat is disabled for module '{body.context_type}'. "
+                           f"Enable it in Settings > LLM > Feature Flags.",
+                )
+
+    # --- Resolve provider ---
+    provider_name = config.default_provider
+    try:
+        provider = registry.get(provider_name)
+    except ProviderError as e:
+        raise HTTPException(status_code=503, detail=f"LLM provider not available: {e}")
+
+    caps = provider.capabilities()
+    model = body.model or config.default_model or caps.model_id
+
+    # --- Load or create session ---
+    from app.llm.session_manager import ChatMessage
+
+    session = None
+    if body.session_id:
+        session = await session_manager.load(body.session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session '{body.session_id}' not found or expired",
+            )
+
+    if session is None:
+        session = await session_manager.create(
+            context_type=body.context_type,
+            context_id=body.context_id,
+            project=body.project,
+            model=model,
+        )
+
+    # --- Add user message to session and build conversation ---
+    session.messages.append(ChatMessage(role="user", content=body.message))
+    await session_manager.save(session)
+
+    messages: list[Message] = [
+        Message(role=msg.role, content=msg.content)
+        for msg in session.messages
+    ]
+
+    # --- Resolve context for system prompt ---
+    resolver = ContextResolver(storage)
+    context_payload = await resolver.resolve(
+        context_type=body.context_type,
+        context_id=body.context_id,
+        project=body.project,
+    )
+    system_prompt = context_payload.to_system_prompt()
+
+    # --- Build permissions ---
+    permissions = PermissionEngine.load_permissions(config)
+
+    # --- Build completion config ---
+    completion_config = CompletionConfig(
+        model=model,
+        temperature=0.3,
+        max_tokens=caps.max_output_tokens,
+        system_prompt=system_prompt,
+    )
+
+    # --- Event callback (emit WS events) ---
+    async def on_event(event: StreamEvent) -> None:
+        if event_bus is None:
+            return
+        slug = body.project or "_global"
+        event_type_map = {
+            "token": "chat.token",
+            "thinking": "chat.token",
+            "tool_call": "chat.tool_call",
+            "tool_result": "chat.tool_result",
+            "complete": "chat.complete",
+            "error": "chat.error",
+        }
+        ws_event = event_type_map.get(event.type)
+        if ws_event:
+            try:
+                await event_bus.emit(slug, ws_event, {
+                    "session_id": session.session_id,
+                    **event.data,
+                })
+            except Exception:
+                logger.debug("Failed to emit WS event %s for session %s",
+                             ws_event, session.session_id, exc_info=True)
+
+    # --- Run agent loop ---
+    loop = AgentLoop(
+        provider=provider,
+        tool_registry=tool_registry,
+        storage=storage,
+        permissions=permissions.permissions,
+        max_iterations=config.max_iterations_per_turn,
+        max_total_tokens=config.max_tokens_per_session,
+    )
+
+    try:
+        result = await loop.run(
+            messages=messages,
+            config=completion_config,
+            context={
+                "context_type": body.context_type,
+                "context_id": body.context_id,
+                "project": body.project,
+            },
+            on_event=on_event,
+        )
+    except Exception as e:
+        # Save error message to keep conversation structure valid
+        logger.exception("Agent loop failed for session %s", session.session_id)
+        error_msg = f"[Error: {type(e).__name__}]"
+        await session_manager.add_message(
+            session_id=session.session_id,
+            role="assistant",
+            content=error_msg,
+        )
+        raise HTTPException(status_code=500, detail=f"Chat failed: {type(e).__name__}")
+
+    # --- Save assistant response to session ---
+    tool_calls_data = [
+        {"name": tc["name"], "input": tc["input"]}
+        for tc in result.tool_calls_made
+    ]
+
+    await session_manager.add_message(
+        session_id=session.session_id,
+        role="assistant",
+        content=result.content,
+        tool_calls=tool_calls_data or None,
+        tokens_used=result.total_output_tokens,
+        is_input=False,
+    )
+
+    # Update session token counters
+    await session_manager.update_tokens(
+        session_id=session.session_id,
+        input_tokens=result.total_input_tokens,
+        output_tokens=result.total_output_tokens,
+        cost_per_1k_input=caps.cost_per_1k_input,
+        cost_per_1k_output=caps.cost_per_1k_output,
+    )
+
+    return ChatResponse(
+        session_id=session.session_id,
+        content=result.content,
+        model=result.model,
+        iterations=result.iterations,
+        tool_calls=[
+            {"name": tc["name"], "input": tc["input"], "result": tc.get("result")}
+            for tc in result.tool_calls_made
+        ],
+        total_input_tokens=result.total_input_tokens,
+        total_output_tokens=result.total_output_tokens,
+        stop_reason=result.stop_reason,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Provider endpoints
 # ---------------------------------------------------------------------------
 
 @router.get("/providers")

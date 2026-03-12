@@ -98,6 +98,24 @@ def _convert_messages(messages: list[Message], config: CompletionConfig) -> list
                 "tool_call_id": msg.tool_call_id or "",
                 "content": msg.content,
             })
+        elif msg.role == "assistant" and msg.tool_calls:
+            # Reconstruct assistant message with OpenAI tool_calls format
+            m: dict[str, Any] = {
+                "role": "assistant",
+                "content": msg.content or None,
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": json.dumps(tc["input"]) if isinstance(tc["input"], dict) else tc["input"],
+                        },
+                    }
+                    for tc in msg.tool_calls
+                ],
+            }
+            api_msgs.append(m)
         else:
             api_msgs.append({
                 "role": msg.role,
@@ -172,19 +190,20 @@ class OpenAIProvider:
         choice = response.choices[0]
         content = choice.message.content or ""
 
-        # Include tool calls in content if present
+        # Extract structured tool calls
+        tool_calls: list[dict] = []
         if choice.message.tool_calls:
-            tool_results = []
             for tc in choice.message.tool_calls:
-                tool_results.append({
-                    "tool_call": {
-                        "id": tc.id,
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    }
+                # Parse arguments JSON string to dict
+                try:
+                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                except (json.JSONDecodeError, TypeError):
+                    args = {"_raw": tc.function.arguments}
+                tool_calls.append({
+                    "id": tc.id,
+                    "name": tc.function.name,
+                    "input": args,
                 })
-            if tool_results:
-                content += json.dumps(tool_results)
 
         usage = TokenUsage()
         if response.usage:
@@ -193,11 +212,17 @@ class OpenAIProvider:
                 output_tokens=response.usage.completion_tokens,
             )
 
+        # Normalize stop_reason: OpenAI "tool_calls" → "tool_use"
+        stop_reason = choice.finish_reason or ""
+        if stop_reason == "tool_calls":
+            stop_reason = "tool_use"
+
         return CompletionResult(
             content=content,
             model=response.model or model,
             usage=usage,
-            stop_reason=choice.finish_reason or "",
+            stop_reason=stop_reason,
+            tool_calls=tool_calls,
         )
 
     async def stream(

@@ -16,6 +16,7 @@ import { useLessonStore } from "./lessonStore";
 import { useACTemplateStore } from "./acTemplateStore";
 import { useGateStore } from "./gateStore";
 import { useSkillStore } from "./skillStore";
+import { useChatStore } from "./chatStore";
 import { isRecentMutation } from "@/lib/mutationTracker";
 import { useToastStore } from "./toastStore";
 import { useActivityStore } from "./activityStore";
@@ -73,6 +74,12 @@ export function dispatchWsEvent(event: ForgeEvent): void {
 
   // Track last event timestamp for connection status monitoring
   _lastEventTimestamp = new Date().toISOString();
+
+  // Chat events go directly to chatStore (not entity stores)
+  if (prefix === "chat") {
+    useChatStore.getState().handleWsEvent(event);
+    return;
+  }
 
   // Skip SWR revalidation if this is an echo of our own mutation
   const skipSWR = entityId ? isRecentMutation(entityId) : false;

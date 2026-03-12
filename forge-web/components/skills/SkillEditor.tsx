@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { skills as skillsApi, ApiError, fetchBlob } from "@/lib/api";
+import useSWR from "swr";
+import { skills as skillsApi, ApiError, fetchBlob, llm } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { Button } from "@/components/shared/Button";
 import { GenerateSkillModal } from "@/components/skills/GenerateSkillModal";
+import LLMChat from "@/components/ai/LLMChat";
 import { parseFrontmatter } from "@/lib/utils/parseFrontmatter";
 import { getCategoryColor, categoryLabel } from "@/lib/utils/categoryColors";
 import type {
@@ -15,6 +17,7 @@ import type {
   SkillUsageEntry,
   TESLintFinding,
   PromotionHistoryEntry,
+  LLMConfig,
 } from "@/lib/types";
 
 type Tab = "metadata" | "evals" | "lint" | "history" | "usage";
@@ -23,6 +26,8 @@ const CATEGORIES = [
   "workflow", "analysis", "generation", "validation", "integration",
   "refactoring", "testing", "deployment", "documentation", "custom",
 ];
+
+const AI_PANEL_KEY = "forge:skill-editor:ai-panel";
 
 const validTransitions: Record<string, SkillStatus[]> = {
   DRAFT: ["DEPRECATED"],
@@ -80,6 +85,22 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
 
   // Generate modal
   const [showGenerate, setShowGenerate] = useState(false);
+
+  // AI chat panel
+  const [aiOpen, setAiOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(AI_PANEL_KEY) === "1";
+  });
+  const { data: llmConfig } = useSWR<LLMConfig>("llm-config", () => llm.getConfig());
+  const aiEnabled = llmConfig?.feature_flags?.skills ?? false;
+
+  const toggleAi = useCallback(() => {
+    setAiOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(AI_PANEL_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   // Auto-parse frontmatter on content change (debounced)
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -273,6 +294,20 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
         >
           Generate with AI
         </Button>
+
+        {aiEnabled && skill && (
+          <Button
+            size="sm"
+            variant={aiOpen ? "primary" : "secondary"}
+            onClick={toggleAi}
+            title={aiOpen ? "Hide AI Chat" : "Show AI Chat"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 inline-block mr-1">
+              <path fillRule="evenodd" d="M3.43 2.524A41.29 41.29 0 0110 2c2.236 0 4.43.18 6.57.524 1.437.231 2.43 1.49 2.43 2.902v5.148c0 1.413-.993 2.67-2.43 2.902a41.102 41.102 0 01-3.55.414c-.28.02-.521.18-.643.413l-1.712 3.293a.75.75 0 01-1.33 0l-1.713-3.293a.783.783 0 00-.642-.413 41.108 41.108 0 01-3.55-.414C1.993 13.245 1 11.986 1 10.574V5.426c0-1.413.993-2.67 2.43-2.902z" clipRule="evenodd"/>
+            </svg>
+            AI Chat
+          </Button>
+        )}
 
         {skill && (
           <Button size="sm" variant="secondary" onClick={handleExport}>
@@ -652,6 +687,35 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
             )}
           </div>
         </div>
+
+        {/* AI Chat panel — collapsible third column */}
+        {aiEnabled && skill && aiOpen && (
+          <>
+            {/* Desktop: inline panel */}
+            <div className="hidden xl:flex w-96 flex-shrink-0 flex-col border-l bg-white">
+              <LLMChat
+                contextType="skill"
+                contextId={skill.id}
+                className="h-full border-0 rounded-none"
+              />
+            </div>
+            {/* Mobile/tablet: overlay drawer */}
+            <div className="xl:hidden fixed inset-0 z-50 flex">
+              <div className="flex-1 bg-black/30" onClick={toggleAi} />
+              <div className="w-96 max-w-full flex flex-col bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b px-3 py-2">
+                  <span className="text-sm font-medium text-gray-700">AI Chat</span>
+                  <button onClick={toggleAi} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+                </div>
+                <LLMChat
+                  contextType="skill"
+                  contextId={skill.id}
+                  className="flex-1 border-0 rounded-none"
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Generate modal */}

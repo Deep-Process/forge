@@ -43,6 +43,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | W5 | `python -m core.pipeline init {slug} --goal "..."` | Creates project if none exists | Step 6 — before recording | — |
 | W6 | `python -m core.ideas update {project} --data '{json}'` | Updates idea status to EXPLORING | Step 6 — if idea-scoped | `ideas:update` |
 | W7 | Write `forge_output/{project}/research/{skill}-{slug}.md` | Persists full deep-* analysis output | Step 5 — after each skill completes | — |
+| W8 | `python -m core.research add {project} --data '{json}'` | Creates R-NNN research object | Step 5 — after writing research file | `research:add` |
+| W9 | `python -m core.research update {project} --data '{json}'` | Updates R-NNN (add decision_ids, set ACTIVE) | Step 6 — after recording decisions | `research:update` |
 
 ## Output
 
@@ -51,6 +53,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | `forge_output/{project}/decisions.json` | All discovery findings: standard decisions (W1), exploration decisions (W3), and risk decisions (W4) | W1, W3, W4 |
 | `forge_output/{project}/lessons.json` | Discovery insights (if significant) | W2 |
 | `forge_output/{project}/research/*.md` | Full deep-* analysis outputs (option maps, risk registers, ADRs, feasibility scores) | W7 |
+| `forge_output/{project}/research.json` | Structured research objects (R-NNN) linking analyses to entities | W8, W9 |
 
 ## Success Criteria
 
@@ -205,6 +208,26 @@ Decision: {D-NNN} (linked after Step 6)
 
 This file persists across sessions. When context compresses, the full analysis is recoverable from disk.
 
+After writing the research file, create a structured R-NNN research object (W8):
+
+```bash
+python -m core.research add {project} --data '[{
+  "title": "{Skill Name} Analysis: {topic}",
+  "topic": "{key question being explored}",
+  "category": "{architecture|domain|feasibility|risk|business|technical}",
+  "summary": "{1-3 sentence summary of this analysis phase}",
+  "linked_entity_type": "{objective|idea}",
+  "linked_entity_id": "{O-NNN or I-NNN}",
+  "skill": "{deep-explore|deep-risk|deep-architect|deep-feasibility}",
+  "file_path": "research/{skill-name}-{slug}.md",
+  "key_findings": ["{finding 1}", "{finding 2}"],
+  "scopes": ["{from entity scopes}"],
+  "tags": ["{topic keywords}"]
+}]'
+```
+
+This creates a DRAFT research object. It will be updated to ACTIVE with decision_ids after Step 6.
+
 4. **Aggregate** — combine outputs per deep-orchestration Step 5
 
 Track execution:
@@ -232,7 +255,13 @@ Determine the context for recording:
 ```bash
 python -m core.ideas update {project} --data '[{"id": "{idea_id}", "status": "EXPLORING"}]'
 ```
-- If discovering a **general topic** (no idea): use `"DISCOVERY"` as task_id.
+- If discovering for a **specific objective** (e.g., `/discover O-001`): use `"DISCOVERY"` as `task_id` for decisions (objectives are not valid task_ids). Set `linked_entity_type: "objective"` and `linked_entity_id: "O-001"` on risk decisions. Load the objective context:
+```bash
+python -m core.objectives show {project} {objective_id}
+python -m core.ideas read {project} --status APPROVED
+```
+Filter to ideas advancing this objective — their exploration notes provide additional context.
+- If discovering a **general topic** (no idea, no objective): use `"DISCOVERY"` as task_id.
 
 **a. Record exploration decisions (W3):**
 
@@ -319,6 +348,22 @@ python -m core.lessons add {project} --data '[{
   "tags": ["discovery", "{topic}"]
 }]'
 ```
+
+**e. Update research objects with decision IDs (W9):**
+
+After recording all decisions, link them to the corresponding R-NNN research objects created in Step 5:
+
+```bash
+python -m core.research update {project} --data '[{
+  "id": "R-001",
+  "decision_ids": ["D-001", "D-002", "D-003"],
+  "status": "ACTIVE"
+}]'
+```
+
+This marks the research as ACTIVE (ready for context loading) and establishes bidirectional linking:
+- Research → Decisions (via `decision_ids`)
+- Decisions → Research (via `evidence_refs`)
 
 ---
 

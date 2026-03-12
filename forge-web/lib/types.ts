@@ -930,3 +930,104 @@ export interface DebugStatus {
   project: string;
   session_count: number;
 }
+
+// ---------------------------------------------------------------------------
+// LLM Chat
+// ---------------------------------------------------------------------------
+
+export type ChatRole = "user" | "assistant" | "system" | "tool";
+
+export interface ChatToolCall {
+  name: string;
+  input: Record<string, unknown>;
+  result?: Record<string, unknown>;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  toolCalls?: ChatToolCall[];
+  streaming?: boolean;
+  created_at: string;
+}
+
+export interface ChatSession {
+  session_id: string;
+  context_type: string;
+  context_id: string;
+  project: string;
+  messages: ChatMessage[];
+  model_used: string;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  estimated_cost: number;
+  message_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatSendRequest {
+  message: string;
+  context_type?: string;
+  context_id?: string;
+  project?: string;
+  session_id?: string | null;
+  model?: string | null;
+}
+
+export interface ChatSendResponse {
+  session_id: string;
+  content: string;
+  model: string;
+  iterations: number;
+  tool_calls: ChatToolCall[];
+  total_input_tokens: number;
+  total_output_tokens: number;
+  stop_reason: string;
+}
+
+export interface LLMProvider {
+  name: string;
+  provider_type: string;
+  default_model: string;
+  status: string;
+}
+
+export interface LLMProviderTestResult {
+  provider: string;
+  status: string;
+  model?: string | null;
+  latency_ms?: number | null;
+  message?: string | null;
+  error?: string | null;
+}
+
+export interface LLMFeatureFlags {
+  skills: boolean;
+  objectives: boolean;
+  ideas: boolean;
+  tasks: boolean;
+  knowledge: boolean;
+  guidelines: boolean;
+  decisions: boolean;
+  lessons: boolean;
+  ac_templates: boolean;
+  projects: boolean;
+}
+
+export interface LLMModulePermission {
+  read: boolean;
+  write: boolean;
+  delete: boolean;
+}
+
+export interface LLMConfig {
+  default_provider: string;
+  default_model: string | null;
+  feature_flags: LLMFeatureFlags;
+  permissions: Record<string, LLMModulePermission>;
+  max_tokens_per_session: number;
+  max_iterations_per_turn: number;
+  session_ttl_hours: number;
+}

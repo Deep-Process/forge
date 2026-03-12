@@ -25,6 +25,11 @@ Objective O-001 "Reduce API response time"         ← NORTH STAR (why)
 │               derived_from: O-001                    loaded into task context via scopes
 │               scope: performance, weight: must
 │
+├──researched by──→ Research R-001 "Caching options"  ← ANALYSIS (what was found)
+│  │                 linked_entity: O-001
+│  │                 file: research/deep-explore-caching.md
+│  │                 decisions: [D-001, D-002]
+│  │
 ├──advances──→ Idea I-001 "Redis caching"           ← PROPOSALS (what to build)
 │  │             advances_key_results: [O-001/KR-1]
 │  │             scopes: [backend, performance]  ← inherited from O-001
@@ -33,11 +38,12 @@ Objective O-001 "Reduce API response time"         ← NORTH STAR (why)
 │  ├──risk──→ Decision D-002 (risk)                   linked via task_id: I-001
 │  │
 │  └──committed to──→ Task T-001 "setup-redis"      ← EXECUTION (do it)
-│     │                 origin: I-001
+│     │                 origin: I-001 (or O-001 if planned from objective)
 │     │                 scopes: [backend]
 │     │
 │     ├──context loads──→ Guidelines (by scopes)
 │     │                   Business Context (O-001 + KR progress)
+│     │                   Research (from origin idea/objective)
 │     │                   Dependency outputs
 │     │                   Active risks from I-001
 │     │
@@ -61,15 +67,17 @@ Task T-001
   ├─ task.scopes ──→ load Guidelines matching scopes
   │                  + global guidelines (always)
   │
-  ├─ task.origin ──→ Idea I-001
-  │   └─ idea.advances_key_results ──→ Objective O-001
-  │       └─ show: title, KR progress, status (Business Context)
+  ├─ task.origin ──→ Idea I-001 or Objective O-001
+  │   ├─ idea.advances_key_results ──→ Objective O-001
+  │   │   └─ show: title, KR progress, status (Business Context)
+  │   └─ Research R-NNN (linked to origin idea/objective)
+  │       └─ summary, key_findings, decision_ids
   │
   ├─ task.depends_on ──→ completed tasks
   │   ├─ their Changes (files modified)
   │   └─ their Decisions (choices made)
   │
-  ├─ task.origin (I-*) ──→ active Risk decisions
+  ├─ task.origin (I-* or O-*) ──→ active Risk decisions
   │
   └─ task.blocked_by_decisions ──→ must be CLOSED before start
 ```
@@ -88,7 +96,7 @@ Outcome:    KR current vs target      →  "KR-1: 61%, KR-2: 89%"
 ```
 python -m core.pipeline init {project} --goal "..."      Create project
 python -m core.pipeline add-tasks {project} --data '...' Add tasks (direct, bypasses draft)
-python -m core.pipeline draft-plan {project} --data '...' [--idea I-NNN]  Store draft plan for review
+python -m core.pipeline draft-plan {project} --data '...' [--idea I-NNN] [--objective O-NNN]  Store draft plan for review
 python -m core.pipeline show-draft {project}             Show current draft plan
 python -m core.pipeline approve-plan {project}           Approve draft → materialize tasks
 python -m core.pipeline update-task {project} --data '{...}' Update existing task
@@ -213,6 +221,25 @@ python -m core.knowledge contract add                              Show add cont
 - Impact analysis: scans tracker, ideas, objectives for references to K-NNN
 - Tasks and ideas can reference knowledge via `knowledge_ids: ["K-001"]`
 - Lessons can be promoted to knowledge via `lessons promote-knowledge`
+
+### Research (structured analysis output — R-NNN)
+```
+python -m core.research add {project} --data '[...]'                      Add research objects
+python -m core.research read {project} [--status X] [--category X] [--entity X]  Read/filter
+python -m core.research show {project} {research_id}                      Show details
+python -m core.research update {project} --data '[...]'                   Update (status, findings)
+python -m core.research context {project} --entity {O-001|I-001}          Research for LLM context
+python -m core.research contract {name}                                   Show contract spec
+```
+
+- Categories: architecture, domain, feasibility, risk, business, technical
+- Status lifecycle: DRAFT → ACTIVE → SUPERSEDED | ARCHIVED
+- Links to objectives or ideas via `linked_entity_type` + `linked_entity_id`
+- `linked_idea_id`: secondary idea link when primary entity is an objective
+- `decision_ids`: D-NNN IDs that originated from this research (bidirectional with `evidence_refs`)
+- `file_path`: path to research markdown file (relative to project dir)
+- `key_findings`: bullet-point summary of findings
+- Created by `/discover`, loaded by `pipeline context` and `/plan`
 
 ### AC Templates (reusable acceptance criteria — AC-NNN)
 ```
@@ -449,3 +476,4 @@ All Forge state goes to `forge_output/{project}/`:
 - `objectives.json` — business objectives with key results
 - `knowledge.json` — knowledge objects (domain rules, patterns, context)
 - `ac_templates.json` — acceptance criteria templates (reusable, parameterized)
+- `research.json` — research objects (R-NNN, structured analysis from /discover)
