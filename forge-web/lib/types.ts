@@ -860,6 +860,13 @@ export interface BulkLintResult {
   failed: number;
 }
 
+export interface SkillUsageEntry {
+  project: string;
+  task_id: string;
+  task_name: string;
+  status: string;
+}
+
 export interface SkillCategoryDef {
   key: string;
   label: string;

@@ -242,7 +242,7 @@ import type {
   AssessImpactResponse,
   DebugStatus, DebugSessionSummary, DebugSession,
   Skill, SkillCreate, SkillUpdate, LintResult, PromoteResult,
-  SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef,
+  SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef, SkillUsageEntry,
 } from "./types";
 
 // -- Projects --
@@ -496,6 +496,8 @@ export const skills = {
     create<{ skill_md_content: string; parsed_metadata: Record<string, unknown> }>("/skills/generate", data),
   importSkill: (data: SkillImportRequest) =>
     create<{ skill_id: string; name: string; parsed_frontmatter: Record<string, unknown> }>("/skills/import", data),
+  usage: (id: string) =>
+    get<{ skill_id: string; usage: SkillUsageEntry[]; count: number }>(`/skills/${id}/usage`),
   exportSkill: (id: string) =>
     fetchBlob(`/skills/${id}/export`),
   exportBulk: (skillIds?: string[], format: "json" | "zip" = "zip") =>

@@ -750,6 +750,36 @@ async def promote_skill(
 # Export (per-skill, parameterized)
 # ---------------------------------------------------------------------------
 
+@router.get("/{skill_id}/usage")
+async def skill_usage(skill_id: str, storage=Depends(get_storage)):
+    """Get tasks referencing this skill across all projects."""
+    data = await load_global_entity(storage, _ENTITY)
+    data = _ensure_data(data)
+    find_item_or_404(data["skills"], skill_id, "Skill")
+
+    from app.routers._helpers import load_entity
+    usage = []
+    try:
+        projects = await asyncio.to_thread(storage.list_projects)
+        for proj in projects:
+            try:
+                tracker = await load_entity(storage, proj, "tracker")
+                for task in tracker.get("tasks", []):
+                    if task.get("skill_id") == skill_id:
+                        usage.append({
+                            "project": proj,
+                            "task_id": task.get("id"),
+                            "task_name": task.get("name"),
+                            "status": task.get("status"),
+                        })
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    return {"skill_id": skill_id, "usage": usage, "count": len(usage)}
+
+
 @router.get("/{skill_id}/export")
 async def export_skill(skill_id: str, storage=Depends(get_storage)):
     """Export a skill as a downloadable .md file."""

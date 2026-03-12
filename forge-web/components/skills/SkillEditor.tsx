@@ -12,11 +12,12 @@ import type {
   Skill,
   SkillStatus,
   SkillUpdate,
+  SkillUsageEntry,
   TESLintFinding,
   PromotionHistoryEntry,
 } from "@/lib/types";
 
-type Tab = "metadata" | "evals" | "lint" | "history";
+type Tab = "metadata" | "evals" | "lint" | "history" | "usage";
 
 const CATEGORIES = [
   "workflow", "analysis", "generation", "validation", "integration",
@@ -73,6 +74,10 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   // Status change
   const [changingStatus, setChangingStatus] = useState(false);
 
+  // Usage tab
+  const [usageData, setUsageData] = useState<SkillUsageEntry[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+
   // Generate modal
   const [showGenerate, setShowGenerate] = useState(false);
 
@@ -85,6 +90,16 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
     }, 400);
     return () => clearTimeout(timerRef.current);
   }, [content]);
+
+  // Fetch usage when tab is selected
+  useEffect(() => {
+    if (tab !== "usage" || !skill) return;
+    setUsageLoading(true);
+    skillsApi.usage(skill.id)
+      .then((res) => setUsageData(res.usage))
+      .catch(() => setUsageData([]))
+      .finally(() => setUsageLoading(false));
+  }, [tab, skill]);
 
   const handleContentChange = (val: string) => {
     setContent(val);
@@ -225,6 +240,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
       { key: "evals" as Tab, label: `Evals (${skill.evals_json.length})` },
       { key: "lint" as Tab, label: "TESLint" },
       { key: "history" as Tab, label: `History (${skill.promotion_history.length})` },
+      { key: "usage" as Tab, label: `Usage (${skill.usage_count})` },
     ] : []),
   ];
 
@@ -570,6 +586,31 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
                         </div>
                         <p className="mt-1">{f.message}</p>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Usage tab */}
+            {tab === "usage" && skill && (
+              <div>
+                {usageLoading ? (
+                  <p className="text-xs text-gray-400">Loading usage data...</p>
+                ) : usageData.length === 0 ? (
+                  <p className="text-xs text-gray-400">No tasks reference this skill yet.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {usageData.map((u) => (
+                      <a
+                        key={`${u.project}-${u.task_id}`}
+                        href={`/projects/${u.project}/tasks/${u.task_id}`}
+                        className="flex items-center gap-2 rounded border bg-white p-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="text-xs font-mono text-forge-600">{u.task_id}</span>
+                        <span className="text-xs text-gray-700 truncate flex-1">{u.task_name}</span>
+                        <Badge variant={statusVariant(u.status)}>{u.status}</Badge>
+                      </a>
                     ))}
                   </div>
                 )}
