@@ -777,17 +777,19 @@ export interface SkillFile {
 }
 
 export interface Skill {
-  id: string;
   name: string;
   description: string;
-  category: SkillCategory;
+  categories: string[];
   status: SkillStatus;
   skill_md_content: string | null;
+  version: string;
+  allowed_tools: string[];
   evals_json: Array<Record<string, unknown>>;
-  resources: Record<string, unknown>;
+  files: SkillFile[];
   teslint_config: Record<string, unknown> | null;
   tags: string[];
   scopes: string[];
+  sync: boolean;
   promoted_with_warnings: boolean;
   promotion_history: PromotionHistoryEntry[];
   usage_count: number;
@@ -799,10 +801,9 @@ export interface Skill {
 export interface SkillCreate {
   name: string;
   description?: string;
-  category?: SkillCategory;
+  categories?: string[];
   skill_md_content?: string | null;
   evals_json?: Array<Record<string, unknown>>;
-  resources?: Record<string, unknown>;
   teslint_config?: Record<string, unknown> | null;
   tags?: string[];
   scopes?: string[];
@@ -810,20 +811,19 @@ export interface SkillCreate {
 }
 
 export interface SkillUpdate {
-  name?: string;
   description?: string;
-  category?: SkillCategory;
+  categories?: string[];
   status?: SkillStatus;
   skill_md_content?: string | null;
   evals_json?: Array<Record<string, unknown>>;
-  resources?: Record<string, unknown>;
   teslint_config?: Record<string, unknown> | null;
   tags?: string[];
   scopes?: string[];
+  sync?: boolean;
 }
 
 export interface ValidationResult {
-  skill_id: string;
+  name: string;
   valid: boolean;
   errors: string[];
   warnings: string[];
@@ -832,7 +832,7 @@ export interface ValidationResult {
 }
 
 export interface LintResult {
-  skill_id: string;
+  skill_name: string;
   success: boolean;
   passed: boolean;
   error_count: number;
@@ -843,7 +843,7 @@ export interface LintResult {
 }
 
 export interface PromoteResult {
-  skill_id: string;
+  name: string;
   status: string;
   promoted_with_warnings: boolean;
   gates: Array<{ gate: string; passed: boolean; detail: string }>;
@@ -851,7 +851,7 @@ export interface PromoteResult {
 
 export interface SkillGenerateRequest {
   description: string;
-  category?: string;
+  categories?: string[];
   examples?: string[];
   style_hints?: string;
 }
@@ -859,12 +859,11 @@ export interface SkillGenerateRequest {
 export interface SkillImportRequest {
   content: string;
   filename?: string;
-  category?: string;
+  categories?: string[];
 }
 
 export interface BulkLintResult {
   results: Array<{
-    skill_id: string;
     skill_name: string;
     status: string;
     passed: boolean;
@@ -875,6 +874,25 @@ export interface BulkLintResult {
   total: number;
   passed: number;
   failed: number;
+}
+
+export interface SkillGitStatus {
+  configured: boolean;
+  initialized?: boolean;
+  has_remote?: boolean;
+  branch?: string;
+  ahead?: number;
+  behind?: number;
+  local_changes?: string[];
+  last_commit?: string;
+  error?: string | null;
+  message?: string;
+}
+
+export interface SkillSyncResult {
+  success: boolean;
+  message: string;
+  files_changed?: number;
 }
 
 export interface SkillUsageEntry {

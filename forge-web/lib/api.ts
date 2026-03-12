@@ -248,7 +248,7 @@ import type {
   EvaluateLessonResponse,
   AssessImpactResponse,
   DebugStatus, DebugSessionSummary, DebugSession,
-  Skill, SkillCreate, SkillUpdate, SkillFile, ValidationResult, LintResult, PromoteResult,
+  Skill, SkillCreate, SkillUpdate, ValidationResult, LintResult, PromoteResult,
   SkillGenerateRequest, SkillImportRequest, BulkLintResult, SkillCategoryDef, SkillUsageEntry,
   ChatSendRequest, ChatSendResponse, ChatSession, ChatFileAttachment,
   LLMProvider, LLMProviderTestResult, LLMConfig,
@@ -483,51 +483,64 @@ export const ai = {
     ),
 };
 
-// -- Skills (global, no project slug) --
+// -- Skills (global, no project slug) — routed by name (slug) --
 export const skills = {
   list: (params?: Record<string, string>) =>
     list<{ skills: Skill[]; count: number }>("/skills", params),
-  create: (data: SkillCreate[]) =>
-    create<{ added: string[]; total: number }>("/skills", data),
-  get: (id: string) =>
-    get<Skill>(`/skills/${id}`),
-  update: (id: string, data: SkillUpdate) =>
-    update<Skill>(`/skills/${id}`, data),
-  remove: (id: string) =>
-    remove<{ removed: string }>(`/skills/${id}`),
-  validate: (id: string) =>
-    create<ValidationResult>(`/skills/${id}/validate`, {}),
-  lint: (id: string) =>
-    create<LintResult>(`/skills/${id}/lint`, {}),
+  create: (data: SkillCreate) =>
+    create<Skill>("/skills", data),
+  get: (name: string) =>
+    get<Skill>(`/skills/${name}`),
+  update: (name: string, data: SkillUpdate) =>
+    update<Skill>(`/skills/${name}`, data),
+  remove: (name: string) =>
+    remove<{ removed: string }>(`/skills/${name}`),
+  validate: (name: string) =>
+    create<ValidationResult>(`/skills/${name}/validate`, {}),
+  lint: (name: string) =>
+    create<LintResult>(`/skills/${name}/lint`, {}),
   lintAll: (params?: Record<string, string>) =>
     create<BulkLintResult>(`/skills/lint-all`, params ?? {}),
-  promote: (id: string, force: boolean = false) =>
-    create<PromoteResult>(`/skills/${id}/promote`, { force }),
+  promote: (name: string, force: boolean = false) =>
+    create<PromoteResult>(`/skills/${name}/promote`, { force }),
   generate: (data: SkillGenerateRequest) =>
     create<{ skill_md_content: string; parsed_metadata: Record<string, unknown> }>("/skills/generate", data),
   importSkill: (data: SkillImportRequest) =>
-    create<{ skill_id: string; name: string; parsed_frontmatter: Record<string, unknown> }>("/skills/import", data),
-  usage: (id: string) =>
-    get<{ skill_id: string; usage: SkillUsageEntry[]; count: number }>(`/skills/${id}/usage`),
-  exportSkill: (id: string) =>
-    fetchBlob(`/skills/${id}/export`),
-  exportBulk: (skillIds?: string[], format: "json" | "zip" = "zip") =>
-    create<Blob | { skills: Skill[]; count: number }>("/skills/export-bulk", { skill_ids: skillIds, format }),
+    create<{ name: string; parsed_frontmatter: Record<string, unknown> }>("/skills/import", data),
+  usage: (name: string) =>
+    get<{ name: string; usage: SkillUsageEntry[]; count: number }>(`/skills/${name}/usage`),
+  exportSkill: (name: string) =>
+    fetchBlob(`/skills/${name}/export`),
+  exportBulk: (names?: string[], format: "json" | "zip" = "zip") =>
+    create<Blob | { skills: Skill[]; count: number }>("/skills/export-bulk", { names, format }),
   categories: () =>
     get<{ categories: SkillCategoryDef[] }>("/skills/categories"),
   addCategory: (data: { key: string; label: string; color: string }) =>
     create<{ added: string; categories: SkillCategoryDef[] }>("/skills/categories", data),
   removeCategory: (key: string) =>
     remove<{ removed: string }>(`/skills/categories/${key}`),
-  // File CRUD (multi-file skills)
-  listFiles: (id: string) =>
-    get<{ skill_id: string; files: Array<{ path: string; file_type: string }>; count: number }>(`/skills/${id}/files`),
-  getFile: (id: string, path: string) =>
-    get<{ skill_id: string; path: string; content: string; file_type: string }>(`/skills/${id}/files/${path}`),
-  replaceFiles: (id: string, files: SkillFile[]) =>
-    put<{ skill_id: string; file_count: number }>(`/skills/${id}/files`, { files }),
-  deleteFile: (id: string, path: string) =>
-    remove<{ skill_id: string; deleted: string; remaining: number }>(`/skills/${id}/files/${path}`),
+  // File CRUD (real files on disk)
+  listFiles: (name: string) =>
+    get<{ name: string; files: Array<{ path: string; file_type: string; size: number }>; count: number }>(`/skills/${name}/files`),
+  getFile: (name: string, path: string) =>
+    get<{ name: string; path: string; content: string }>(`/skills/${name}/files/${path}`),
+  saveFile: (name: string, path: string, content: string) =>
+    put<{ name: string; path: string; saved: boolean }>(`/skills/${name}/files/${path}`, { content }),
+  deleteFile: (name: string, path: string) =>
+    remove<{ name: string; deleted: string }>(`/skills/${name}/files/${path}`),
+  moveFile: (name: string, oldPath: string, newPath: string) =>
+    create<{ name: string; moved: string; to: string }>(`/skills/${name}/files/move`, { old_path: oldPath, new_path: newPath }),
+  // Git sync
+  gitStatus: () =>
+    get<import("@/lib/types").SkillGitStatus>("/skills/git/status"),
+  gitPull: () =>
+    create<import("@/lib/types").SkillSyncResult>("/skills/git/pull", {}),
+  gitPush: (message: string = "Sync skills") =>
+    create<import("@/lib/types").SkillSyncResult>("/skills/git/push", { message }),
+  gitScan: () =>
+    create<{ resynced: number; skills: string[] }>("/skills/git/scan", {}),
+  gitInit: () =>
+    create<import("@/lib/types").SkillSyncResult>("/skills/git/init", {}),
 };
 
 // -- LLM Chat --
