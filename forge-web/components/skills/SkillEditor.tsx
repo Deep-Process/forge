@@ -56,6 +56,10 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   );
   const [formTags, setFormTags] = useState(skill?.tags?.join(", ") ?? "");
   const [formScopes, setFormScopes] = useState(skill?.scopes?.join(", ") ?? "");
+  const [formSync, setFormSync] = useState(skill?.sync ?? false);
+
+  // Sync to repo state
+  const [syncing, setSyncing] = useState(false);
 
   // Right panel tab
   const [tab, setTab] = useState<Tab>("metadata");
@@ -291,6 +295,7 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
           categories: formCategories,
           tags: formTags.split(",").map((t) => t.trim()).filter(Boolean),
           scopes: formScopes.split(",").map((s) => s.trim()).filter(Boolean),
+          sync: formSync,
         };
         await skillsApi.update(skill.name, data);
 
@@ -386,6 +391,26 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
     }
   };
 
+  // Sync to repo
+  const handleSyncToRepo = async () => {
+    if (!skill) return;
+    setSyncing(true);
+    setSaveError(null);
+    try {
+      // Ensure sync is enabled, save, then push
+      if (!formSync) {
+        setFormSync(true);
+        await skillsApi.update(skill.name, { sync: true });
+      }
+      await skillsApi.gitPush(`Sync ${skill.name}`);
+      onSaved?.();
+    } catch (e) {
+      setSaveError((e as Error).message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Delete
   const handleDelete = async () => {
     if (!skill) return;
@@ -426,9 +451,13 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
           <>
             <span className="text-xs text-gray-500 font-mono">{skill.name}</span>
             <Badge variant={statusVariant(skill.status)}>{skill.status}</Badge>
-            {skill.sync && (
-              <span className="text-[10px] text-blue-500" title="Synced to repo">
-                &#9729;
+            {formSync ? (
+              <span className="text-[10px] text-blue-500" title="Sync enabled — pushed to git repo">
+                &#9729; sync
+              </span>
+            ) : (
+              <span className="text-[10px] text-gray-400" title="Local only — not synced to git">
+                &#9729; local
               </span>
             )}
           </>
@@ -438,6 +467,17 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
         <div className="flex-1" />
 
         {/* Actions */}
+        {skill && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleSyncToRepo}
+            disabled={syncing}
+            title={formSync ? "Push to git repo" : "Enable sync and push"}
+          >
+            {syncing ? "Syncing..." : "Sync to Repo"}
+          </Button>
+        )}
         {skill && (
           <Button size="sm" variant="secondary" onClick={handleExport}>
             Export
@@ -734,6 +774,31 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
                         className="w-full rounded-md border px-2 py-1.5 text-sm focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
                       />
                     </div>
+
+                    {/* Sync toggle */}
+                    {!isCreate && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="block text-xs text-gray-500">Git Sync</label>
+                          <p className="text-[10px] text-gray-400">
+                            {formSync ? "Included in git push" : "Local only"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setFormSync(!formSync); setDirty(true); }}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            formSync ? "bg-blue-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                              formSync ? "translate-x-4.5" : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
