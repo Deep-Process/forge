@@ -193,6 +193,8 @@ class SessionManager:
     ) -> ChatMessage | None:
         """Add a message to a session and update token counters.
 
+        Uses per-session lock to prevent concurrent read-modify-write races.
+
         Args:
             session_id: Session to add to.
             role: Message role.
@@ -205,27 +207,28 @@ class SessionManager:
         Returns:
             The created ChatMessage, or None if session not found.
         """
-        session = await self.load(session_id)
-        if session is None:
-            return None
+        async with self._get_lock(session_id):
+            session = await self.load(session_id)
+            if session is None:
+                return None
 
-        message = ChatMessage(
-            role=role,
-            content=content,
-            tool_calls=tool_calls,
-            tool_results=tool_results,
-            tokens_used=tokens_used,
-        )
-        session.messages.append(message)
+            message = ChatMessage(
+                role=role,
+                content=content,
+                tool_calls=tool_calls,
+                tool_results=tool_results,
+                tokens_used=tokens_used,
+            )
+            session.messages.append(message)
 
-        # Update token counters
-        if is_input:
-            session.total_tokens_in += tokens_used
-        else:
-            session.total_tokens_out += tokens_used
+            # Update token counters
+            if is_input:
+                session.total_tokens_in += tokens_used
+            else:
+                session.total_tokens_out += tokens_used
 
-        await self._save(session)
-        return message
+            await self._save(session)
+            return message
 
     async def update_tokens(
         self,
@@ -237,6 +240,8 @@ class SessionManager:
     ) -> None:
         """Update token counters and cost estimation for a session.
 
+        Uses per-session lock to prevent concurrent read-modify-write races.
+
         Args:
             session_id: Session to update.
             input_tokens: Input tokens to add.
@@ -244,30 +249,39 @@ class SessionManager:
             cost_per_1k_input: Cost per 1K input tokens (USD).
             cost_per_1k_output: Cost per 1K output tokens (USD).
         """
-        session = await self.load(session_id)
-        if session is None:
-            return
+        async with self._get_lock(session_id):
+            session = await self.load(session_id)
+            if session is None:
+                return
 
-        session.total_tokens_in += input_tokens
-        session.total_tokens_out += output_tokens
-        session.estimated_cost += (
-            (input_tokens / 1000) * cost_per_1k_input
-            + (output_tokens / 1000) * cost_per_1k_output
-        )
-        await self._save(session)
+            session.total_tokens_in += input_tokens
+            session.total_tokens_out += output_tokens
+            session.estimated_cost += (
+                (input_tokens / 1000) * cost_per_1k_input
+                + (output_tokens / 1000) * cost_per_1k_output
+            )
+            await self._save(session)
 
     async def delete(self, session_id: str) -> bool:
         """Delete a session from Redis.
 
         Returns True if deleted, False if not found.
         """
+        # Load session first to get project for event emission
+        session = await self.load(session_id)
+        project = session.project if session else ""
+
         key = self._key(session_id)
         deleted = await self._redis.delete(key)
         await self._redis.srem(SESSION_INDEX_KEY, session_id)
 
+        # Clean up per-session lock
+        _session_locks.pop(session_id, None)
+
         if self._event_bus and deleted:
+            slug = project or "_global"
             try:
-                await self._event_bus.emit("_global", "llm.session_ended", {
+                await self._event_bus.emit(slug, "llm.session_ended", {
                     "session_id": session_id,
                 })
             except Exception:
