@@ -42,7 +42,7 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
 
 export default function LLMSettingsPage() {
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 max-w-4xl p-6">
       <div>
         <h2 className="text-lg font-semibold">LLM Settings</h2>
         <p className="text-sm text-gray-500 mt-1">

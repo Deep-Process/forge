@@ -154,7 +154,7 @@ export default function SkillsPage() {
   };
 
   return (
-    <div className="flex gap-6">
+    <div className="flex gap-6 p-6">
       {/* Category sidebar */}
       <aside className="w-48 flex-shrink-0 hidden lg:block">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
