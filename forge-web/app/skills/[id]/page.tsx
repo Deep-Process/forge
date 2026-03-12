@@ -34,7 +34,7 @@ export default function SkillDetailPage() {
   if (!skill) return <p className="text-sm text-gray-400 p-4">Not found</p>;
 
   return (
-    <div className="h-[calc(100vh-4rem)]">
+    <div className="h-full">
       <SkillEditor skill={skill} onSaved={fetchSkill} />
     </div>
   );

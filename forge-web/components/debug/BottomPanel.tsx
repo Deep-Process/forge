@@ -18,7 +18,7 @@ import { EventStream } from "./EventStream";
 const PANEL_HEIGHTS: Record<PanelState, string> = {
   collapsed: "h-10",
   expanded: "h-[33vh]",
-  fullscreen: "h-[calc(100vh-3rem)]",
+  fullscreen: "h-[calc(100vh-var(--topnav-height))]",
 };
 
 const TABS: Array<{ id: DebugTab; label: string }> = [

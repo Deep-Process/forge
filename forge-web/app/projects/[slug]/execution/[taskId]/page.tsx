@@ -129,7 +129,7 @@ export default function ExecutionPage() {
   const task = ctx?.task;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
