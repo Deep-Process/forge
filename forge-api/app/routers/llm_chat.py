@@ -47,6 +47,24 @@ class ProviderInfo(BaseModel):
     status: str = "unchecked"
 
 
+# Scope (frontend plural) → context_type (backend singular) mapping
+SCOPE_TO_CONTEXT_TYPE: dict[str, str] = {
+    "skills": "skill",
+    "tasks": "task",
+    "objectives": "objective",
+    "ideas": "idea",
+    "decisions": "decision",
+    "knowledge": "knowledge",
+    "guidelines": "guideline",
+    "lessons": "lesson",
+    "projects": "project",
+    "ac_templates": "ac_template",
+    "changes": "change",
+    "dashboard": "global",
+    "settings": "global",
+}
+
+
 class ChatRequest(BaseModel):
     """Request body for POST /llm/chat."""
 
@@ -56,6 +74,8 @@ class ChatRequest(BaseModel):
     project: str = Field(default="", description="Project slug")
     session_id: str | None = Field(default=None, description="Resume existing session")
     model: str | None = Field(default=None, description="Override model")
+    scopes: list[str] | None = Field(default=None, description="Frontend scopes (mapped to context_types)")
+    disabled_capabilities: list[str] | None = Field(default=None, description="Tool names to disable")
 
 
 class ChatResponse(BaseModel):
@@ -197,12 +217,23 @@ async def chat(
                 logger.debug("Failed to emit WS event %s for session %s",
                              ws_event, session.session_id, exc_info=True)
 
+    # --- Resolve context_types from scopes (if provided) ---
+    context_types: str | list[str] = body.context_type
+    if body.scopes:
+        mapped = []
+        for scope in body.scopes:
+            ct = SCOPE_TO_CONTEXT_TYPE.get(scope, scope)
+            if ct not in mapped:
+                mapped.append(ct)
+        context_types = mapped if mapped else body.context_type
+
     # --- Run agent loop ---
     loop = AgentLoop(
         provider=provider,
         tool_registry=tool_registry,
         storage=storage,
         permissions=permissions.permissions,
+        disabled_tools=body.disabled_capabilities,
         max_iterations=config.max_iterations_per_turn,
         max_total_tokens=config.max_tokens_per_session,
     )
@@ -213,6 +244,7 @@ async def chat(
             config=completion_config,
             context={
                 "context_type": body.context_type,
+                "context_types": context_types,
                 "context_id": body.context_id,
                 "project": body.project,
             },

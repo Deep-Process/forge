@@ -974,6 +974,8 @@ export interface ChatSendRequest {
   project?: string;
   session_id?: string | null;
   model?: string | null;
+  scopes?: string[];
+  disabled_capabilities?: string[];
 }
 
 export interface ChatSendResponse {

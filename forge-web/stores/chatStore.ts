@@ -47,6 +47,8 @@ interface ChatActions {
     contextId?: string,
     project?: string,
     model?: string | null,
+    scopes?: string[],
+    disabledCapabilities?: string[],
   ) => Promise<ChatSendResponse | null>;
   /** Start a new conversation (clears active session). */
   startConversation: (contextType: string, contextId: string, project?: string) => void;
@@ -108,7 +110,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   streaming: false,
   error: null,
 
-  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null) => {
+  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null, scopes, disabledCapabilities) => {
     const state = get();
     const sessionId = state.activeSessionId;
 
@@ -154,6 +156,8 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
         project,
         session_id: sessionId,
         model,
+        scopes: scopes,
+        disabled_capabilities: disabledCapabilities,
       });
 
       // Update conversation with real session ID and response
