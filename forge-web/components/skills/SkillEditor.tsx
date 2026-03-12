@@ -103,6 +103,10 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
   // Pending file deletes (for confirm in right panel)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
+  // Resizable file tree panel
+  const [treeWidth, setTreeWidth] = useState(240);
+  const resizingRef = useRef(false);
+
   // Auto-parse frontmatter on content change (debounced)
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
@@ -534,8 +538,11 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
 
       {/* Three-column layout: file tree | editor | tabs panel */}
       <div className="flex flex-1 min-h-0">
-        {/* Left: File tree (always visible — both create and edit) */}
-        <div className="w-48 flex-shrink-0 border-r bg-gray-50 overflow-y-auto">
+        {/* Left: File tree (resizable) */}
+        <div
+          className="flex-shrink-0 border-r bg-gray-50 overflow-y-auto"
+          style={{ width: treeWidth, minWidth: 160, maxWidth: 400 }}
+        >
           <div className="px-2 py-1.5 border-b text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
             Files
           </div>
@@ -549,6 +556,28 @@ export function SkillEditor({ skill, onSaved }: SkillEditorProps) {
             onMoveFile={handleMoveFile}
           />
         </div>
+        {/* Resize handle */}
+        <div
+          className="w-1 cursor-col-resize bg-transparent hover:bg-forge-200 active:bg-forge-300 flex-shrink-0"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            resizingRef.current = true;
+            const startX = e.clientX;
+            const startW = treeWidth;
+            const onMove = (ev: MouseEvent) => {
+              if (!resizingRef.current) return;
+              const newW = Math.max(160, Math.min(400, startW + ev.clientX - startX));
+              setTreeWidth(newW);
+            };
+            const onUp = () => {
+              resizingRef.current = false;
+              document.removeEventListener("mousemove", onMove);
+              document.removeEventListener("mouseup", onUp);
+            };
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+          }}
+        />
 
         {/* Center: Editor */}
         <div className="flex-1 flex flex-col border-r min-w-0">

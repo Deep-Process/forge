@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { SkillFile, SkillFileType } from "@/lib/types";
 
-const FOLDERS = [
-  { prefix: "scripts/", label: "scripts", icon: "S" },
-  { prefix: "references/", label: "references", icon: "R" },
-  { prefix: "assets/", label: "assets", icon: "A" },
-] as const;
+const DEFAULT_FOLDERS = ["scripts/", "references/", "assets/"] as const;
+
+const FOLDER_ICONS: Record<string, string> = {
+  "scripts/": "\u{1F4DC}",   // 📜
+  "references/": "\u{1F4D6}", // 📖
+  "assets/": "\u{1F4E6}",     // 📦
+};
 
 const ALLOWED_EXTENSIONS = new Set([
   ".md", ".txt", ".py", ".js", ".ts", ".json", ".yaml", ".yml", ".sh", ".css", ".html",
@@ -21,6 +23,13 @@ function classifyFile(name: string): { folder: string; file_type: SkillFileType 
   if ([".py", ".sh", ".js", ".ts"].includes(ext)) return { folder: "scripts/", file_type: "script" };
   if ([".md", ".txt"].includes(ext)) return { folder: "references/", file_type: "reference" };
   return { folder: "assets/", file_type: "asset" };
+}
+
+function fileTypeForFolder(folder: string): SkillFileType {
+  if (folder.startsWith("scripts")) return "script";
+  if (folder.startsWith("references")) return "reference";
+  if (folder.startsWith("assets")) return "asset";
+  return "other";
 }
 
 interface SkillFileTreeProps {
@@ -52,6 +61,7 @@ export function SkillFileTree({
 }: SkillFileTreeProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState<string | null>(null);
+  const [addingFolder, setAddingFolder] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
@@ -60,15 +70,58 @@ export function SkillFileTree({
   const [overwritePrompt, setOverwritePrompt] = useState<OverwritePrompt | null>(null);
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Compute all folders dynamically: defaults + any from file paths
+  const allFolders = useMemo(() => {
+    const folderSet = new Set<string>(DEFAULT_FOLDERS);
+    for (const f of files) {
+      const lastSlash = f.path.lastIndexOf("/");
+      if (lastSlash > 0) {
+        // Add the folder and any parent folders
+        const folder = f.path.substring(0, lastSlash + 1);
+        folderSet.add(folder);
+        // Add parent folder too (e.g., "scripts/lib/" → "scripts/")
+        const parts = folder.split("/").filter(Boolean);
+        for (let i = 1; i < parts.length; i++) {
+          folderSet.add(parts.slice(0, i).join("/") + "/");
+        }
+      }
+    }
+    return Array.from(folderSet).sort();
+  }, [files]);
+
+  // Build tree structure: only top-level folders shown at root
+  const topFolders = useMemo(() => {
+    return allFolders.filter((f) => {
+      const parts = f.split("/").filter(Boolean);
+      return parts.length === 1;
+    });
+  }, [allFolders]);
+
+  const subFolders = useCallback((parentPrefix: string) => {
+    return allFolders.filter((f) => {
+      if (f === parentPrefix) return false;
+      if (!f.startsWith(parentPrefix)) return false;
+      // Direct child only
+      const rest = f.substring(parentPrefix.length);
+      const parts = rest.split("/").filter(Boolean);
+      return parts.length === 1;
+    });
+  }, [allFolders]);
+
   const toggleFolder = (prefix: string) => {
     setCollapsed((prev) => ({ ...prev, [prefix]: !prev[prefix] }));
   };
 
   const filesInFolder = (prefix: string) =>
-    files.filter((f) => f.path.startsWith(prefix));
+    files.filter((f) => {
+      if (!f.path.startsWith(prefix)) return false;
+      // Only direct children (not in deeper subfolder)
+      const rest = f.path.substring(prefix.length);
+      return !rest.includes("/");
+    });
 
   const rootFiles = files.filter(
-    (f) => !FOLDERS.some((folder) => f.path.startsWith(folder.prefix)),
+    (f) => !f.path.includes("/"),
   );
 
   const handleAdd = (folder: string) => {
@@ -79,9 +132,41 @@ export function SkillFileTree({
     setAdding(null);
   };
 
+  const handleAddFolder = (parentPrefix: string) => {
+    const trimmed = newName.trim().replace(/\//g, "");
+    if (!trimmed) return;
+    // Create a placeholder file to establish the folder
+    // Actually we just need to trigger a re-render with the new folder
+    // We'll create an empty file that the user can then add to
+    const folderPath = `${parentPrefix}${trimmed}/`;
+    // Add a .gitkeep-like file to establish the folder
+    onAdd(folderPath, ".keep");
+    setNewName("");
+    setAddingFolder(null);
+  };
+
+  const canDeleteFolder = useCallback((prefix: string) => {
+    // Can delete if not a default root and is empty
+    const isDefault = (DEFAULT_FOLDERS as readonly string[]).includes(prefix);
+    if (isDefault) return false;
+    const children = files.filter((f) => f.path.startsWith(prefix));
+    return children.length === 0;
+  }, [files]);
+
+  const handleDeleteFolder = useCallback((prefix: string) => {
+    // Remove any .keep files
+    const keepFiles = files.filter(
+      (f) => f.path.startsWith(prefix) && f.path.endsWith(".keep"),
+    );
+    for (const f of keepFiles) {
+      onDelete(f.path);
+    }
+  }, [files, onDelete]);
+
   const cancelAdd = () => {
     setNewName("");
     setAdding(null);
+    setAddingFolder(null);
   };
 
   // Upload handler for per-folder upload button
@@ -102,12 +187,9 @@ export function SkillFileTree({
         continue;
       }
       const path = `${folder}${file.name}`;
-      const file_type = folder === "scripts/" ? "script" as const
-        : folder === "references/" ? "reference" as const
-        : "asset" as const;
+      const file_type = fileTypeForFolder(folder);
 
       if (existingPaths.has(path)) {
-        // Show overwrite prompt
         const action = await new Promise<"overwrite" | "rename" | "cancel">((resolve) => {
           setOverwritePrompt({ file: { path, content: "", file_type }, existingPath: path, resolve });
         });
@@ -123,7 +205,6 @@ export function SkillFileTree({
           } catch { errors.push(`${file.name}: read error`); }
           continue;
         }
-        // overwrite — fall through
       }
 
       try {
@@ -139,7 +220,7 @@ export function SkillFileTree({
     if (newFiles.length > 0) onDropFiles(newFiles);
   }, [files, onDropFiles]);
 
-  // Drag-and-drop from external files
+  // Drag-and-drop from external files (top-level: auto-classify)
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -220,43 +301,253 @@ export function SkillFileTree({
     setDragOverFolder(null);
   }, []);
 
+  // Accept both internal moves AND external files dropped on folders
   const handleFolderDragOver = useCallback((e: React.DragEvent, prefix: string) => {
-    if (!draggingFile || !onMoveFile) return;
+    if (!onMoveFile && !onDropFiles) return;
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = draggingFile ? "move" : "copy";
     setDragOverFolder(prefix);
-  }, [draggingFile, onMoveFile]);
+  }, [draggingFile, onMoveFile, onDropFiles]);
 
-  const handleFolderDrop = useCallback((e: React.DragEvent, targetPrefix: string) => {
+  const handleFolderDrop = useCallback(async (e: React.DragEvent, targetPrefix: string) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverFolder(null);
-    setDraggingFile(null);
 
-    if (!onMoveFile) return;
-
-    const sourcePath = e.dataTransfer.getData("text/plain");
-    if (!sourcePath) return;
-
-    // Extract filename from source path
-    const parts = sourcePath.split("/");
-    const fileName = parts[parts.length - 1];
-    const newPath = `${targetPrefix}${fileName}`;
-
-    if (sourcePath === newPath) return; // same location
-
-    // Check overwrite
-    if (files.some((f) => f.path === newPath)) {
-      if (!confirm(`File ${newPath} already exists. Overwrite?`)) return;
+    // Internal file move
+    if (draggingFile && onMoveFile) {
+      setDraggingFile(null);
+      const sourcePath = e.dataTransfer.getData("text/plain");
+      if (!sourcePath) return;
+      const parts = sourcePath.split("/");
+      const fileName = parts[parts.length - 1];
+      const newPath = `${targetPrefix}${fileName}`;
+      if (sourcePath === newPath) return;
+      if (files.some((f) => f.path === newPath)) {
+        if (!confirm(`File ${newPath} already exists. Overwrite?`)) return;
+      }
+      onMoveFile(sourcePath, newPath);
+      return;
     }
 
-    onMoveFile(sourcePath, newPath);
-  }, [onMoveFile, files]);
+    // External files dropped on specific folder
+    if (!onDropFiles) return;
+    setDraggingFile(null);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+    if (droppedFiles.length > MAX_DROP_FILES) {
+      setDropError(`Max ${MAX_DROP_FILES} files per drop`);
+      return;
+    }
+
+    const errors: string[] = [];
+    const newFiles: SkillFile[] = [];
+    const existingPaths = new Set(files.map((f) => f.path));
+    const file_type = fileTypeForFolder(targetPrefix);
+
+    for (const file of droppedFiles) {
+      const ext = file.name.includes(".") ? "." + file.name.split(".").pop()!.toLowerCase() : "";
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        errors.push(`${file.name}: unsupported extension`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: too large (max 1MB)`);
+        continue;
+      }
+      const path = `${targetPrefix}${file.name}`;
+      if (existingPaths.has(path)) {
+        errors.push(`${path}: already exists`);
+        continue;
+      }
+      try {
+        const content = await file.text();
+        newFiles.push({ path, content, file_type });
+        existingPaths.add(path);
+      } catch {
+        errors.push(`${file.name}: read error`);
+      }
+    }
+
+    if (errors.length > 0) setDropError(errors.join("; "));
+    if (newFiles.length > 0) onDropFiles(newFiles);
+  }, [draggingFile, onMoveFile, onDropFiles, files]);
+
+  // Render a folder and its contents recursively
+  const renderFolder = (prefix: string, depth: number = 0) => {
+    const folderFiles = filesInFolder(prefix);
+    const children = subFolders(prefix);
+    const isCollapsed = collapsed[prefix];
+    const isDragTarget = dragOverFolder === prefix;
+    const folderName = prefix.split("/").filter(Boolean).pop() ?? prefix;
+    const icon = FOLDER_ICONS[prefix] ?? "\u{1F4C1}"; // 📁
+
+    return (
+      <div key={prefix}>
+        {/* Folder header */}
+        <div
+          className={`group flex items-center ${isDragTarget ? "bg-forge-100 ring-1 ring-forge-300" : ""}`}
+          onDragOver={(e) => handleFolderDragOver(e, prefix)}
+          onDrop={(e) => handleFolderDrop(e, prefix)}
+        >
+          <button
+            onClick={() => toggleFolder(prefix)}
+            className="flex-1 flex items-center gap-1.5 py-1.5 text-left hover:bg-gray-100 transition-colors"
+            style={{ paddingLeft: `${8 + depth * 12}px` }}
+          >
+            <span className="text-xs">{isCollapsed ? "\u25B6" : "\u25BC"}</span>
+            <span className="text-sm">{icon}</span>
+            <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              {folderName}
+            </span>
+            <span className="text-[10px] text-gray-400 ml-auto pr-1">
+              {folderFiles.length + children.reduce((sum, c) => sum + filesInFolder(c).length, 0)}
+            </span>
+          </button>
+          {!readOnly && (
+            <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
+              {/* Upload button */}
+              <button
+                onClick={() => uploadRefs.current[prefix]?.click()}
+                className="px-1 text-blue-500 hover:text-blue-700 text-xs"
+                title={`Upload to ${folderName}/`}
+              >
+                &#8679;
+              </button>
+              <input
+                ref={(el) => { uploadRefs.current[prefix] = el; }}
+                type="file"
+                multiple
+                accept={Array.from(ALLOWED_EXTENSIONS).join(",")}
+                className="hidden"
+                onChange={(e) => {
+                  handleUpload(prefix, e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              {/* Add file button */}
+              <button
+                onClick={() => { setAdding(prefix); setAddingFolder(null); setNewName(""); }}
+                className="px-1 text-green-500 hover:text-green-700 text-xs"
+                title={`Add file to ${folderName}/`}
+              >
+                +
+              </button>
+              {/* Add subfolder button */}
+              <button
+                onClick={() => { setAddingFolder(prefix); setAdding(null); setNewName(""); }}
+                className="px-1 text-indigo-500 hover:text-indigo-700 text-[10px]"
+                title={`New subfolder in ${folderName}/`}
+              >
+                +&#128193;
+              </button>
+              {/* Delete folder (only empty non-default) */}
+              {canDeleteFolder(prefix) && (
+                <button
+                  onClick={() => handleDeleteFolder(prefix)}
+                  className="px-1 text-red-400 hover:text-red-600 text-xs"
+                  title="Delete empty folder"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Inline add file input */}
+        {adding === prefix && (
+          <div className="flex items-center gap-1 py-1 bg-gray-50" style={{ paddingLeft: `${20 + depth * 12}px` }}>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd(prefix);
+                if (e.key === "Escape") cancelAdd();
+              }}
+              className="flex-1 min-w-0 border rounded px-1 py-0.5 text-xs focus:border-forge-500 focus:outline-none"
+              placeholder="filename"
+            />
+            <button onClick={() => handleAdd(prefix)} className="text-green-600 hover:text-green-800 text-xs">
+              &#10003;
+            </button>
+            <button onClick={cancelAdd} className="text-gray-400 hover:text-gray-600 text-xs pr-1">
+              &times;
+            </button>
+          </div>
+        )}
+
+        {/* Inline add subfolder input */}
+        {addingFolder === prefix && (
+          <div className="flex items-center gap-1 py-1 bg-indigo-50" style={{ paddingLeft: `${20 + depth * 12}px` }}>
+            <span className="text-[10px] text-indigo-400">{prefix}</span>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddFolder(prefix);
+                if (e.key === "Escape") cancelAdd();
+              }}
+              className="flex-1 min-w-0 border rounded px-1 py-0.5 text-xs focus:border-indigo-500 focus:outline-none"
+              placeholder="folder name"
+            />
+            <button onClick={() => handleAddFolder(prefix)} className="text-indigo-600 hover:text-indigo-800 text-xs">
+              &#10003;
+            </button>
+            <button onClick={cancelAdd} className="text-gray-400 hover:text-gray-600 text-xs pr-1">
+              &times;
+            </button>
+          </div>
+        )}
+
+        {/* Contents (files + subfolders) */}
+        {!isCollapsed && (
+          <>
+            {/* Direct files */}
+            {folderFiles.map((f) => {
+              const fileName = f.path.substring(prefix.length);
+              return (
+                <div key={f.path} className="group flex items-center">
+                  <button
+                    onClick={() => onSelect(f.path)}
+                    draggable={!readOnly && !!onMoveFile}
+                    onDragStart={(e) => handleFileDragStart(e, f.path)}
+                    onDragEnd={handleFileDragEnd}
+                    className={`flex-1 flex items-center gap-1.5 pr-2 py-1 text-left hover:bg-gray-100 truncate ${
+                      activeFile === f.path ? "bg-forge-50 text-forge-700 font-medium" : "text-gray-600"
+                    } ${draggingFile === f.path ? "opacity-50" : ""}`}
+                    style={{ paddingLeft: `${20 + depth * 12}px` }}
+                  >
+                    <span className="text-[10px] text-gray-400">&middot;</span>
+                    <span className="truncate text-xs">{fileName}</span>
+                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => onDelete(f.path)}
+                      className="hidden group-hover:block px-1.5 text-red-400 hover:text-red-600 text-xs"
+                      title="Delete file"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {/* Subfolders */}
+            {children.map((child) => renderFolder(child, depth + 1))}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
-      className={`flex flex-col h-full text-xs select-none relative ${
+      className={`flex flex-col h-full select-none relative ${
         dragOver && !draggingFile ? "ring-2 ring-inset ring-forge-400 bg-forge-50/50" : ""
       }`}
       onDragOver={handleDragOver}
@@ -317,8 +608,8 @@ export function SkillFileTree({
           activeFile === "SKILL.md" ? "bg-forge-50 text-forge-700 font-medium" : "text-gray-700"
         }`}
       >
-        <span className="text-[10px] text-forge-500">MD</span>
-        <span className="truncate">SKILL.md</span>
+        <span className="text-sm text-forge-500">&#128220;</span>
+        <span className="truncate text-sm font-medium">SKILL.md</span>
       </button>
 
       {/* Root-level files */}
@@ -333,13 +624,13 @@ export function SkillFileTree({
               activeFile === f.path ? "bg-forge-50 text-forge-700 font-medium" : "text-gray-600"
             } ${draggingFile === f.path ? "opacity-50" : ""}`}
           >
-            <span className="text-[10px] text-gray-400">F</span>
-            <span className="truncate">{f.path}</span>
+            <span className="text-[10px] text-gray-400">&middot;</span>
+            <span className="truncate text-xs">{f.path}</span>
           </button>
           {!readOnly && (
             <button
               onClick={() => onDelete(f.path)}
-              className="hidden group-hover:block px-1.5 text-red-400 hover:text-red-600"
+              className="hidden group-hover:block px-1.5 text-red-400 hover:text-red-600 text-xs"
               title="Delete file"
             >
               &times;
@@ -349,117 +640,7 @@ export function SkillFileTree({
       ))}
 
       {/* Folders */}
-      {FOLDERS.map(({ prefix, label, icon }) => {
-        const folderFiles = filesInFolder(prefix);
-        const isCollapsed = collapsed[prefix];
-        const isDragTarget = dragOverFolder === prefix;
-
-        return (
-          <div key={prefix}>
-            {/* Folder header */}
-            <div
-              className={`group flex items-center ${isDragTarget ? "bg-forge-100 ring-1 ring-forge-300" : ""}`}
-              onDragOver={(e) => handleFolderDragOver(e, prefix)}
-              onDrop={(e) => handleFolderDrop(e, prefix)}
-            >
-              <button
-                onClick={() => toggleFolder(prefix)}
-                className="flex-1 flex items-center gap-1 px-2 py-1 text-left hover:bg-gray-100 text-gray-500 font-medium"
-              >
-                <span className="text-[10px]">{isCollapsed ? "\u25B6" : "\u25BC"}</span>
-                <span>{label}/</span>
-                <span className="text-[10px] text-gray-400 ml-auto">{folderFiles.length}</span>
-              </button>
-              {!readOnly && (
-                <div className="hidden group-hover:flex items-center gap-0.5">
-                  {/* Upload button */}
-                  <button
-                    onClick={() => uploadRefs.current[prefix]?.click()}
-                    className="px-1.5 text-blue-500 hover:text-blue-700"
-                    title={`Upload to ${label}/`}
-                  >
-                    &#8679;
-                  </button>
-                  <input
-                    ref={(el) => { uploadRefs.current[prefix] = el; }}
-                    type="file"
-                    multiple
-                    accept={Array.from(ALLOWED_EXTENSIONS).join(",")}
-                    className="hidden"
-                    onChange={(e) => {
-                      handleUpload(prefix, e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                  {/* Add file button */}
-                  <button
-                    onClick={() => { setAdding(prefix); setNewName(""); }}
-                    className="px-1.5 text-green-500 hover:text-green-700"
-                    title={`Add file to ${label}/`}
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Inline add input */}
-            {adding === prefix && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-gray-50">
-                <span className="text-[10px] text-gray-400">{prefix}</span>
-                <input
-                  autoFocus
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAdd(prefix);
-                    if (e.key === "Escape") cancelAdd();
-                  }}
-                  className="flex-1 min-w-0 border rounded px-1 py-0.5 text-xs focus:border-forge-500 focus:outline-none"
-                  placeholder="filename"
-                />
-                <button onClick={() => handleAdd(prefix)} className="text-green-600 hover:text-green-800">
-                  &#10003;
-                </button>
-                <button onClick={cancelAdd} className="text-gray-400 hover:text-gray-600">
-                  &times;
-                </button>
-              </div>
-            )}
-
-            {/* Files in folder */}
-            {!isCollapsed &&
-              folderFiles.map((f) => {
-                const fileName = f.path.slice(prefix.length);
-                return (
-                  <div key={f.path} className="group flex items-center">
-                    <button
-                      onClick={() => onSelect(f.path)}
-                      draggable={!readOnly && !!onMoveFile}
-                      onDragStart={(e) => handleFileDragStart(e, f.path)}
-                      onDragEnd={handleFileDragEnd}
-                      className={`flex-1 flex items-center gap-1.5 pl-5 pr-2 py-1 text-left hover:bg-gray-100 truncate ${
-                        activeFile === f.path ? "bg-forge-50 text-forge-700 font-medium" : "text-gray-600"
-                      } ${draggingFile === f.path ? "opacity-50" : ""}`}
-                    >
-                      <span className="text-[10px] text-gray-400">{icon}</span>
-                      <span className="truncate">{fileName}</span>
-                    </button>
-                    {!readOnly && (
-                      <button
-                        onClick={() => onDelete(f.path)}
-                        className="hidden group-hover:block px-1.5 text-red-400 hover:text-red-600"
-                        title="Delete file"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        );
-      })}
+      {topFolders.map((prefix) => renderFolder(prefix, 0))}
     </div>
   );
 }
