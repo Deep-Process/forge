@@ -112,18 +112,33 @@ async def _resolve_skill(
     for skill in skills:
         if skill.get("id") == context_id:
             content = skill.get("skill_md_content", "")
+            resources = skill.get("resources") or {}
+            skill_files = resources.get("files") or []
+            file_listing = [
+                f"{f['path']} ({f.get('file_type', 'other')})"
+                for f in skill_files if isinstance(f, dict) and "path" in f
+            ]
+
+            data: dict[str, Any] = {
+                "content": _truncate(content, MAX_CONTENT_LENGTH),
+                "category": skill.get("category", ""),
+                "tags": skill.get("tags", []),
+                "scopes": skill.get("scopes", []),
+                "status": skill.get("status", ""),
+            }
+            if file_listing:
+                data["bundled_files"] = file_listing
+                data["file_tools"] = (
+                    "Use listSkillFiles, getSkillFileContent, addSkillFile, "
+                    "removeSkillFile to manage bundled files."
+                )
+
             return ContextPayload(
                 context_type="skill",
                 context_id=context_id,
                 title=skill.get("name", ""),
                 summary=skill.get("description", ""),
-                data={
-                    "content": _truncate(content, MAX_CONTENT_LENGTH),
-                    "category": skill.get("category", ""),
-                    "tags": skill.get("tags", []),
-                    "scopes": skill.get("scopes", []),
-                    "status": skill.get("status", ""),
-                },
+                data=data,
             )
 
     return ContextPayload(context_type="skill", context_id=context_id, title="(not found)")
