@@ -1476,6 +1476,38 @@ def cmd_context(args):
 
     if global_guidelines or project_guidelines:
         task_scopes = set(task.get("scopes", []))
+        # Expand scopes from objective's derived_guidelines (if origin is O-)
+        origin_for_scopes = task.get("origin", "")
+        if origin_for_scopes.startswith("O-") and _s.exists(args.project, 'objectives'):
+            obj_data_scopes = _s.load_data(args.project, 'objectives')
+            for obj in obj_data_scopes.get("objectives", []):
+                if obj["id"] == origin_for_scopes:
+                    # Add objective scopes
+                    task_scopes.update(obj.get("scopes", []))
+                    # Expand with scopes from derived_guidelines
+                    derived_gl_ids = set(obj.get("derived_guidelines", []))
+                    if derived_gl_ids:
+                        for g in project_guidelines:
+                            if g["id"] in derived_gl_ids and g.get("scope"):
+                                task_scopes.add(g["scope"])
+                    break
+        elif origin_for_scopes.startswith("I-") and _s.exists(args.project, 'ideas'):
+            # Expand scopes from idea -> objective -> derived_guidelines
+            ideas_data_sc = _s.load_data(args.project, 'ideas')
+            for idea in ideas_data_sc.get("ideas", []):
+                if idea["id"] == origin_for_scopes:
+                    task_scopes.update(idea.get("scopes", []))
+                    # Trace to objective
+                    obj_ids_sc = {kr.split("/")[0] for kr in idea.get("advances_key_results", []) if "/" in kr}
+                    if obj_ids_sc and _s.exists(args.project, 'objectives'):
+                        obj_data_sc = _s.load_data(args.project, 'objectives')
+                        for obj in obj_data_sc.get("objectives", []):
+                            if obj["id"] in obj_ids_sc:
+                                derived_gl_ids = set(obj.get("derived_guidelines", []))
+                                for g in project_guidelines:
+                                    if g["id"] in derived_gl_ids and g.get("scope"):
+                                        task_scopes.add(g["scope"])
+                    break
         from guidelines import render_guidelines_context
         lines = render_guidelines_context(project_guidelines, task_scopes, args.project,
                                            global_guidelines=global_guidelines)

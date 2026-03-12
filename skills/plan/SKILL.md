@@ -120,8 +120,25 @@ python -m core.research context {project} --entity {idea_id}
 If planning from an objective (`/plan O-001`), load the objective context (R8):
 ```bash
 python -m core.objectives show {project} {objective_id}
-python -m core.guidelines context {project} --scopes "{objective_scopes}"
 python -m core.research context {project} --entity {objective_id}
+```
+
+**Scope resolution for objectives**: Build the full scope set by combining:
+1. `objective.scopes` — the objective's own scopes
+2. Scopes from `derived_guidelines` — load each guideline ID from `objective.derived_guidelines`, extract its `scope`, add to the set
+
+```bash
+python -m core.guidelines read {project}
+```
+Find guidelines whose IDs are in `objective.derived_guidelines`. Collect their scopes. Merge with `objective.scopes`. Then load:
+```bash
+python -m core.guidelines context {project} --scopes "{merged_scopes}"
+```
+
+**IMPORTANT**: If a derived guideline has a scope NOT in the objective's scopes, warn the user:
+```
+WARNING: Derived guideline G-015 (scope: "latency") has scope not in objective O-001 scopes.
+Consider adding "latency" to objective scopes: python -m core.objectives update {project} --data '[{"id": "O-001", "scopes": ["backend", "performance", "latency"]}]'
 ```
 
 Also check for approved ideas advancing this objective:
