@@ -72,14 +72,16 @@ export function RightSidebarSlot({ children }: { children?: ReactNode }) {
 
   if (collapsed) {
     return (
-      <div className="flex-shrink-0 w-10 border-l bg-gray-50 flex flex-col items-center">
-        <button
-          onClick={toggleCollapsed}
-          className="mt-2 p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
-          title="Open AI Sidebar"
-        >
-          <span className="text-sm">{"\u25C0"}</span>
-        </button>
+      <div
+        onClick={toggleCollapsed}
+        className="flex-shrink-0 w-10 border-l bg-gray-50 hover:bg-gray-100 cursor-pointer flex flex-col items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+        title="Open AI Sidebar"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleCollapsed(); }}
+      >
+        <span className="text-sm">{"\u25C0"}</span>
+        <span className="text-[10px] mt-1 writing-mode-vertical" style={{ writingMode: "vertical-rl" }}>AI</span>
       </div>
     );
   }

@@ -80,7 +80,10 @@ export function useLeftPanelContent(): ReactNode | null {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    return subscribe(() => setTick((n) => n + 1));
+    const unsub = subscribe(() => setTick((n) => n + 1));
+    // Force initial read — content may have been set before subscription
+    setTick((n) => n + 1);
+    return unsub;
   }, [subscribe]);
 
   return getContent();
