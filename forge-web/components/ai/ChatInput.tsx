@@ -5,8 +5,7 @@ import type { ChatFileAttachment } from "@/lib/types";
 import { llm } from "@/lib/api";
 import { useSkillStore, fetchSkills } from "@/stores/skillStore";
 import SlashCommandDropdown, {
-  getFilteredCommandCount,
-  getFilteredCommand,
+  getFilteredCommands,
   type SlashCommand,
 } from "./SlashCommandDropdown";
 
@@ -99,7 +98,8 @@ export default function ChatInput({
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       // Slash-command navigation
       if (slashOpen) {
-        const count = getFilteredCommandCount(slashFilter, skillCommands);
+        const filtered = getFilteredCommands(slashFilter, skillCommands);
+        const count = filtered.length;
         if (e.key === "ArrowDown") {
           e.preventDefault();
           setSlashIndex((prev) => (prev + 1) % Math.max(count, 1));
@@ -110,8 +110,8 @@ export default function ChatInput({
           setSlashIndex((prev) => (prev - 1 + Math.max(count, 1)) % Math.max(count, 1));
           return;
         }
-        if (e.key === "Enter" && !e.shiftKey) {
-          const cmd = getFilteredCommand(slashFilter, skillCommands, slashIndex);
+        if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+          const cmd = filtered[slashIndex];
           if (cmd) {
             e.preventDefault();
             handleSlashSelect(cmd);
@@ -123,14 +123,6 @@ export default function ChatInput({
           setSlashOpen(false);
           setSlashIndex(0);
           return;
-        }
-        if (e.key === "Tab") {
-          const cmd = getFilteredCommand(slashFilter, skillCommands, slashIndex);
-          if (cmd) {
-            e.preventDefault();
-            handleSlashSelect(cmd);
-            return;
-          }
         }
       }
 

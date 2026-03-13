@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 
 export interface SlashCommand {
   name: string;
@@ -36,6 +36,36 @@ const BUILT_IN_COMMANDS: SlashCommand[] = [
 
 export { BUILT_IN_COMMANDS };
 
+/**
+ * Merge built-in + skill commands (dedup by name, built-in wins),
+ * then filter by query. Single source of truth for the filtered list.
+ */
+export function getFilteredCommands(
+  filter: string,
+  skillCommands: SlashCommand[],
+): SlashCommand[] {
+  const allCommands: SlashCommand[] = [];
+  const seen = new Set<string>();
+  for (const cmd of BUILT_IN_COMMANDS) {
+    seen.add(cmd.name);
+    allCommands.push(cmd);
+  }
+  for (const cmd of skillCommands) {
+    if (!seen.has(cmd.name)) {
+      seen.add(cmd.name);
+      allCommands.push(cmd);
+    }
+  }
+  if (!filter) return allCommands;
+  const lowerFilter = filter.toLowerCase();
+  return allCommands.filter(
+    (cmd) =>
+      cmd.name.toLowerCase().includes(lowerFilter) ||
+      cmd.label.toLowerCase().includes(lowerFilter) ||
+      (cmd.description?.toLowerCase().includes(lowerFilter) ?? false),
+  );
+}
+
 interface SlashCommandDropdownProps {
   /** Current text after the '/' (e.g., typing '/pl' → filter = 'pl'). */
   filter: string;
@@ -54,31 +84,7 @@ export default function SlashCommandDropdown({
   onSelect,
 }: SlashCommandDropdownProps) {
   const listRef = useRef<HTMLDivElement>(null);
-
-  // Merge built-in + skills, deduplicate by name (built-in wins)
-  const allCommands: SlashCommand[] = [];
-  const seen = new Set<string>();
-  for (const cmd of BUILT_IN_COMMANDS) {
-    seen.add(cmd.name);
-    allCommands.push(cmd);
-  }
-  for (const cmd of skillCommands) {
-    if (!seen.has(cmd.name)) {
-      seen.add(cmd.name);
-      allCommands.push(cmd);
-    }
-  }
-
-  // Filter
-  const lowerFilter = filter.toLowerCase();
-  const filtered = lowerFilter
-    ? allCommands.filter(
-        (cmd) =>
-          cmd.name.toLowerCase().includes(lowerFilter) ||
-          cmd.label.toLowerCase().includes(lowerFilter) ||
-          (cmd.description?.toLowerCase().includes(lowerFilter) ?? false),
-      )
-    : allCommands;
+  const filtered = getFilteredCommands(filter, skillCommands);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -129,67 +135,4 @@ export default function SlashCommandDropdown({
       ))}
     </div>
   );
-}
-
-/**
- * Returns the filtered commands list length for a given filter string.
- * Used by ChatInput to clamp selectedIndex.
- */
-export function getFilteredCommandCount(
-  filter: string,
-  skillCommands: SlashCommand[],
-): number {
-  const allCommands: SlashCommand[] = [];
-  const seen = new Set<string>();
-  for (const cmd of BUILT_IN_COMMANDS) {
-    seen.add(cmd.name);
-    allCommands.push(cmd);
-  }
-  for (const cmd of skillCommands) {
-    if (!seen.has(cmd.name)) {
-      seen.add(cmd.name);
-      allCommands.push(cmd);
-    }
-  }
-  const lowerFilter = filter.toLowerCase();
-  return lowerFilter
-    ? allCommands.filter(
-        (cmd) =>
-          cmd.name.toLowerCase().includes(lowerFilter) ||
-          cmd.label.toLowerCase().includes(lowerFilter) ||
-          (cmd.description?.toLowerCase().includes(lowerFilter) ?? false),
-      ).length
-    : allCommands.length;
-}
-
-/**
- * Returns the filtered command at the given index.
- */
-export function getFilteredCommand(
-  filter: string,
-  skillCommands: SlashCommand[],
-  index: number,
-): SlashCommand | undefined {
-  const allCommands: SlashCommand[] = [];
-  const seen = new Set<string>();
-  for (const cmd of BUILT_IN_COMMANDS) {
-    seen.add(cmd.name);
-    allCommands.push(cmd);
-  }
-  for (const cmd of skillCommands) {
-    if (!seen.has(cmd.name)) {
-      seen.add(cmd.name);
-      allCommands.push(cmd);
-    }
-  }
-  const lowerFilter = filter.toLowerCase();
-  const filtered = lowerFilter
-    ? allCommands.filter(
-        (cmd) =>
-          cmd.name.toLowerCase().includes(lowerFilter) ||
-          cmd.label.toLowerCase().includes(lowerFilter) ||
-          (cmd.description?.toLowerCase().includes(lowerFilter) ?? false),
-      )
-    : allCommands;
-  return filtered[index];
 }
