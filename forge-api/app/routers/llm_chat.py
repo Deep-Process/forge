@@ -273,10 +273,15 @@ async def chat(
         ws_event = event_type_map.get(event.type)
         if ws_event:
             try:
-                await event_bus.emit(slug, ws_event, {
+                payload = {
                     "session_id": session.session_id,
                     **event.data,
-                })
+                }
+                # Add block_type discriminator for chat.token events
+                # so frontend can distinguish thinking vs text content
+                if ws_event == "chat.token":
+                    payload["block_type"] = event.type  # "token" or "thinking"
+                await event_bus.emit(slug, ws_event, payload)
             except Exception:
                 logger.debug("Failed to emit WS event %s for session %s",
                              ws_event, session.session_id, exc_info=True)
