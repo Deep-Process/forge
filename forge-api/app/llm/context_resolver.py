@@ -75,6 +75,7 @@ class ContextResolver:
         context_type: str,
         context_id: str,
         project: str = "",
+        scopes: list[str] | None = None,
     ) -> ContextPayload:
         """Resolve context by type and id.
 
@@ -82,13 +83,14 @@ class ContextResolver:
             context_type: Entity type (skill, task, objective, idea, etc.)
             context_id: Entity ID (SK-001, T-003, etc.)
             project: Project slug (required for project-scoped entities).
+            scopes: Active frontend scopes (used for guideline loading).
 
         Returns:
             ContextPayload with entity data for system prompt.
         """
         resolver = _RESOLVERS.get(context_type, _resolve_generic)
         try:
-            return await resolver(self._storage, context_type, context_id, project)
+            payload = await resolver(self._storage, context_type, context_id, project)
         except Exception as e:
             logger.warning("Context resolution failed for %s %s: %s", context_type, context_id, e)
             return ContextPayload(
@@ -96,6 +98,73 @@ class ContextResolver:
                 context_id=context_id,
                 title=f"(failed to load: {type(e).__name__})",
             )
+
+        # Always enrich with project context and guidelines
+        if project:
+            await self._enrich_with_project_context(payload, project, scopes)
+
+        return payload
+
+    async def _enrich_with_project_context(
+        self,
+        payload: ContextPayload,
+        project: str,
+        scopes: list[str] | None,
+    ) -> None:
+        """Add project info and scoped guidelines to any context payload."""
+        parts: list[str] = []
+
+        # --- Project info ---
+        try:
+            tracker = await asyncio.to_thread(self._storage.load_data, project, "tracker")
+            goal = tracker.get("goal", "")
+            tasks = tracker.get("tasks", [])
+            done = sum(1 for t in tasks if t.get("status") == "DONE")
+            todo = sum(1 for t in tasks if t.get("status") == "TODO")
+            in_prog = sum(1 for t in tasks if t.get("status") == "IN_PROGRESS")
+            parts.append(
+                f"Project: {project}"
+                + (f" — {goal}" if goal else "")
+                + f"\nTasks: {done} done, {in_prog} in progress, {todo} todo"
+            )
+        except Exception:
+            parts.append(f"Project: {project}")
+
+        # --- Active scopes ---
+        if scopes:
+            parts.append(f"Active scopes: {', '.join(scopes)}")
+
+        # --- Guidelines (global + scoped) ---
+        try:
+            g_data = await asyncio.to_thread(self._storage.load_data, project, "guidelines")
+            guidelines = g_data.get("guidelines", [])
+            active = [g for g in guidelines if g.get("status", "ACTIVE") == "ACTIVE"]
+
+            # Determine which scopes to load guidelines for
+            target_scopes = {"general"}
+            if scopes:
+                target_scopes.update(scopes)
+
+            matched = [g for g in active if g.get("scope") in target_scopes]
+            if matched:
+                g_lines = []
+                for g in matched[:20]:  # Limit to prevent token explosion
+                    weight = g.get("weight", "should")
+                    scope = g.get("scope", "general")
+                    title = g.get("title", "")
+                    content = g.get("content", "")
+                    g_lines.append(f"- [{weight}] [{scope}] {title}: {_truncate(content, 200)}")
+                parts.append(f"Guidelines ({len(matched)}):\n" + "\n".join(g_lines))
+        except Exception:
+            pass
+
+        if parts:
+            enrichment = "\n\n".join(parts)
+            if payload.system_prompt:
+                payload.system_prompt = enrichment + "\n\n" + payload.system_prompt
+            else:
+                # Prepend to the generated prompt
+                payload.summary = enrichment + ("\n\n" + payload.summary if payload.summary else "")
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +430,28 @@ async def _resolve_knowledge(
     )
 
 
+async def _resolve_global(
+    storage: Any, context_type: str, context_id: str, project: str,
+) -> ContextPayload:
+    """Resolve global context — used when no specific entity is selected."""
+    return ContextPayload(
+        context_type="global",
+        context_id="",
+        title="Forge Assistant",
+        system_prompt=(
+            "You are the Forge AI assistant. You help manage software development projects "
+            "using the Forge orchestration process: objectives, ideas, research, planning, "
+            "task execution, decisions, guidelines, knowledge, and lessons.\n\n"
+            "You can create and modify all entity types using available tools. "
+            "When the user asks you to do something, use the appropriate tool. "
+            "Respect project guidelines when planning or executing work.\n\n"
+            "Available operations: create/update objectives, ideas, decisions, tasks, "
+            "guidelines, knowledge, lessons, changes. Search and list entities. "
+            "Plan objectives into task graphs. Execute tasks with context."
+        ),
+    )
+
+
 async def _resolve_generic(
     storage: Any, context_type: str, context_id: str, project: str,
 ) -> ContextPayload:
@@ -380,6 +471,14 @@ async def _resolve_generic(
         storage_key, list_key = context_type, context_type
     else:
         storage_key, list_key = mapping
+
+    if not context_id:
+        # No specific entity — return generic context for this type
+        return ContextPayload(
+            context_type=context_type,
+            context_id="",
+            title=f"{context_type} context",
+        )
 
     try:
         if project:
@@ -410,6 +509,7 @@ async def _resolve_generic(
 
 # Resolver dispatch map
 _RESOLVERS = {
+    "global": _resolve_global,
     "skill": _resolve_skill,
     "task": _resolve_task,
     "objective": _resolve_objective,

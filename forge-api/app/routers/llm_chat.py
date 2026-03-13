@@ -231,6 +231,7 @@ async def chat(
         context_type=body.context_type,
         context_id=body.context_id,
         project=body.project,
+        scopes=body.scopes,
     )
     system_prompt = context_payload.to_system_prompt()
 
