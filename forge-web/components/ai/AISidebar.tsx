@@ -4,7 +4,7 @@ import { useEffect, useCallback, useState, useRef } from "react";
 import { useScopeResolver, SCOPE_TO_CONTEXT_TYPE } from "@/hooks/useScopeResolver";
 import { CAPABILITY_CONTRACTS, getCapabilitiesForScopes, getPermissionStatus, type CapabilityDef } from "@/lib/capabilities";
 import { useAIPageContextSafe, serializePageContext, deriveScopesFromElements } from "@/lib/ai-context";
-import { useSidebarStore } from "@/stores/sidebarStore";
+import { useSidebarStore, type SidebarTab } from "@/stores/sidebarStore";
 import { useChatStore } from "@/stores/chatStore";
 import { useSkillStore, fetchSkills } from "@/stores/skillStore";
 import type { LLMConfig } from "@/lib/types";
@@ -18,8 +18,6 @@ import Link from "next/link";
 // ---------------------------------------------------------------------------
 // Tab types
 // ---------------------------------------------------------------------------
-
-type SidebarTab = "chat" | "tools" | "scopes" | "conversations" | "debug";
 
 const TABS: { key: SidebarTab; label: string }[] = [
   { key: "chat", label: "Chat" },
@@ -520,7 +518,7 @@ function DebugTab({
       </div>
 
       {/* Stream blocks */}
-      <div className="px-2 py-2 overflow-y-auto">
+      <div className="px-2 py-2">
         <StreamView blocks={blocks} streaming={streaming} />
       </div>
     </div>
