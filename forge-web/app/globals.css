@@ -14,3 +14,53 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+/* ---------------------------------------------------------------------------
+ * Debug Theme — Design tokens for debug console components.
+ *
+ * Applied via [data-debug-panel] attribute on BottomPanel and AI Sidebar Debug tab.
+ * Dark theme optimized for readability of code, JSON, and log output.
+ *
+ * Naming convention:
+ *   --debug-{category}-{variant}
+ *   Categories: bg, border, text, status, font, spacing, radius
+ *   Variants: primary/secondary/muted for progressive emphasis levels
+ * --------------------------------------------------------------------------- */
+
+[data-debug-panel] {
+  /* Backgrounds */
+  --debug-bg-primary: #1e1e2e;
+  --debug-bg-secondary: #252536;
+  --debug-bg-hover: #2a2a3d;
+  --debug-bg-surface: #313147;
+
+  /* Borders */
+  --debug-border: #3b3b54;
+  --debug-border-active: #6366f1;
+
+  /* Text */
+  --debug-text-primary: #e2e2f0;
+  --debug-text-secondary: #a0a0bc;
+  --debug-text-muted: #6b6b85;
+
+  /* Status indicators */
+  --debug-status-success: #4ade80;
+  --debug-status-error: #f87171;
+  --debug-status-warning: #fbbf24;
+  --debug-status-info: #60a5fa;
+  --debug-status-pending: #a78bfa;
+
+  /* Typography */
+  --debug-font-mono: ui-monospace, "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Spacing scale */
+  --debug-spacing-xs: 4px;
+  --debug-spacing-sm: 8px;
+  --debug-spacing-md: 12px;
+  --debug-spacing-lg: 16px;
+  --debug-spacing-xl: 24px;
+
+  /* Radius */
+  --debug-radius: 6px;
+  --debug-radius-sm: 4px;
+}
