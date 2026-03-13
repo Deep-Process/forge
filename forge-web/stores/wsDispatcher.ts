@@ -55,6 +55,97 @@ const EVENT_TO_ENTITY: Record<string, string> = {
 const GLOBAL_ENTITIES = new Set(["skill"]);
 
 /**
+ * Maps LLM write-tool names to EVENT_TO_ENTITY keys for SWR revalidation.
+ * Read-only tools (search/get/list/preview/lint) are intentionally excluded.
+ * When adding a new write tool to tool_registry.py, add it here too.
+ */
+const TOOL_TO_ENTITY: Record<string, string> = {
+  createTask: "task",
+  updateTask: "task",
+  completeTask: "task",
+  createObjective: "objective",
+  updateObjective: "objective",
+  createIdea: "idea",
+  updateIdea: "idea",
+  createDecision: "decision",
+  updateDecision: "decision",
+  createKnowledge: "knowledge",
+  updateKnowledge: "knowledge",
+  createGuideline: "guideline",
+  updateGuideline: "guideline",
+  createLesson: "lesson",
+  recordChange: "change",
+  updateSkillContent: "skill",
+  updateSkillMetadata: "skill",
+  addSkillFile: "skill",
+  removeSkillFile: "skill",
+  instantiateACTemplate: "ac_template",
+};
+
+/** Pending revalidation timers, keyed by "entityPrefix:project". */
+const _revalidationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const REVALIDATION_DEBOUNCE_MS = 300;
+
+/** Pending toast timers, keyed by "entityPrefix:project". */
+const _toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const TOAST_DEBOUNCE_MS = 500;
+
+/**
+ * Schedule debounced SWR revalidation + toast for an AI-modified entity.
+ * Multiple rapid tool calls for the same entity batch into one refresh.
+ */
+function _scheduleEntityRevalidation(entityPrefix: string, project?: string): void {
+  const entityPath = EVENT_TO_ENTITY[entityPrefix];
+  if (!entityPath) return;
+
+  const key = `${entityPrefix}:${project ?? "_global"}`;
+
+  // --- Debounced SWR revalidation ---
+  const existingTimer = _revalidationTimers.get(key);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  _revalidationTimers.set(
+    key,
+    setTimeout(() => {
+      _revalidationTimers.delete(key);
+
+      if (GLOBAL_ENTITIES.has(entityPrefix)) {
+        mutate(
+          (k) => typeof k === "string" && k.startsWith(`/${entityPath}`),
+          undefined,
+          { revalidate: true },
+        );
+      } else if (project) {
+        mutate(
+          (k) => typeof k === "string" && k.startsWith(`/projects/${project}/${entityPath}`),
+          undefined,
+          { revalidate: true },
+        );
+      }
+    }, REVALIDATION_DEBOUNCE_MS),
+  );
+
+  // --- Debounced toast ---
+  const toastKey = `toast:${key}`;
+  const existingToast = _toastTimers.get(toastKey);
+  if (existingToast) clearTimeout(existingToast);
+
+  _toastTimers.set(
+    toastKey,
+    setTimeout(() => {
+      _toastTimers.delete(toastKey);
+      const label = entityPath.replace(/-/g, " ");
+      useToastStore.getState().addToast({
+        message: `AI updated ${label}`,
+        entityType: entityPrefix,
+        action: "updated",
+        project: project,
+      });
+    }, TOAST_DEBOUNCE_MS),
+  );
+}
+
+/**
  * Extract entity prefix and ID from a WS event.
  * e.g. "task.created" → { prefix: "task", entityId: payload.id }
  */
@@ -75,9 +166,21 @@ export function dispatchWsEvent(event: ForgeEvent): void {
   // Track last event timestamp for connection status monitoring
   _lastEventTimestamp = new Date().toISOString();
 
-  // Chat events go directly to chatStore (not entity stores)
+  // Chat events go to chatStore; tool_results also trigger entity revalidation
   if (prefix === "chat") {
     useChatStore.getState().handleWsEvent(event);
+
+    // When AI executes a write tool, refresh the affected entity data
+    if (event.event === "chat.tool_result") {
+      const payload = event.payload as Record<string, unknown>;
+      const toolName = payload.name as string | undefined;
+      if (toolName) {
+        const entityPrefix = TOOL_TO_ENTITY[toolName];
+        if (entityPrefix) {
+          _scheduleEntityRevalidation(entityPrefix, event.project);
+        }
+      }
+    }
     return;
   }
 
