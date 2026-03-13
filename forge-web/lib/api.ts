@@ -611,6 +611,9 @@ export const llm = {
     remove<{ deleted: boolean; session_id: string }>(`/llm/sessions/${sessionId}`),
   resumeSession: (sessionId: string) =>
     create<{ resumed: boolean; session_id: string }>(`/llm/sessions/${sessionId}/resume`, {}),
+  updateSessionScopes: (sessionId: string, scopes: string[]) =>
+    update<{ session_id: string; scopes: string[]; updated_at: string }>(
+      `/llm/sessions/${sessionId}/scopes`, { scopes }),
   searchSessions: (query: string, searchLimit?: number) =>
     list<{ sessions: ChatSession[]; count: number; query: string }>(
       "/llm/sessions/search",

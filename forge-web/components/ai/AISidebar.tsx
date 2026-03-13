@@ -572,6 +572,16 @@ export default function AISidebar() {
     ? serializePageContext(pageSnapshot, { activeScopes: scopes })
     : undefined;
 
+  // Sync scopes to active session backend when they change
+  const scopesKey = scopes.join(",");
+  const prevScopesRef = useRef(scopesKey);
+  useEffect(() => {
+    if (prevScopesRef.current !== scopesKey) {
+      prevScopesRef.current = scopesKey;
+      useChatStore.getState().updateSessionScopes(scopes);
+    }
+  }, [scopesKey, scopes]);
+
   // Load LLM config for permissions
   const { data: llmConfig } = useSWR<LLMConfig>("llm-config", () => llm.getConfig());
   const permissions = llmConfig?.permissions ?? {};

@@ -256,6 +256,51 @@ class ToolRegistry:
             "context_types": tool.context_types,
         }
 
+    def generate_app_map(
+        self,
+        session_scopes: list[str] | None = None,
+    ) -> str:
+        """Generate a compact app map showing all modules with tool counts.
+
+        Marks enabled scopes with [x] and disabled with [ ].
+        Budget: ~500 tokens (~2000 chars).
+
+        Args:
+            session_scopes: Active scopes. If None, all are marked as enabled.
+
+        Returns:
+            Markdown-formatted app map string.
+        """
+        scope_tools: dict[str, list[str]] = {}
+        for tool in self._tools.values():
+            scope = tool.scope or "global"
+            scope_tools.setdefault(scope, []).append(tool.name)
+
+        scope_set = set(session_scopes) if session_scopes else None
+
+        lines = ["## Forge App Map"]
+        for scope_name in sorted(scope_tools.keys()):
+            tools = sorted(scope_tools[scope_name])
+            count = len(tools)
+            preview = ", ".join(tools[:3])
+            if count > 3:
+                preview += ", ..."
+
+            if scope_name == "global":
+                marker = "+"
+            elif scope_set is None:
+                marker = "x"
+            elif scope_name in scope_set:
+                marker = "x"
+            else:
+                marker = " "
+
+            lines.append(f"[{marker}] {scope_name} ({count} tools) — {preview}")
+
+        lines.append("")
+        lines.append("Use listAvailableTools() for details, getToolContract(name) for full schema.")
+        return "\n".join(lines)
+
     def get_unavailable_scopes(
         self,
         context_type: str | list[str] = "global",

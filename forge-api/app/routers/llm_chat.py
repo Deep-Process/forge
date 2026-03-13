@@ -242,6 +242,12 @@ async def chat(
     )
     system_prompt = context_payload.to_system_prompt()
 
+    # --- Inject app map (compact module overview, ~500 tokens) ---
+    app_map = tool_registry.generate_app_map(
+        session_scopes=session.scopes if session.scopes else None,
+    )
+    system_prompt += f"\n\n{app_map}"
+
     # --- Append page context from UI annotations (if provided) ---
     if body.page_context:
         system_prompt += f"\n\n{body.page_context}"

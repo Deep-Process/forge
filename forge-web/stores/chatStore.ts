@@ -120,6 +120,8 @@ interface ChatActions {
   searchSessions: (query: string) => Promise<void>;
   /** Set metadata for the next new session (consumed on first sendMessage). */
   setPendingSessionMeta: (meta: PendingSessionMeta | null) => void;
+  /** Sync scopes to active session backend. */
+  updateSessionScopes: (scopes: string[]) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -524,5 +526,16 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   setPendingSessionMeta: (meta) => {
     set({ pendingSessionMeta: meta });
+  },
+
+  updateSessionScopes: async (scopes) => {
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return; // No active session — scopes will be sent on next session creation
+    try {
+      await llm.updateSessionScopes(sessionId, scopes);
+    } catch (e) {
+      // Non-critical: scopes will be sent with next message anyway
+      console.warn("Failed to sync scopes to session:", e);
+    }
   },
 }));
