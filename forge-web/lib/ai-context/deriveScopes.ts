@@ -1,14 +1,30 @@
 import type { AIElementDescriptor } from "./types";
 
 /**
+ * Tool name prefix → scope mapping.
+ * E.g., "createTask" starts with "Task" entity → scope "tasks".
+ */
+const TOOL_ENTITY_TO_SCOPE: Record<string, string> = {
+  Task: "tasks",
+  Decision: "decisions",
+  Objective: "objectives",
+  Idea: "ideas",
+  Knowledge: "knowledge",
+  Guideline: "guidelines",
+  Lesson: "lessons",
+  Change: "changes",
+  Skill: "skills",
+  ACTemplate: "ac_templates",
+};
+
+/**
  * Derive scopes from AI element annotations.
- * Extracts module names from API endpoints in element actions.
+ * Extracts module names from tool names or API endpoints in element actions.
  *
  * Examples:
- *   /projects/{slug}/tasks/{id} → "tasks"
- *   /projects/{slug}/decisions   → "decisions"
- *   /api/skills                  → "skills"
- *   /settings/llm                → "settings"
+ *   toolName: "createTask"             → "tasks"
+ *   toolName: "updateGuideline"        → "guidelines"
+ *   endpoint: /projects/{slug}/tasks   → "tasks"
  */
 export function deriveScopesFromElements(
   elements: Iterable<AIElementDescriptor> | AIElementDescriptor[],
@@ -19,12 +35,24 @@ export function deriveScopesFromElements(
   for (const el of arr) {
     if (!el.actions) continue;
     for (const action of el.actions) {
-      if (!action.endpoint) continue;
-      extractScope(action.endpoint, scopes);
+      if (action.toolName) {
+        extractScopeFromTool(action.toolName, scopes);
+      } else if (action.endpoint) {
+        extractScope(action.endpoint, scopes);
+      }
     }
   }
 
   return Array.from(scopes);
+}
+
+function extractScopeFromTool(toolName: string, scopes: Set<string>): void {
+  for (const [entity, scope] of Object.entries(TOOL_ENTITY_TO_SCOPE)) {
+    if (toolName.includes(entity)) {
+      scopes.add(scope);
+      return;
+    }
+  }
 }
 
 function extractScope(endpoint: string, scopes: Set<string>): void {

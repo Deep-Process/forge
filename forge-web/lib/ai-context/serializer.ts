@@ -105,7 +105,10 @@ function serializeElement(
     const actionDescs = el.actions
       .map((a) => {
         let desc = a.label;
-        if (a.method && a.endpoint) {
+        if (a.toolName) {
+          const params = a.toolParams?.join(", ") ?? "";
+          desc += ` → ${a.toolName}(${params})`;
+        } else if (a.method && a.endpoint) {
           desc += ` (${a.method} ${a.endpoint})`;
         }
         if (a.available === false) {

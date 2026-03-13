@@ -10,7 +10,6 @@ import { useAIPage } from "../useAIPage";
 import { useAIElement } from "../useAIElement";
 import { serializePageContext } from "../serializer";
 import { deriveScopesFromElements } from "../deriveScopes";
-import type { AIContextSnapshot } from "../types";
 
 // Wrapper that provides AIPageProvider + captures context for lazy snapshot access
 function createTestHarness() {
@@ -70,15 +69,15 @@ describe("AI Annotations Integration", () => {
         },
         actions: [
           {
-            label: "Start",
-            endpoint: "/projects/{slug}/tasks/{id}",
-            method: "PATCH",
+            label: "Start task",
+            toolName: "updateTask",
+            toolParams: ["task_id*", "status=IN_PROGRESS"],
             availableWhen: "status = TODO",
           },
           {
-            label: "Create",
-            endpoint: "/projects/{slug}/tasks",
-            method: "POST",
+            label: "Create task",
+            toolName: "createTask",
+            toolParams: ["name*", "description", "type*"],
           },
         ],
       });
@@ -113,8 +112,8 @@ describe("AI Annotations Integration", () => {
     expect(serialized).toContain("IN_PROGRESS: 5");
     expect(serialized).toContain("DONE: 12");
     expect(serialized).toContain("[form] Task Form");
-    expect(serialized).toContain("PATCH /projects/{slug}/tasks/{id}");
-    expect(serialized).toContain("POST /projects/{slug}/tasks");
+    expect(serialized).toContain("updateTask(task_id*, status=IN_PROGRESS)");
+    expect(serialized).toContain("createTask(name*, description, type*)");
 
     // Derive scopes (what AISidebar does)
     const scopes = deriveScopesFromElements(snap!.elements.values());
@@ -147,8 +146,8 @@ describe("AI Annotations Integration", () => {
           statuses: { OPEN: 3, CLOSED: 5, DEFERRED: 2 },
         },
         actions: [
-          { label: "Close", endpoint: "/projects/{slug}/decisions/{id}", method: "PATCH" },
-          { label: "Create", endpoint: "/projects/{slug}/decisions", method: "POST" },
+          { label: "Close decision", toolName: "updateDecision", toolParams: ["id*", "status=CLOSED"] },
+          { label: "Create decision", toolName: "createDecision", toolParams: ["task_id*", "type*", "issue*", "recommendation*"] },
         ],
       });
     }
@@ -239,7 +238,7 @@ describe("AI Annotations Integration", () => {
         label: "Objectives",
         data: { count: 2, statuses: { ACTIVE: 1, ACHIEVED: 1 } },
         actions: [
-          { label: "Update", endpoint: "/projects/{slug}/objectives/{id}", method: "PATCH" },
+          { label: "Update KR progress", toolName: "updateObjective", toolParams: ["id*", "key_results"] },
         ],
       });
     }

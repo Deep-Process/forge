@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T00:19:09Z",
+  "updated": "2026-03-13T08:45:01Z",
   "changes": [
     {
       "id": "C-143",
@@ -6963,6 +6963,861 @@
       "group_id": "T-175",
       "guidelines_checked": [],
       "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-366",
+      "task_id": "T-176",
+      "file": "claude_err.txt",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-367",
+      "task_id": "T-176",
+      "file": "claude_out.txt",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-368",
+      "task_id": "T-176",
+      "file": "config/providers.toml",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-369",
+      "task_id": "T-176",
+      "file": "core/llm/provider.py",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 3,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-370",
+      "task_id": "T-176",
+      "file": "core/llm/providers/anthropic.py",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 47,
+      "lines_removed": 12,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-371",
+      "task_id": "T-176",
+      "file": "core/llm/providers/claude_code.py",
+      "action": "create",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 500,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-372",
+      "task_id": "T-176",
+      "file": "core/llm/providers/registry.py",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-373",
+      "task_id": "T-176",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-374",
+      "task_id": "T-176",
+      "file": "forge-api/app/routers/llm_chat.py",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-375",
+      "task_id": "T-176",
+      "file": "forge-api/pyproject.toml",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-376",
+      "task_id": "T-176",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-377",
+      "task_id": "T-176",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 400,
+      "lines_removed": 1,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-378",
+      "task_id": "T-176",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 10,
+      "lines_removed": 3,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-379",
+      "task_id": "T-176",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 266,
+      "lines_removed": 4,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-380",
+      "task_id": "T-176",
+      "file": "tmp_knowledge.json",
+      "action": "create",
+      "summary": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created ClaudeCodeProvider in core/llm/providers/claude_code.py. Implements full LLMProvider protocol: complete() (JSON mode), stream() (NDJSON), capabilities() (tool_use=False, cost=0), list_models() (static). Key features: Windows process tree cleanup via taskkill, bounded session map with LRU eviction, CLAUDECODE env var clearing, system prompt via temp file, CRLF-safe streaming, is_error response checking, empty prompt validation. Deep-verify found and fixed 4 issues (C-3 process tree, I-1 session map, I-4 is_error, I-5 empty prompt). CompletionConfig.metadata field was already present from prior session."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 65,
+      "lines_removed": 0,
+      "group_id": "T-176",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:35:31Z"
+    },
+    {
+      "id": "C-381",
+      "task_id": "T-177",
+      "file": "config/providers.toml",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 7,
+      "lines_removed": 0,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-382",
+      "task_id": "T-177",
+      "file": "core/llm/context.py",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 3,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-383",
+      "task_id": "T-177",
+      "file": "core/llm/providers/registry.py",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 10,
+      "lines_removed": 0,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-384",
+      "task_id": "T-177",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-385",
+      "task_id": "T-177",
+      "file": "forge-api/app/routers/llm_chat.py",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 11,
+      "lines_removed": 3,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-386",
+      "task_id": "T-177",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 286,
+      "lines_removed": 1,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-387",
+      "task_id": "T-177",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 298,
+      "lines_removed": 28,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-388",
+      "task_id": "T-177",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Registered claude-code provider in registry (_create_provider with lazy import, no API key). Added [claude-code] section to providers.toml. Updated llm_chat.py: _static_model_list for claude-code, keyless provider check (key_source=login), and forge_session_id in CompletionConfig.metadata for session resume support."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 6,
+      "group_id": "T-177",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:37:02Z"
+    },
+    {
+      "id": "C-389",
+      "task_id": "T-178",
+      "file": "core/llm/context.py",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 3,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-390",
+      "task_id": "T-178",
+      "file": "core/llm/providers/claude_code.py",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 154,
+      "lines_removed": 12,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-391",
+      "task_id": "T-178",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-392",
+      "task_id": "T-178",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 438,
+      "lines_removed": 1,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-393",
+      "task_id": "T-178",
+      "file": "forge_output/forge-platform-v2/ideas.json",
+      "action": "create",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 254,
+      "lines_removed": 0,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-394",
+      "task_id": "T-178",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 298,
+      "lines_removed": 28,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-395",
+      "task_id": "T-178",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added resume-failure fallback: both complete() and stream() detect --resume errors, evict stale session mapping, and retry with full conversation history. Added clear_session(forge_session_id) for explicit cleanup. Extracted _stream_subprocess() and _parse_stream_events() to handle retry logic cleanly. Documented thread safety: safe for asyncio single-threaded loop, NOT for multi-threaded access."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 14,
+      "lines_removed": 10,
+      "group_id": "T-178",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:38:59Z"
+    },
+    {
+      "id": "C-396",
+      "task_id": "T-179",
+      "file": "core/llm/context.py",
+      "action": "edit",
+      "summary": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 3,
+      "group_id": "T-179",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:41:02Z"
+    },
+    {
+      "id": "C-397",
+      "task_id": "T-179",
+      "file": "core/llm/providers/claude_code.py",
+      "action": "edit",
+      "summary": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 60,
+      "lines_removed": 25,
+      "group_id": "T-179",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:41:02Z"
+    },
+    {
+      "id": "C-398",
+      "task_id": "T-179",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-179",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:41:02Z"
+    },
+    {
+      "id": "C-399",
+      "task_id": "T-179",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 571,
+      "lines_removed": 1,
+      "group_id": "T-179",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:41:02Z"
+    },
+    {
+      "id": "C-400",
+      "task_id": "T-179",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added _classify_error() with pattern matching for auth failures and rate limits, providing actionable error messages. Added FileNotFoundError defense-in-depth in _run_subprocess and _stream_subprocess. Replaced all hardcoded error messages with classified errors. Added close() method for explicit session map cleanup. All error paths already had process tree cleanup from T-176."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 14,
+      "group_id": "T-179",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:41:02Z"
+    },
+    {
+      "id": "C-401",
+      "task_id": "T-180",
+      "file": "core/llm/context.py",
+      "action": "edit",
+      "summary": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 3,
+      "group_id": "T-180",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:43:31Z"
+    },
+    {
+      "id": "C-402",
+      "task_id": "T-180",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-180",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:43:31Z"
+    },
+    {
+      "id": "C-403",
+      "task_id": "T-180",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 666,
+      "lines_removed": 1,
+      "group_id": "T-180",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:43:31Z"
+    },
+    {
+      "id": "C-404",
+      "task_id": "T-180",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 26,
+      "lines_removed": 18,
+      "group_id": "T-180",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:43:31Z"
+    },
+    {
+      "id": "C-405",
+      "task_id": "T-180",
+      "file": "tests/test_claude_code_provider.py",
+      "action": "create",
+      "summary": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created comprehensive unit test suite with 39 tests covering all acceptance criteria: binary resolution (found/not found), protocol compliance, message serialization (system/user/assistant/tool), JSON output parsing (valid/malformed/error), NDJSON streaming (with CRLF), error classification (auth/rate-limit/generic), FileNotFoundError defense, session resume with fallback and LRU eviction, capabilities values, CLAUDECODE env clearing, temp file system prompt. All 39 tests pass. Fully mocked — no real subprocess calls."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 628,
+      "lines_removed": 0,
+      "group_id": "T-180",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:43:31Z"
+    },
+    {
+      "id": "C-406",
+      "task_id": "T-181",
+      "file": "core/llm/context.py",
+      "action": "edit",
+      "summary": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 3,
+      "group_id": "T-181",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:45:01Z"
+    },
+    {
+      "id": "C-407",
+      "task_id": "T-181",
+      "file": "core/pipeline.py",
+      "action": "edit",
+      "summary": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 20,
+      "lines_removed": 11,
+      "group_id": "T-181",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:45:01Z"
+    },
+    {
+      "id": "C-408",
+      "task_id": "T-181",
+      "file": "forge-api/app/llm/agent_loop.py",
+      "action": "edit",
+      "summary": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 59,
+      "lines_removed": 5,
+      "group_id": "T-181",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:45:01Z"
+    },
+    {
+      "id": "C-409",
+      "task_id": "T-181",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 761,
+      "lines_removed": 1,
+      "group_id": "T-181",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:45:01Z"
+    },
+    {
+      "id": "C-410",
+      "task_id": "T-181",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Modified AgentLoop to use stream() when provider.capabilities().supports_streaming=True AND config.tools is empty. Added _stream_call() helper that accumulates content from StreamChunks while emitting real-time StreamEvent('token') for each chunk. For complete() path (tools active), behavior is unchanged — full response emitted as single token event. Claude Code provider always streams (supports_tool_use=False means tools never injected). No behavior change for Anthropic/OpenAI with active tools."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 32,
+      "lines_removed": 22,
+      "group_id": "T-181",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T08:45:01Z"
     }
   ]
 }

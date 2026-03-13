@@ -595,9 +595,14 @@ class ContextAssembler:
                                if kr_ref.startswith(obj["id"] + "/")}
             for kr in obj.get("key_results", []):
                 if kr["id"] in relevant_kr_ids:
-                    current = kr.get("current", kr.get("baseline", 0))
-                    target = kr["target"]
-                    lines.append(f"  {kr['id']}: {kr['metric']} — {current}/{target}")
+                    target = kr.get("target")
+                    if target is not None:
+                        current = kr.get("current", kr.get("baseline", 0))
+                        lines.append(f"  {kr['id']}: {kr.get('metric', '')} — {current}/{target}")
+                    else:
+                        desc = kr.get("description") or kr.get("metric", "")
+                        status = kr.get("status", "")
+                        lines.append(f"  {kr['id']}: {desc} [{status}]")
         lines.append(f"\nVia idea: {origin_idea['id']} \"{origin_idea['title']}\"")
 
         content = "\n".join(lines)

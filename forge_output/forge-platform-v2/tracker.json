@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-13T08:27:37Z",
+  "updated": "2026-03-13T11:00:10Z",
   "config": {},
   "tasks": [
     {
@@ -5478,9 +5478,9 @@
         "K-002",
         "K-004"
       ],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-13T08:27:37Z",
-      "completed_at": null,
+      "completed_at": "2026-03-13T08:35:31Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
@@ -5520,15 +5520,17 @@
         "K-004",
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-13T08:35:37Z",
+      "completed_at": "2026-03-13T08:37:02Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "e9c9c590297894ca249ad49ea369ebcdf09476d5"
     },
     {
       "id": "T-178",
@@ -5561,15 +5563,17 @@
         "K-001",
         "K-003"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-13T08:37:11Z",
+      "completed_at": "2026-03-13T08:38:59Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "b95530f791c90dced4e0377deaa19d05ce458f97"
     },
     {
       "id": "T-179",
@@ -5603,15 +5607,17 @@
       "knowledge_ids": [
         "K-002"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-13T08:39:06Z",
+      "completed_at": "2026-03-13T08:41:02Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "68194eb23b43eb6f731689dfdb37b9bc5407b672"
     },
     {
       "id": "T-180",
@@ -5651,15 +5657,17 @@
         "K-001",
         "K-002"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-13T08:41:11Z",
+      "completed_at": "2026-03-13T08:43:31Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "b20c1f35361d9764325dee3220f0ff7d400c1fea"
     },
     {
       "id": "T-181",
@@ -5693,15 +5701,513 @@
         "K-003",
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-13T08:43:38Z",
+      "completed_at": "2026-03-13T08:45:01Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "2b96b8cfcc83badd95e99941da2758a7edde1ea2"
     }
-  ]
+  ],
+  "draft_plan": {
+    "source_idea_id": null,
+    "source_objective_id": "O-022",
+    "created": "2026-03-13T11:00:10Z",
+    "tasks": [
+      {
+        "id": "T-182",
+        "name": "entity-context-from-detail-pages",
+        "description": "When user opens a detail page (e.g., /projects/foo/tasks/T-001), the AI sidebar should forward context_type and context_id to the backend so LLM receives full entity data — not just global context.",
+        "instruction": "1. In useScopeResolver.ts, extract entity_id from detail page routes (e.g., /projects/[slug]/tasks/[id] → context_type='task', context_id='T-001'). Return contextId alongside contextTypes. 2. In AISidebar.tsx, pass the resolved contextId to LLMChat (currently hardcoded to ''). 3. Verify context_resolver.py already handles task/objective/idea/knowledge resolvers — they do. 4. Test: open task detail → AI system prompt should include task description, deps, guidelines.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-015",
+        "acceptance_criteria": [
+          "Opening /projects/foo/tasks/T-001 sends context_type='task', context_id='T-001' to chat endpoint",
+          "LLM system prompt includes full task description, acceptance criteria, and scoped guidelines",
+          "Opening /projects/foo/objectives/O-001 sends objective context with KR progress",
+          "Global pages (dashboard, projects list) still send context_type='global'"
+        ]
+      },
+      {
+        "id": "T-183",
+        "name": "entity-link-component",
+        "description": "Create reusable EntityLink component that renders entity IDs (T-001, D-003, O-001, K-005, I-002, G-010, L-001, R-001) as clickable links navigating to their detail pages.",
+        "instruction": "1. Create forge-web/components/EntityLink.tsx. 2. Parse entity prefix to determine route: T-→tasks, D-→decisions, O-→objectives, I-→ideas, K-→knowledge, G-→guidelines, L-→lessons, R-→research. 3. Accept project slug as prop (or infer from route). 4. Style as inline link with entity-type color coding. 5. Handle unknown prefixes gracefully (render as plain text).",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-021",
+        "acceptance_criteria": [
+          "EntityLink renders T-001 as clickable link to /projects/{slug}/tasks/T-001",
+          "Supports all entity prefixes: T, D, O, I, K, G, L, R",
+          "Entity IDs in descriptions and lists throughout UI can use EntityLink",
+          "Unknown prefixes render as plain text without error"
+        ]
+      },
+      {
+        "id": "T-184",
+        "name": "slash-command-autocomplete",
+        "description": "Add slash-command autocomplete to chat input. When user types '/' at position 0, show dropdown with available commands from skills and built-in actions.",
+        "instruction": "1. Create forge-web/components/ai/SlashCommandDropdown.tsx — dropdown component showing filtered command list. 2. Source commands from skillStore (skill names) + built-in list (status, help, plan, next, etc.). 3. In LLMChat.tsx, detect '/' at start of input, show dropdown. 4. Arrow keys navigate, Enter/click selects, Escape dismisses. 5. Selected command replaces input prefix. 6. Only trigger when '/' is at position 0 (not mid-sentence).",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-015",
+        "acceptance_criteria": [
+          "Typing '/' at start of empty input shows command dropdown",
+          "Dropdown filters as user types (e.g., '/pl' shows 'plan')",
+          "Arrow keys navigate, Enter selects command",
+          "Mid-sentence '/' does NOT trigger dropdown",
+          "Commands sourced from skill store + built-in list"
+        ]
+      },
+      {
+        "id": "T-185",
+        "name": "streaming-tool-call-display",
+        "description": "Show tool calls inline during agent loop streaming. Currently chatStore handles chat.tool_call and chat.tool_result WS events but the UI doesn't render them distinctly within the streaming message.",
+        "instruction": "1. In LLMChat.tsx message rendering, detect toolCalls on assistant messages. 2. Render each tool call as a collapsible card: tool name, input params (JSON), result (when available). 3. During streaming, show tool call cards as they arrive (via WS events). 4. Style: muted background, monospace for params, green/red indicator for success/fail. 5. chatStore.ts already populates toolCalls array — just needs UI rendering.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-015",
+        "acceptance_criteria": [
+          "Tool calls appear as collapsible cards within assistant messages",
+          "Each card shows tool name, input parameters, and result",
+          "Cards appear in real-time during streaming (not only after completion)",
+          "Tool results show success/error status visually"
+        ]
+      },
+      {
+        "id": "T-186",
+        "name": "scope-negotiation",
+        "description": "LLM detects when user asks about entities outside current scopes and proposes adding the missing scope. Backend checks if requested tool's scope is active; if not, returns suggestion.",
+        "instruction": "1. In tool_registry.py, add scope metadata to tool definitions (which scope each tool belongs to). 2. In agent_loop.py permission check, if tool is blocked due to missing scope, return a structured suggestion instead of hard-blocking. 3. In context_resolver.py _resolve_global, include active scopes in system prompt so LLM knows its boundaries. 4. Frontend: when LLM response contains scope suggestion, show a button 'Add scope: tasks' in chat that calls sidebarStore.addScope().",
+        "depends_on": [
+          "T-182"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-015",
+        "acceptance_criteria": [
+          "If user asks about tasks but tasks scope is not active, LLM suggests adding it",
+          "Suggestion appears as actionable button in chat UI",
+          "Clicking the button adds the scope and retries the question",
+          "Already-active scopes don't trigger suggestions"
+        ]
+      },
+      {
+        "id": "T-187",
+        "name": "session-search-endpoint",
+        "description": "Add GET /llm/sessions/search?q=... endpoint for searching across session messages. Frontend: add search input in Conversations tab.",
+        "instruction": "1. In session_manager.py, add search_sessions(query: str) method — iterate sessions, search message content with str.find(). 2. In llm_chat.py, add GET /llm/sessions/search route BEFORE GET /sessions/{session_id} to avoid path conflict. 3. In AISidebar.tsx ConversationsTab, add search input at top. 4. Debounce search (300ms), show matching sessions with highlighted context snippet.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-015",
+        "acceptance_criteria": [
+          "GET /llm/sessions/search?q=redis returns sessions containing 'redis' in messages",
+          "Search input in Conversations tab filters results in real-time",
+          "Results show context snippet with match highlighted",
+          "Empty query returns all sessions (same as list)"
+        ]
+      },
+      {
+        "id": "T-188",
+        "name": "objective-detail-enrichment",
+        "description": "Enrich objective detail page with linked entities: derived guidelines, research objects, ideas advancing KRs, tasks from those ideas, and KR progress visualization.",
+        "instruction": "1. Read existing objective detail page (app/projects/[slug]/objectives/[id]/page.tsx). 2. Add sections: (a) Derived Guidelines — load guidelines where derived_from matches this objective ID, (b) Research — load research with linked_entity_id matching, (c) Ideas — load ideas with advances_key_results referencing this objective's KRs, (d) Tasks — load tasks with origin matching idea IDs or objective ID. 3. Use EntityLink for all entity IDs. 4. Show KR progress bars with current/target.",
+        "depends_on": [
+          "T-183"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-021",
+        "acceptance_criteria": [
+          "Objective detail shows derived guidelines section with clickable G-NNN links",
+          "Ideas advancing this objective's KRs listed with status badges",
+          "Tasks originated from this objective or its ideas listed with status",
+          "KR progress bars show current vs target values"
+        ]
+      },
+      {
+        "id": "T-189",
+        "name": "task-detail-enrichment",
+        "description": "Enrich task detail page with inherited context: scoped guidelines, knowledge objects, dependency chain (upstream tasks with status), origin idea/objective, and related decisions.",
+        "instruction": "1. Read existing task detail page (app/projects/[slug]/tasks/[id]/page.tsx). 2. Add sections: (a) Guidelines — load guidelines matching task scopes + general, (b) Knowledge — load knowledge by task.knowledge_ids, (c) Dependencies — render depends_on tasks with status and links, (d) Origin — link to idea or objective, (e) Decisions — load decisions with task_id matching this task. 3. Use EntityLink component throughout.",
+        "depends_on": [
+          "T-183"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-021",
+        "acceptance_criteria": [
+          "Task detail shows applicable guidelines based on task scopes",
+          "Knowledge objects linked via knowledge_ids shown with content preview",
+          "Dependency chain shows upstream tasks with status colors",
+          "Origin (idea/objective) rendered as clickable EntityLink",
+          "Related decisions listed with status and issue summary"
+        ]
+      },
+      {
+        "id": "T-190",
+        "name": "idea-detail-enrichment",
+        "description": "Enrich idea detail page with relationships: research, exploration/risk decisions, child ideas, parent idea, relations (depends_on, related_to, supersedes), and advances_key_results with progress.",
+        "instruction": "1. Read existing idea detail page (app/projects/[slug]/ideas/[id]/page.tsx). 2. Add sections: (a) Research — load research with linked_entity_id=idea.id, (b) Decisions — exploration and risk decisions linked to this idea, (c) Children — load ideas with parent_id matching, (d) Parent — link to parent idea if exists, (e) Relations — render relations array with entity links, (f) KR Links — show advances_key_results with objective KR progress. 3. Use EntityLink throughout.",
+        "depends_on": [
+          "T-183"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-021",
+        "acceptance_criteria": [
+          "Idea detail shows linked research with summaries",
+          "Exploration and risk decisions shown with status",
+          "Child ideas listed as tree/list with status badges",
+          "Relations (depends_on, related_to) rendered with EntityLink",
+          "KR progress shown for advances_key_results references"
+        ]
+      },
+      {
+        "id": "T-191",
+        "name": "enhanced-task-dag",
+        "description": "Enhance existing task DAG visualization with status-based colors, scope/type filtering, click-to-navigate, and blocked-task indicators.",
+        "instruction": "1. Find existing DAG component (likely in app/projects/[slug]/ or components/). 2. Add color coding by status: TODO=gray, IN_PROGRESS=blue, DONE=green, FAILED=red, SKIPPED=yellow. 3. Add filter dropdowns: by status, by type (feature/bug/chore), by scope. 4. Make nodes clickable — navigate to task detail page. 5. Show blocked_by_decisions as red warning icon on node. 6. Show conflicts_with as dashed edges.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-021",
+        "acceptance_criteria": [
+          "DAG nodes colored by task status (green=DONE, blue=IN_PROGRESS, etc.)",
+          "Filter dropdowns allow filtering by status, type, and scope",
+          "Clicking a node navigates to task detail page",
+          "Blocked tasks show warning indicator"
+        ]
+      },
+      {
+        "id": "T-192",
+        "name": "forge-workflow-system-prompt",
+        "description": "Enhance LLM system prompt with comprehensive forge workflow description: objectives→ideas→research→planning→execution→decisions→verification→compound. Include available operations mapped to tools.",
+        "instruction": "1. In context_resolver.py _resolve_global, expand the system prompt with: (a) Full forge workflow stages described, (b) Available tools grouped by workflow stage, (c) Entity relationship model (O→I→T→D→C→L), (d) How scopes/guidelines/knowledge flow from objectives to tasks. 2. Keep under 2000 tokens (context window budget). 3. Include planning flow: create objective → create idea → research → draft plan → approve → execute. 4. Include execution flow: claim task → load context → implement → record decisions → record changes → verify → complete.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "ai",
+          "llm"
+        ],
+        "origin": "O-022",
+        "acceptance_criteria": [
+          "LLM system prompt describes full forge workflow stages",
+          "Available tools listed and grouped by workflow stage",
+          "Entity relationship model explained (O→I→T→D→C→L)",
+          "System prompt stays under 2000 tokens"
+        ]
+      },
+      {
+        "id": "T-193",
+        "name": "planning-workflow-tools",
+        "description": "Add LLM tools for planning workflow: draftPlan (decompose objective/idea into tasks), showDraft (preview draft plan), approvePlan (materialize draft into pipeline). These wrap core.pipeline commands.",
+        "instruction": "1. In tool_registry.py, register 3 new tools: (a) draftPlan — calls core.pipeline draft-plan with task data + optional --objective/--idea, (b) showDraft — calls core.pipeline show-draft, (c) approvePlan — calls core.pipeline approve-plan. 2. Each tool runs the Python module via asyncio.to_thread + subprocess. 3. draftPlan accepts: project, tasks (array), objective_id (optional), idea_id (optional). 4. Add to capabilities.ts under a new 'planning' scope or extend 'tasks' scope. 5. Add to TOOL_TO_ENTITY in wsDispatcher.ts for auto-refresh.",
+        "depends_on": [
+          "T-192"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "ai",
+          "llm"
+        ],
+        "origin": "O-022",
+        "acceptance_criteria": [
+          "LLM can call draftPlan with task list to create a draft plan",
+          "LLM can call showDraft to preview the draft",
+          "LLM can call approvePlan to materialize tasks into pipeline",
+          "Frontend auto-refreshes task list after plan approval",
+          "Tools work with --objective and --idea flags for traceability"
+        ]
+      },
+      {
+        "id": "T-194",
+        "name": "execution-context-tool",
+        "description": "Add LLM tool getTaskContext that loads full execution context for a task: guidelines (from scopes), knowledge (knowledge_ids), dependency outputs, risks, and business context from origin objective.",
+        "instruction": "1. In tool_registry.py, register getTaskContext tool. 2. Implementation: call core.pipeline context {project} {task_id} via subprocess, parse output. 3. Return structured JSON: {guidelines: [...], knowledge: [...], dependencies: [...], risks: [...], business_context: string}. 4. This is what /next loads for the executor — making it available as a tool means LLM can inspect any task's context.",
+        "depends_on": [
+          "T-192"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "ai",
+          "llm"
+        ],
+        "origin": "O-022",
+        "acceptance_criteria": [
+          "LLM can call getTaskContext(task_id) to load full execution context",
+          "Response includes scoped guidelines, knowledge objects, dependency chain",
+          "Business context from origin objective/idea included",
+          "Active risks shown with severity and mitigation status"
+        ]
+      },
+      {
+        "id": "T-195",
+        "name": "verification-tools",
+        "description": "Add LLM tools for verification: runGates (execute configured gates for a task) and getProjectStatus (full pipeline dashboard). These let LLM verify work and check progress.",
+        "instruction": "1. In tool_registry.py, register: (a) runGates — calls core.gates check {project} --task {task_id}, returns pass/fail per gate, (b) getProjectStatus — calls core.pipeline status {project}, returns task counts and DAG summary. 2. runGates: parse gate output (name, command, pass/fail, output snippet). 3. getProjectStatus: parse status output (done/todo/in_progress counts, blocked tasks). 4. Add to capabilities.ts.",
+        "depends_on": [
+          "T-192"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "ai",
+          "llm"
+        ],
+        "origin": "O-022",
+        "acceptance_criteria": [
+          "LLM can call runGates(task_id) to execute tests/lint for a task",
+          "Gate results show pass/fail per gate with output snippet",
+          "LLM can call getProjectStatus() to see pipeline progress",
+          "Status includes task counts by status and list of blocked tasks"
+        ]
+      },
+      {
+        "id": "T-196",
+        "name": "session-model-enhancement",
+        "description": "Enhance session model with type (chat/plan/execute/verify/compound), status (active/paused/completed/failed), and target entity (objective/task being worked on).",
+        "instruction": "1. In session_manager.py ChatSession, add fields: session_type (str, default 'chat'), session_status (str, default 'active'), target_entity_type (str, optional), target_entity_id (str, optional). 2. Update create() to accept these fields. 3. Update list_sessions() response to include new fields. 4. Add update_session_status() method. 5. In llm_chat.py ChatRequest, add optional session_type field. 6. Update frontend chatStore.ts SessionSummary type to include new fields.",
+        "depends_on": [],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-019",
+        "acceptance_criteria": [
+          "Sessions can be created with type: chat, plan, execute, verify, compound",
+          "Session status tracks: active, paused, completed, failed",
+          "Session list API returns type, status, and target entity",
+          "Frontend types updated to match new session model"
+        ]
+      },
+      {
+        "id": "T-197",
+        "name": "session-dashboard-page",
+        "description": "Create session dashboard page showing all active LLM sessions with real-time status, context information, message count, token usage, and duration.",
+        "instruction": "1. Create forge-web/app/sessions/page.tsx. 2. Fetch sessions from /llm/sessions endpoint. 3. Render as card grid: each card shows session_type badge, target entity, message count, token usage, status indicator, duration. 4. Cards clickable — navigate to session detail. 5. Add filters: by type, by status, by project. 6. Real-time updates: listen for chat.* WS events to update card status. 7. Add 'Sessions' link to main navigation.",
+        "depends_on": [
+          "T-196"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-019",
+        "acceptance_criteria": [
+          "Sessions page shows all active sessions as cards",
+          "Each card displays: type, status, target entity, messages, tokens",
+          "Cards update in real-time via WebSocket events",
+          "Filters work for type, status, and project",
+          "Navigation includes 'Sessions' link"
+        ]
+      },
+      {
+        "id": "T-198",
+        "name": "launch-session-from-ui",
+        "description": "Add buttons to entity detail pages to launch typed LLM sessions: 'Plan' on objectives, 'Execute' on tasks, 'Verify' on tasks, 'Research' on ideas. Each creates a new session with correct context.",
+        "instruction": "1. On objective detail page: add 'Plan with AI' button → creates session with type='plan', context_type='objective', context_id=O-NNN, target_entity. 2. On task detail page: add 'Execute with AI' button → type='execute', 'Verify with AI' → type='verify'. 3. On idea detail page: add 'Research with AI' → type='research'. 4. Each button calls POST /llm/chat with session_type + context, then navigates to session detail or opens sidebar chat. 5. Use chatStore.startConversation() with extended params.",
+        "depends_on": [
+          "T-196",
+          "T-188",
+          "T-189"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-019",
+        "acceptance_criteria": [
+          "'Plan with AI' button on objective detail creates planning session",
+          "'Execute with AI' on task detail creates execution session with task context",
+          "'Verify with AI' on task detail creates verification session",
+          "Sessions created with correct type, context_type, context_id, and target entity"
+        ]
+      },
+      {
+        "id": "T-199",
+        "name": "session-detail-page",
+        "description": "Create session detail page showing full conversation history, tool calls with results, entities created/modified during session, token usage, and session metadata.",
+        "instruction": "1. Create forge-web/app/sessions/[id]/page.tsx. 2. Load session from GET /llm/sessions/{id}. 3. Render messages as chat bubbles (reuse LLMChat rendering). 4. Show tool calls expanded with input/output. 5. Add sidebar panel: session metadata (type, status, model, tokens, cost, duration). 6. List entities modified (extract from tool_result payloads — entity IDs from createTask, updateDecision results). 7. Use EntityLink for all entity references.",
+        "depends_on": [
+          "T-197",
+          "T-183"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-019",
+        "acceptance_criteria": [
+          "Session detail shows full message history with role indicators",
+          "Tool calls displayed with name, input params, and result",
+          "Session metadata panel shows type, model, tokens, cost, duration",
+          "Entities modified during session listed with EntityLink navigation"
+        ]
+      },
+      {
+        "id": "T-200",
+        "name": "decision-notification-popup",
+        "description": "When a decision is created (via WS event decision.created), show a notification popup with the decision issue, context (session, task), and quick actions (Close, Defer, View).",
+        "instruction": "1. In wsDispatcher.ts, detect decision.created events. 2. Show a persistent notification (not just toast) using a new NotificationPopup component. 3. Popup shows: decision ID, issue text, related task, severity (for risks). 4. Quick actions: 'View' navigates to decision detail, 'Close' calls updateDecision, 'Defer' calls updateDecision with status=DEFERRED. 5. Popup stays visible until dismissed or action taken. 6. Multiple decisions queue (show count badge).",
+        "depends_on": [
+          "T-183"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux",
+          "ai"
+        ],
+        "origin": "O-020",
+        "acceptance_criteria": [
+          "Decision created during LLM session triggers persistent notification popup",
+          "Popup shows decision issue, related task, and severity",
+          "Quick actions: View (navigate), Close, Defer work correctly",
+          "Multiple decisions show count badge",
+          "Popup persists until user acts (not auto-dismiss like toast)"
+        ]
+      },
+      {
+        "id": "T-201",
+        "name": "decision-detail-context-links",
+        "description": "Enhance decision detail page with full context links: source session, related task, origin objective, applicable guidelines, and LLM reasoning chain.",
+        "instruction": "1. Read existing decision detail page. 2. Add sections: (a) Source — link to session that created this decision (if created by LLM), (b) Related Task — link to task_id with task description, (c) Objective — trace task.origin → idea → objective, show objective title and KRs, (d) Guidelines — show guidelines matching task scopes that were loaded when decision was made, (e) Reasoning — display reasoning_trace with formatting. 3. Use EntityLink for all cross-references.",
+        "depends_on": [
+          "T-183"
+        ],
+        "parallel": true,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-020",
+        "acceptance_criteria": [
+          "Decision detail shows link to source LLM session (if AI-created)",
+          "Related task shown with description and status",
+          "Origin objective chain traceable (task→idea→objective)",
+          "Applicable guidelines shown for the decision context"
+        ]
+      },
+      {
+        "id": "T-202",
+        "name": "blocking-decision-session-pause",
+        "description": "When LLM creates a decision marked as blocking during task execution, pause the session until the decision is resolved. Resume automatically when decision is CLOSED.",
+        "instruction": "1. In agent_loop.py, after createDecision tool execution: check if the created decision has blocking=true or is in task.blocked_by_decisions. If so, set session status to 'paused' and stop the loop with stop_reason='blocked_by_decision'. 2. In session_manager.py, add resume_on_decision(decision_id) tracker. 3. In wsDispatcher.ts, when decision.closed event arrives, check if any paused session was waiting for this decision — if so, trigger resume. 4. Backend: add POST /llm/sessions/{id}/resume endpoint.",
+        "depends_on": [
+          "T-196",
+          "T-200"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "backend",
+          "frontend",
+          "ai"
+        ],
+        "origin": "O-020",
+        "acceptance_criteria": [
+          "LLM creating a blocking decision pauses the session",
+          "Session status changes to 'paused' with reason 'blocked_by_decision'",
+          "Closing the blocking decision automatically resumes the session",
+          "Session dashboard shows paused sessions with 'awaiting decision' indicator"
+        ]
+      },
+      {
+        "id": "T-203",
+        "name": "notification-center",
+        "description": "Create notification center showing all pending decisions, paused sessions, and action items across all projects. Accessible via bell icon in top navigation.",
+        "instruction": "1. Create forge-web/components/NotificationCenter.tsx — dropdown panel from nav bell icon. 2. Fetch: (a) OPEN decisions from /projects/{slug}/decisions?status=OPEN for each active project, (b) paused sessions from /llm/sessions?status=paused. 3. Render as list: each item shows entity type icon, title/issue, project, age. 4. Click navigates to entity. 5. Show unread count badge on bell icon. 6. Store dismissed notifications in localStorage. 7. Add bell icon to top navigation bar (layout.tsx or nav component).",
+        "depends_on": [
+          "T-200",
+          "T-197"
+        ],
+        "parallel": false,
+        "type": "feature",
+        "scopes": [
+          "frontend",
+          "ux"
+        ],
+        "origin": "O-020",
+        "acceptance_criteria": [
+          "Bell icon in navigation shows unread count badge",
+          "Clicking bell opens dropdown with pending decisions and paused sessions",
+          "Each item shows type icon, title, project, and age",
+          "Clicking item navigates to the relevant entity/session",
+          "Dismissed notifications tracked in localStorage"
+        ]
+      }
+    ]
+  }
 }

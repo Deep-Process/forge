@@ -65,10 +65,10 @@ export default function IdeasPage() {
       statuses: statusDist,
     },
     actions: [
-      { label: "Approve", endpoint: `/projects/{slug}/ideas/{id}`, method: "PATCH", availableWhen: "status = EXPLORING" },
-      { label: "Reject", endpoint: `/projects/{slug}/ideas/{id}`, method: "PATCH", availableWhen: "status = EXPLORING" },
-      { label: "Commit", endpoint: `/projects/{slug}/ideas/{id}/commit`, method: "POST", availableWhen: "status = APPROVED" },
-      { label: "Create", endpoint: `/projects/{slug}/ideas`, method: "POST" },
+      { label: "Approve idea", toolName: "updateIdea", toolParams: ["id*", "status=APPROVED"], availableWhen: "status = EXPLORING" },
+      { label: "Reject idea", toolName: "updateIdea", toolParams: ["id*", "status=REJECTED", "rejection_reason"], availableWhen: "status = EXPLORING" },
+      { label: "Commit idea", toolName: "updateIdea", toolParams: ["id*", "status=COMMITTED"], availableWhen: "status = APPROVED" },
+      { label: "Create idea", toolName: "createIdea", toolParams: ["title*", "description*", "category", "priority", "parent_id", "advances_key_results"] },
     ],
   });
 
@@ -79,13 +79,15 @@ export default function IdeasPage() {
     value: formOpen,
     description: formOpen ? `open (${editingIdea ? `editing ${editingIdea.id}` : "creating"})` : "closed",
     data: {
-      fields: ["title*", "description", "category", "scopes", "parent_id", "advances_key_results", "relations"],
+      fields: ["title*", "description*", "category", "scopes", "parent_id", "advances_key_results", "relations"],
     },
     actions: [
       {
         label: editingIdea ? "Update" : "Create",
-        endpoint: editingIdea ? `/projects/{slug}/ideas/${editingIdea.id}` : `/projects/{slug}/ideas`,
-        method: editingIdea ? "PATCH" : "POST",
+        toolName: editingIdea ? "updateIdea" : "createIdea",
+        toolParams: editingIdea
+          ? ["id*", "status", "exploration_notes", "relations"]
+          : ["title*", "description*", "category", "priority", "parent_id", "advances_key_results"],
       },
     ],
   });

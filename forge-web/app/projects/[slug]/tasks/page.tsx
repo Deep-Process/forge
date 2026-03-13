@@ -68,39 +68,27 @@ export default function TasksPage() {
     },
     actions: [
       {
-        label: "Start",
-        endpoint: `/projects/{slug}/tasks/{id}`,
-        method: "PATCH",
+        label: "Start task",
+        toolName: "updateTask",
+        toolParams: ["task_id*", "status=IN_PROGRESS"],
         availableWhen: "status = TODO",
       },
       {
-        label: "Skip",
-        endpoint: `/projects/{slug}/tasks/{id}`,
-        method: "PATCH",
+        label: "Skip task",
+        toolName: "updateTask",
+        toolParams: ["task_id*", "status=SKIPPED"],
         availableWhen: "status = TODO",
       },
       {
-        label: "Done",
-        endpoint: `/projects/{slug}/tasks/{id}`,
-        method: "PATCH",
+        label: "Complete task",
+        toolName: "completeTask",
+        toolParams: ["task_id*", "reasoning"],
         availableWhen: "status = IN_PROGRESS",
       },
       {
-        label: "Fail",
-        endpoint: `/projects/{slug}/tasks/{id}`,
-        method: "PATCH",
-        availableWhen: "status = IN_PROGRESS",
-      },
-      {
-        label: "Retry",
-        endpoint: `/projects/{slug}/tasks/{id}`,
-        method: "PATCH",
-        availableWhen: "status = FAILED",
-      },
-      {
-        label: "Create",
-        endpoint: `/projects/{slug}/tasks`,
-        method: "POST",
+        label: "Create task",
+        toolName: "createTask",
+        toolParams: ["name*", "description", "type*", "scopes", "depends_on", "acceptance_criteria"],
       },
     ],
   });
@@ -117,10 +105,10 @@ export default function TasksPage() {
     actions: [
       {
         label: editingTask ? "Update" : "Create",
-        endpoint: editingTask
-          ? `/projects/{slug}/tasks/${editingTask.id}`
-          : `/projects/{slug}/tasks`,
-        method: editingTask ? "PATCH" : "POST",
+        toolName: editingTask ? "updateTask" : "createTask",
+        toolParams: editingTask
+          ? ["task_id*", "name", "description", "depends_on", "scopes"]
+          : ["name*", "description", "type*", "scopes", "depends_on", "acceptance_criteria"],
       },
     ],
   });

@@ -65,11 +65,11 @@ export default function ObjectivesPage() {
       statuses: statusDist,
     },
     actions: [
-      { label: "Update Progress", endpoint: `/projects/{slug}/objectives/{id}`, method: "PATCH", availableWhen: "status = ACTIVE" },
-      { label: "Achieve", endpoint: `/projects/{slug}/objectives/{id}`, method: "PATCH", availableWhen: "status = ACTIVE" },
-      { label: "Abandon", endpoint: `/projects/{slug}/objectives/{id}`, method: "PATCH", availableWhen: "status = ACTIVE" },
-      { label: "Pause", endpoint: `/projects/{slug}/objectives/{id}`, method: "PATCH", availableWhen: "status = ACTIVE" },
-      { label: "Create", endpoint: `/projects/{slug}/objectives`, method: "POST" },
+      { label: "Update KR progress", toolName: "updateObjective", toolParams: ["id*", "key_results[{id, current, status}]"], availableWhen: "status = ACTIVE" },
+      { label: "Mark achieved", toolName: "updateObjective", toolParams: ["id*", "status=ACHIEVED"], availableWhen: "status = ACTIVE" },
+      { label: "Abandon", toolName: "updateObjective", toolParams: ["id*", "status=ABANDONED"], availableWhen: "status = ACTIVE" },
+      { label: "Pause", toolName: "updateObjective", toolParams: ["id*", "status=PAUSED"], availableWhen: "status = ACTIVE" },
+      { label: "Create objective", toolName: "createObjective", toolParams: ["title*", "description*", "key_results*", "appetite", "scopes"] },
     ],
   });
 
@@ -80,13 +80,15 @@ export default function ObjectivesPage() {
     value: formOpen,
     description: formOpen ? `open (${editingObj ? `editing ${editingObj.id}` : "creating"})` : "closed",
     data: {
-      fields: ["title*", "description", "key_results*", "appetite", "scope", "assumptions", "tags", "scopes"],
+      fields: ["title*", "description*", "key_results*", "appetite", "scope", "assumptions", "tags", "scopes"],
     },
     actions: [
       {
         label: editingObj ? "Update" : "Create",
-        endpoint: editingObj ? `/projects/{slug}/objectives/${editingObj.id}` : `/projects/{slug}/objectives`,
-        method: editingObj ? "PATCH" : "POST",
+        toolName: editingObj ? "updateObjective" : "createObjective",
+        toolParams: editingObj
+          ? ["id*", "status", "key_results"]
+          : ["title*", "description*", "key_results*", "appetite", "scopes"],
       },
     ],
   });

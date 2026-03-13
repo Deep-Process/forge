@@ -1636,11 +1636,16 @@ def cmd_context(args):
                     print()
                     print(f"**{obj['id']}**: {obj['title']} [{obj['status']}]")
                     for kr in obj.get("key_results", []):
-                        baseline = kr.get("baseline", 0)
-                        target = kr["target"]
-                        current = kr.get("current", baseline)
-                        pct = _objective_kr_pct(baseline, target, current)
-                        print(f"  {kr['id']}: {kr.get('metric', '')} — {current}/{target} ({pct}%)")
+                        target = kr.get("target")
+                        if target is not None:
+                            baseline = kr.get("baseline", 0)
+                            current = kr.get("current", baseline)
+                            pct = _objective_kr_pct(baseline, target, current)
+                            print(f"  {kr['id']}: {kr.get('metric', '')} — {current}/{target} ({pct}%)")
+                        else:
+                            desc = kr.get("description") or kr.get("metric", "")
+                            status = kr.get("status", "")
+                            print(f"  {kr['id']}: {desc} [{status}]")
                     print(f"  Origin: objective {origin}")
                     print()
                     break
@@ -1669,12 +1674,16 @@ def cmd_context(args):
                                            if kr_ref.startswith(obj["id"] + "/")}
                         for kr in obj.get("key_results", []):
                             if kr["id"] in relevant_kr_ids:
-                                baseline = kr.get("baseline", 0)
-                                target = kr["target"]
-                                current = kr.get("current", baseline)
-                                pct = _objective_kr_pct(baseline, target, current)
-                                direction = "↓" if target < baseline else "↑"
-                                print(f"  {kr['id']}: {kr['metric']} — {current}/{target} ({pct}%)")
+                                target = kr.get("target")
+                                if target is not None:
+                                    baseline = kr.get("baseline", 0)
+                                    current = kr.get("current", baseline)
+                                    pct = _objective_kr_pct(baseline, target, current)
+                                    print(f"  {kr['id']}: {kr.get('metric', '')} — {current}/{target} ({pct}%)")
+                                else:
+                                    desc = kr.get("description") or kr.get("metric", "")
+                                    status = kr.get("status", "")
+                                    print(f"  {kr['id']}: {desc} [{status}]")
                     print(f"  Via idea: {origin_idea['id']} \"{origin_idea['title']}\"")
                     print()
 

@@ -19,6 +19,8 @@ services:
       - ./config:/config:ro
       - forge-data:/data
       - ./core:/app/core:ro
+      # Claude Code CLI auth (Max subscription)
+      - ${USERPROFILE:-.}/.claude/.credentials.json:/home/forge/.claude/.credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy

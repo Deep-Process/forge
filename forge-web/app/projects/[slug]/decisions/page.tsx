@@ -63,11 +63,11 @@ export default function DecisionsPage() {
       statuses: statusDist,
     },
     actions: [
-      { label: "Close", endpoint: `/projects/{slug}/decisions/{id}`, method: "PATCH", availableWhen: "status = OPEN" },
-      { label: "Defer", endpoint: `/projects/{slug}/decisions/{id}`, method: "PATCH", availableWhen: "status = OPEN" },
-      { label: "Mitigate", endpoint: `/projects/{slug}/decisions/{id}`, method: "PATCH", availableWhen: "status = ANALYZING" },
-      { label: "Accept", endpoint: `/projects/{slug}/decisions/{id}`, method: "PATCH", availableWhen: "status = ANALYZING" },
-      { label: "Create", endpoint: `/projects/{slug}/decisions`, method: "POST" },
+      { label: "Close decision", toolName: "updateDecision", toolParams: ["id*", "status=CLOSED", "resolution_notes"], availableWhen: "status = OPEN" },
+      { label: "Defer decision", toolName: "updateDecision", toolParams: ["id*", "status=DEFERRED"], availableWhen: "status = OPEN" },
+      { label: "Mitigate risk", toolName: "updateDecision", toolParams: ["id*", "status=MITIGATED", "mitigation_plan"], availableWhen: "status = ANALYZING" },
+      { label: "Accept risk", toolName: "updateDecision", toolParams: ["id*", "status=ACCEPTED"], availableWhen: "status = ANALYZING" },
+      { label: "Create decision", toolName: "createDecision", toolParams: ["task_id*", "type*", "issue*", "recommendation*", "reasoning", "alternatives", "confidence"] },
     ],
   });
 
@@ -78,13 +78,15 @@ export default function DecisionsPage() {
     value: formOpen,
     description: formOpen ? `open (${editingDecision ? `editing ${editingDecision.id}` : "creating"})` : "closed",
     data: {
-      fields: ["title*", "description", "type*", "status", "reasoning_trace*", "severity", "likelihood", "linked_entity_type", "linked_entity_id"],
+      fields: ["task_id*", "type*", "issue*", "recommendation*", "reasoning", "alternatives", "confidence"],
     },
     actions: [
       {
         label: editingDecision ? "Update" : "Create",
-        endpoint: editingDecision ? `/projects/{slug}/decisions/${editingDecision.id}` : `/projects/{slug}/decisions`,
-        method: editingDecision ? "PATCH" : "POST",
+        toolName: editingDecision ? "updateDecision" : "createDecision",
+        toolParams: editingDecision
+          ? ["id*", "status", "resolution_notes", "mitigation_plan"]
+          : ["task_id*", "type*", "issue*", "recommendation*", "reasoning"],
       },
     ],
   });

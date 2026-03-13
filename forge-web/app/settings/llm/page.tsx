@@ -80,6 +80,7 @@ const KEY_SOURCE_LABELS: Record<string, string> = {
   ui: "Settings (UI)",
   env: "Environment variable",
   config: "providers.toml",
+  login: "Claude Max subscription",
   none: "Not configured",
 };
 
@@ -94,7 +95,7 @@ function ProviderCard({
 }) {
   const { addToast } = useToastStore();
   const isDefault = config.default_provider === provider.name;
-  const needsKey = provider.provider_type !== "ollama";
+  const needsKey = !["ollama", "claude-code"].includes(provider.provider_type);
 
   // API key state
   const [apiKey, setApiKey] = useState("");

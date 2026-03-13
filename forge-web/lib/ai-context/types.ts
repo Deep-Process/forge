@@ -47,10 +47,16 @@ export interface AIActionDescriptor {
   /** What this action does */
   description?: string;
 
-  /** API endpoint for scope derivation (e.g., "/projects/{slug}/tasks/{id}") */
+  /** LLM tool name (e.g., "createTask", "updateDecision") */
+  toolName?: string;
+
+  /** Key parameters the tool accepts (e.g., ["name*", "description", "type*"]) */
+  toolParams?: string[];
+
+  /** API endpoint — used for scope derivation (e.g., "/projects/{slug}/tasks/{id}") */
   endpoint?: string;
 
-  /** HTTP method */
+  /** HTTP method — used alongside endpoint for scope derivation */
   method?: string;
 
   /** Whether this action is currently available */
