@@ -1,266 +1,302 @@
-# Forge
+# Forge — Structured Development Loop for AI Agents
 
-A structured development loop for AI coding agents. Forge turns high-level goals into tracked, dependency-aware tasks — then guides execution with contracts, decisions, and validation gates so nothing falls through the cracks.
+You open a project in VS Code, start Claude Code, and type `/plan Add user authentication`. Forge breaks that into 6 tasks with dependencies, loads project guidelines into context, tracks every decision along the way, runs tests before marking each task done, and records what changed and why — so next time the agent (or you) can pick up exactly where things left off.
 
-> AI agents write code fast. Forge makes sure the code is **planned, reasoned about, and auditable**.
+> **The problem:** AI agents write code fast but without structure. They forget why a decision was made, skip tests, can't resume after a crash, and make the same mistakes across projects. Forge wraps every code change in a discipline loop: plan, decide, execute, validate, learn.
 
-## What Problem Does Forge Solve?
+## Getting Started
 
-AI coding assistants generate code without structure. They don't remember why a decision was made, don't check if the change broke something upstream, and can't resume where they left off. Forge fixes this by wrapping every code change in a discipline loop:
+```bash
+git clone https://github.com/anthropics/forge.git   # or your fork
+cd forge
+```
 
-1. **Align** — build shared understanding before touching code
-2. **Plan** — decompose the goal into tasks with explicit dependencies
-3. **Decide** — record every non-trivial choice (architecture, library, trade-off)
-4. **Execute** — make changes, guided by project guidelines and prior context
-5. **Record** — log what changed and *why* (reasoning trace, not just diffs)
-6. **Validate** — run tests, lint, secret scanning before marking done
+Open this folder in VS Code with Claude Code extension. That's it — Forge loads automatically via `.claude/CLAUDE.md`.
 
-The result: a full audit trail from business goal down to individual file edits, resumable at any point.
-
-## How It Works
-
-### The Three Tracks
-
-Forge adapts ceremony to task complexity:
+Now type a command in Claude Code chat:
 
 ```
-/do Fix the login timeout bug          ← Quick track (80% of tasks)
-                                           One task, start to finish, minimum overhead.
+/do Fix the login timeout bug in auth.py
+```
 
-/plan Add Redis caching to the API      ← Standard track
-                                           Decompose → dependency DAG → execute in order.
+Forge creates a tracked task, executes it, records changes from git, runs validation gates, and marks it done. One command, full traceability.
 
-/objective Reduce API response time     ← Full track (complex/risky work)
-/idea Redis caching layer                  Why → What → Explore → Plan → Execute → Learn
+## How You Actually Use It
+
+### Simple task — just do it
+
+```
+/do Rename getUserById to findUser across the codebase
+```
+
+The `/do` command is for 80% of daily work: bug fixes, renames, small features. Forge tracks it, records changes, runs gates — but with minimum ceremony.
+
+### Bigger feature — plan first, then execute
+
+```
+/plan Add Redis caching to API responses
+```
+
+Forge asks clarifying questions, then produces a **draft plan** — a list of tasks with dependencies:
+
+```
+Draft plan for "Add Redis caching to API responses":
+  T-001 add-redis-connection-config
+  T-002 implement-cache-middleware       (depends on T-001)
+  T-003 cache-invalidation-on-write      (depends on T-002)
+  T-004 add-cache-headers               (depends on T-002)
+  T-005 integration-tests               (depends on T-003, T-004)
+
+Approve this plan? (yes/no/edit)
+```
+
+You review, adjust if needed, approve. Then execute:
+
+```
+/next          ← picks T-001 (first with no blockers), executes it, marks done
+/next          ← picks T-002, loads T-001's output as context, executes
+/run           ← or just run all remaining tasks continuously
+```
+
+Each `/next` automatically:
+1. Loads context from completed dependencies
+2. Loads project guidelines matching the task's scopes
+3. Executes the code changes
+4. Runs validation gates (tests, lint)
+5. Records changes with reasoning trace
+6. Marks the task DONE
+
+### Complex/risky work — the full workflow
+
+For big architectural changes, you want more structure:
+
+```
+/objective Reduce API response time to under 200ms
+```
+
+This creates a **business objective** with measurable **Key Results** (like OKRs). It's the "why" — everything downstream traces back to it.
+
+```
+/idea Redis caching layer
+```
+
+An **idea** is a proposal — "what if we did this?" Ideas live in a staging area. You can have multiple competing ideas for the same objective. They don't become tasks until approved.
+
+```
 /discover I-001
+```
+
+**Discover** explores the idea before you commit. It creates:
+- An **exploration decision** — what options exist, what are the trade-offs
+- **Risk decisions** — what could go wrong, how severe, how to mitigate
+
+Now you have a clear picture. If the idea looks good:
+
+```
 /plan I-001
 ```
 
-### The Development Loop
+This generates a task plan *from the idea*, with all the context from discovery built in. After approval:
 
 ```
-         ┌──────────────────────────────────────────────────┐
-         │                                                  │
-    /objective  ──→  /idea  ──→  /discover  ──→  /plan      │
-      (why)        (what)      (assess)       (how)         │
-         │                                                  │
-         │     ┌────────────────────────────────────┐       │
-         │     │  For each task:                    │       │
-         └──→  │  1. Load context (deps + guidelines)│      │
-               │  2. Execute code changes            │      │
-               │  3. Record decisions                │      │
-               │  4. Run gates (test/lint)           │      │
-               │  5. Mark complete (auto-records git)│      │
-               └────────────────────────────────────┘       │
-                              │                             │
-                        /compound  ──→  lessons ───────────→┘
-                          (learn)       (feed next project)
+/run                    ← execute all tasks
+/compound               ← when done, extract lessons learned
 ```
 
-### Entity Flow
+**`/compound`** looks at the completed project — what patterns emerged, what mistakes were made, what decisions proved right — and records **lessons**. These lessons are available to future projects, so the agent doesn't repeat mistakes.
 
-Everything connects:
+## The Building Blocks
+
+### Objectives — "Why are we doing this?"
 
 ```
-Objective O-001 "Reduce p95 latency"        ← Business goal with measurable KRs
-  ├── Guideline G-010 "Latency benchmarks"  ← Standards (loaded by scope into task context)
-  ├── Research R-001 "Caching options"       ← Structured analysis output
-  ├── Idea I-001 "Redis caching layer"      ← Proposal (advances KR-1)
-  │     ├── Decision D-001 (exploration)    ← Options explored, risks assessed
-  │     └── Decision D-002 (risk)           ← Severity, likelihood, mitigation
-  └── Task T-001 "setup-redis"              ← Execution unit
-        ├── Context loads: guidelines, research, dependency outputs, active risks
-        ├── Changes auto-recorded on complete (git diff → reasoning trace)
-        └── Gates checked before DONE
+/objective Reduce API response time
 ```
 
-## Forge Core (Python Engine)
+Business goals with measurable Key Results. Example:
+- **O-001**: "Reduce API response time"
+  - KR-1: p95 latency < 200ms (current: 450ms)
+  - KR-2: Zero timeout errors per day (current: 12)
 
-Forge core is a set of Python modules that manage state in JSON files. No database required — everything lives in `forge_output/{project}/`.
+Ideas link to KRs (`advances_key_results`), so you always know which goal a piece of work serves. When the objective is achieved or abandoned, Forge reminds you to review derived guidelines.
 
-### Pipeline — Task Graph
+### Ideas — "What could we build?"
 
-Tasks form a DAG with dependencies. The pipeline enforces order, detects conflicts, and supports parallel multi-agent execution.
+```
+/idea Redis caching layer --advances O-001/KR-1
+```
+
+Proposals that mature before becoming work. Lifecycle: `DRAFT → EXPLORING → APPROVED → COMMITTED`. Ideas support hierarchy (sub-ideas via `--parent I-001`) and relations (depends_on, related_to, supersedes).
+
+You don't plan directly from ideas — first explore (`/discover`), then approve, then plan. This prevents jumping to implementation before understanding.
+
+### Discover — "What are the risks and options?"
+
+```
+/discover I-001
+```
+
+Runs structured analysis on an idea:
+- **Exploration**: What approaches exist? What are trade-offs? Open questions?
+- **Risk assessment**: What could fail? Severity? Mitigation plan?
+
+Results are stored as decisions — they become part of the task context when you later execute.
+
+### Guidelines — "How do we work here?"
+
+```
+/guideline "All API endpoints must return structured error responses with error codes" --scope backend --weight must
+```
+
+Project-wide standards. Each guideline has a **scope** (backend, frontend, database...) and a **weight**:
+- `must` — always loaded into task context, non-negotiable
+- `should` — loaded when relevant, expected to follow
+- `may` — available on request, nice-to-have
+
+When a task with `scopes: ["backend"]` runs, all `backend` guidelines are automatically injected into the agent's context. The agent sees the rules *before* writing code, not after review.
+
+### Knowledge — "What do we know about this domain?"
+
+```
+/knowledge add --data '[{"title": "MEXC API rate limits", "category": "api-reference", "content": "..."}]'
+```
+
+Domain context that tasks can reference: API docs, business rules, architectural patterns, integration specs. Versioned — when knowledge changes, Forge tracks what changed and why. Tasks reference knowledge via `knowledge_ids`, and it's loaded into context during execution.
+
+### Decisions — "Why did we choose this?"
+
+Every non-trivial choice gets recorded automatically during task execution. You can also create them explicitly:
+
+```
+/decide
+```
+
+Shows all OPEN decisions and lets you resolve them. Three types:
+- **Standard**: architecture, library choice, naming convention, trade-off
+- **Exploration**: options and findings from `/discover`
+- **Risk**: severity + likelihood + mitigation plan
+
+Tasks can be **blocked by decisions** — they won't start until the decision is CLOSED. This prevents coding before the architecture is agreed on.
+
+### Compound & Lessons — "What did we learn?"
+
+```
+/compound
+```
+
+Run after a project is done. Forge analyzes completed tasks, decisions, and changes to extract **lessons**: patterns that worked, mistakes to avoid, decisions that proved right or wrong. Lessons carry severity (critical/important/minor) and can be **promoted to guidelines** for future projects:
+
+```python
+python -m core.lessons promote L-001 --scope backend --weight should
+```
+
+This is the learning loop — experience from project A improves the rules for project B.
+
+## Contracts — The AI/Python Handshake
+
+Every entity (task, decision, guideline...) has a **contract** — the exact JSON schema it expects. Example:
 
 ```bash
-python -m core.pipeline init myproject --goal "Build a REST API"
-python -m core.pipeline draft-plan myproject --data '[...]'   # Draft → review
-python -m core.pipeline approve-plan myproject                # Approve → materialize
-python -m core.pipeline next myproject                        # Get next ready task
-python -m core.pipeline complete myproject T-001 --reasoning "Added Redis connection pool"
-python -m core.pipeline status myproject                      # Dashboard + DAG
+python -m core.pipeline contract add-tasks
 ```
 
-Task states: `TODO → IN_PROGRESS → DONE` (or `FAILED` / `SKIPPED`). Each task carries: acceptance criteria, scopes (for guideline loading), origin (idea or objective), knowledge references, and test requirements.
+This prints the schema. Contracts exist for two reasons:
 
-### Decisions — The Why Log
+1. **The agent sees the contract before generating data** — no guessing what fields exist, no hallucinated properties
+2. **Python validates output against the contract** — if the LLM produces invalid JSON, the operation fails with a clear error, not corrupt state
 
-Every non-trivial choice gets recorded — architecture, library selection, trade-offs, and risks. Three types unified under one system:
-
-- **Standard** — architecture, implementation, security, naming, etc.
-- **Exploration** (type=exploration) — findings, options, open questions from `/discover`
-- **Risk** (type=risk) — severity, likelihood, mitigation plan
-
-```bash
-python -m core.decisions add myproject --data '[...]'
-python -m core.decisions read myproject --status OPEN
-python -m core.decisions read myproject --type risk
-```
-
-Tasks can be **blocked by decisions** — they won't start until the decision is CLOSED. This forces architectural alignment before implementation.
-
-### Changes — What and Why
-
-Every file modification is tracked with a mandatory `reasoning_trace` — not just *what* changed but *why*. Auto-recorded from git diff on task completion.
-
-```bash
-python -m core.changes auto myproject T-001 --reasoning "Added connection pool for Redis"
-python -m core.changes summary myproject
-```
-
-### Gates — Validation Before Done
-
-Configurable per project: tests, lint, type-check, secret scanning. Required gates block task completion until fixed.
-
-```bash
-python -m core.gates config myproject --data '[{"name": "test", "command": "pytest", "required": true}]'
-python -m core.gates check myproject --task T-001
-```
-
-### Guidelines — Project Standards
-
-Scoped (`backend`, `frontend`, `database`, etc.) and weighted (`must` / `should` / `may`). Automatically injected into task context during execution based on task scopes.
-
-```bash
-python -m core.guidelines add myproject --data '[{"title": "Use Repository Pattern", "scope": "backend", "weight": "must", ...}]'
-python -m core.guidelines context myproject --scopes "backend,database"
-```
-
-### Other Entities
-
-| Entity | Purpose | Command |
-|--------|---------|---------|
-| **Objectives** | Business goals with measurable Key Results | `python -m core.objectives` |
-| **Ideas** | Hierarchical proposals (DRAFT → EXPLORING → APPROVED → COMMITTED) | `python -m core.ideas` |
-| **Research** | Structured analysis output linked to objectives/ideas | `python -m core.research` |
-| **Knowledge** | Domain context — rules, patterns, API references (versioned) | `python -m core.knowledge` |
-| **AC Templates** | Reusable parameterized acceptance criteria | `python -m core.ac_templates` |
-| **Lessons** | Cross-project learning extracted via `/compound` | `python -m core.lessons` |
-
-## Contracts — Why They Exist
-
-Every entity has a **contract**: a schema that defines the exact shape of data the module accepts. Run `python -m core.{module} contract {action}` to see it.
-
-Contracts serve two purposes:
-1. **For the AI agent** — the contract is injected into the prompt so the LLM knows exactly what JSON to produce. No guessing, no hallucinated fields.
-2. **For validation** — Python validates the LLM output against the contract before writing to disk. If it doesn't match, the operation fails with a clear error.
-
-This is the Python/LLM boundary: Python handles I/O and validation, the LLM handles judgment. The contract is the handshake between them.
-
-```bash
-python -m core.pipeline contract add-tasks    # See task schema
-python -m core.decisions contract add          # See decision schema
-python -m core.guidelines contract add         # See guideline schema
-```
+Python handles I/O and validation. The LLM handles judgment. The contract is where they meet.
 
 ## Skills — Reusable Agent Procedures
 
-Skills are structured instruction sets (in SKILL.md format) that guide the AI agent through complex multi-step procedures. They're not just prompts — they define:
+Skills are structured SKILL.md files that guide the agent through multi-step procedures. They define steps, verification criteria, tool permissions, and scope transparency (what the skill does NOT cover).
 
-- **Steps** with explicit inputs and outputs
-- **Verification criteria** — how to check the work is correct
-- **Scope transparency** — what the skill does NOT cover
-- **Tool permissions** — which tools the agent may use
+Built-in skills power the slash commands:
 
-### Built-in Skills
+| Command | Skill | What It Does |
+|---------|-------|-------------|
+| `/plan` | `plan` | Decompose goal into dependency DAG |
+| `/next` | `next` | Execute task with context, guidelines, verification |
+| `/discover` | `discover` | Explore options and assess risks |
+| `/review` | `review` | 6-perspective code review |
+| `/onboard` | `onboard` | Import existing project knowledge |
 
-| Skill | When It Runs | What It Does |
-|-------|-------------|--------------|
-| `plan` | `/plan {goal}` | Decompose goal into dependency DAG (two-phase: draft → approve) |
-| `next` | `/next` | Execute a task with context loading, guidelines, verification |
-| `discover` | `/discover {topic}` | Explore options and assess risks before committing |
-| `review` | `/review {task}` | 6-perspective code review |
-| `onboard` | `/onboard {path}` | Import existing project knowledge into Forge |
-| `deep-explore` | Auto via `/discover` | Structured option exploration with consequence tracing |
-| `deep-risk` | Auto via `/discover` | 5-dimensional risk assessment with cascade analysis |
-| `deep-architect` | Manual | Architecture design with 8 adversarial challenges |
-| `deep-verify` | Manual | Artifact verification with impossibility pattern matching |
+You can create your own skills, lint them, promote DRAFT → ACTIVE, and sync them across environments via git.
 
-Skills can be created, edited, linted, and promoted via the Forge web UI or CLI. They support git sync for sharing across environments.
+## Validation Gates
 
-## Multi-Agent Support
+```
+/do Configure test gates for this project
+```
 
-Multiple AI agents can work on the same project in parallel:
+Or directly:
+
+```bash
+python -m core.gates config myproject --data '[
+  {"name": "test", "command": "pytest", "required": true},
+  {"name": "lint", "command": "ruff check .", "required": true},
+  {"name": "secrets", "command": "gitleaks detect --no-git -v", "required": true}
+]'
+```
+
+Gates run automatically before a task is marked DONE. Required gates block completion until they pass. This prevents "it compiles, ship it" — the agent must fix test failures before moving on.
+
+## For Existing Projects
+
+```
+/onboard ./my-existing-project
+```
+
+Forge scans the codebase, discovers conventions, imports architectural decisions, and sets up guidelines. Then you can plan work on top of it:
+
+```
+/plan Add payment processing to the checkout flow
+```
+
+## Multi-Agent
+
+Multiple agents can work on the same project simultaneously:
 
 ```bash
 python -m core.pipeline next myproject --agent alice
 python -m core.pipeline next myproject --agent bob
 ```
 
-- Two-phase claiming prevents race conditions (`CLAIMING → IN_PROGRESS`)
-- `conflicts_with` on tasks prevents concurrent modification of the same files
-- Each agent's changes are tracked independently
+Two-phase claiming prevents race conditions. `conflicts_with` on tasks prevents two agents from editing the same files at once.
 
-## Quick Start
+## All Commands
 
-```bash
-# Simple task — just do it:
-/do Fix the login timeout bug in auth.py
-
-# Multi-task feature:
-/plan Add Redis caching to API responses
-
-# Existing codebase — import first, then plan:
-/onboard ./my-project
-/plan Add user authentication
-
-# Full workflow for risky/complex work:
-/objective Reduce API response time          # Define measurable goal
-/idea Redis caching layer                    # Capture proposal
-/discover I-001                              # Explore risks & options
-/plan I-001                                  # Draft plan → approve → execute
-/next                                        # Execute tasks one by one
-/run                                         # Or execute all continuously
-/compound                                    # Extract lessons when done
-```
-
-## Slash Commands Reference
-
-| Command | Description |
-|---------|-------------|
-| **`/do {task}`** | Quick path — single task, start to finish |
+| Command | Purpose |
+|---------|---------|
+| `/do {task}` | Quick — one task, full traceability, minimum ceremony |
+| `/plan {goal}` | Decompose into tasks with dependencies |
 | `/objective {title}` | Define business goal with measurable KRs |
-| `/idea {title}` | Add idea to staging area |
-| `/discover {topic\|idea_id}` | Explore options, assess risks |
-| `/plan {goal\|idea_id}` | Decompose into task graph (draft → approve) |
-| `/guideline {text}` | Add project standard |
-| `/knowledge [id] [action]` | Manage domain knowledge |
-| `/task {description}` | Quick-add a single task |
-| `/next` | Execute next task |
-| `/run [tasks]` | Continuous execution |
-| `/decide` | Review and resolve open decisions |
-| `/review {task_id}` | Deep code review |
-| `/status` | Project dashboard |
+| `/idea {title}` | Capture a proposal |
+| `/discover {topic}` | Explore options and risks |
+| `/guideline {text}` | Set a project standard |
+| `/knowledge` | Manage domain context |
+| `/task {desc}` | Quick-add a single task |
+| `/next` | Execute next ready task |
+| `/run` | Execute all tasks continuously |
+| `/decide` | Resolve open decisions |
+| `/review {id}` | Deep code review |
+| `/status` | Dashboard + progress |
 | `/log` | Full audit trail |
-| `/compound` | Extract lessons learned |
+| `/compound` | Extract lessons from completed work |
 | `/onboard {path}` | Import existing project |
 | `/help` | Show all commands |
 
-## State Storage
+## State
 
-All state lives in `forge_output/{project}/` as JSON files:
+All state lives in `forge_output/{project}/` as JSON files. No database. No migrations. Version-controllable with git.
 
-| File | Contents |
-|------|----------|
-| `tracker.json` | Task graph (DAG with dependencies, statuses, draft plans) |
-| `decisions.json` | Decision log (standard + exploration + risk) |
-| `changes.json` | File change records with reasoning traces |
-| `guidelines.json` | Project standards and conventions |
-| `objectives.json` | Business objectives with key results |
-| `ideas.json` | Idea staging area |
-| `research.json` | Structured analysis outputs |
-| `knowledge.json` | Domain knowledge (versioned) |
+| File | What's In It |
+|------|-------------|
+| `tracker.json` | Task graph — DAG with dependencies and statuses |
+| `decisions.json` | Every decision with reasoning, alternatives, provenance |
+| `changes.json` | File changes with reasoning traces |
+| `guidelines.json` | Project standards by scope and weight |
+| `objectives.json` | Business goals and Key Result progress |
+| `ideas.json` | Proposals in various lifecycle stages |
+| `knowledge.json` | Domain context (versioned) |
 | `lessons.json` | Cross-project learning |
-| `ac_templates.json` | Reusable acceptance criteria templates |
-
-No database. No migrations. `git diff` on the JSON files shows exactly what changed between sessions.
