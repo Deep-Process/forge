@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T19:38:03Z",
+  "updated": "2026-03-13T20:08:25Z",
   "research": [
     {
       "id": "R-001",
@@ -191,6 +191,102 @@
       ],
       "created_at": "2026-03-13T19:36:41Z",
       "updated_at": "2026-03-13T19:38:03Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-006",
+      "title": "Deep-Explore: AI Sidebar Operational Autonomy Architecture",
+      "topic": "Session authorization, progressive context, tool discovery, scope propagation, and app map generation for AI Sidebar",
+      "status": "DRAFT",
+      "category": "architecture",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "linked_idea_id": null,
+      "skill": "deep-explore",
+      "file_path": null,
+      "summary": "Recommended architecture: Redis Scope Snapshots for session auth, Hybrid progressive context (app map + page context + on-demand getToolContract), Two-Tool Pattern for tool discovery, localStorage events for scope propagation, backend-generated app map from ToolRegistry. All 5 questions assessed as GO.",
+      "key_findings": [
+        "Current system has NO auth on chat endpoint - critical security gap",
+        "Redis Scope Snapshot is simplest auth approach - O(1) lookup, atomic invalidation, natural TTL",
+        "Progressive context budget: ~500 tokens app map + ~800 page context + ~200 per tool contract = well within limits",
+        "Two-Tool Pattern (listAvailableTools + getToolContract) enables progressive disclosure of tool capabilities",
+        "ToolRegistry already has all metadata needed for app map and tool contracts",
+        "localStorage events provide zero-cost scope propagation between UI and AI sessions",
+        "All 5 architecture questions assessed as GO with recommended approach"
+      ],
+      "decision_ids": [
+        "D-067",
+        "D-068",
+        "D-069",
+        "D-070",
+        "D-071"
+      ],
+      "scopes": [
+        "ai-sidebar",
+        "backend",
+        "security"
+      ],
+      "tags": [
+        "ai-sidebar",
+        "authorization",
+        "progressive-context",
+        "tool-discovery",
+        "architecture"
+      ],
+      "created_at": "2026-03-13T20:08:25Z",
+      "updated_at": "2026-03-13T20:08:25Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-007",
+      "title": "Deep-Risk: AI Sidebar Operational Autonomy Risk Assessment",
+      "topic": "Security, concurrency, and implementation risks for AI Sidebar autonomous tool execution",
+      "status": "DRAFT",
+      "category": "risk",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "linked_idea_id": null,
+      "skill": "deep-risk",
+      "file_path": null,
+      "summary": "18 risks identified: 2 CRITICAL (no auth on chat, frontend-only scope enforcement), 4 HIGH (permissions not session-bound, prompt injection, scope race condition, WebSocket leakage), 6 MEDIUM (Redis memory, tool reconnaissance, context staleness, token budget, over-engineering, error leaks), 3 LOW. Phased mitigation recommended: Phase 1 security, Phase 2 intelligence, Phase 3 polish.",
+      "key_findings": [
+        "CRITICAL: No authentication on chat endpoint - any tool call executed if in registry",
+        "CRITICAL: Scope enforcement is frontend-only - backend executes any valid tool regardless of scope config",
+        "HIGH: Permission config not session-bound - config changes affect all sessions including in-flight",
+        "HIGH: Prompt injection could exploit allowed tools maliciously even with scope enforcement",
+        "HIGH: Scope change race condition in agent loop - stale scope set during mid-execution",
+        "MEDIUM: getToolContract could enable reconnaissance of system capabilities beyond intended scope",
+        "MEDIUM: Over-engineering risk - 6 KRs spanning multiple domains, phased delivery recommended",
+        "Phased mitigation: Phase 1 (security + core tool fix), Phase 2 (context + discovery), Phase 3 (map + polish)"
+      ],
+      "decision_ids": [
+        "D-072",
+        "D-073",
+        "D-074",
+        "D-075",
+        "D-076",
+        "D-077",
+        "D-078",
+        "D-079",
+        "D-080",
+        "D-081",
+        "D-082",
+        "D-083"
+      ],
+      "scopes": [
+        "ai-sidebar",
+        "backend",
+        "security"
+      ],
+      "tags": [
+        "ai-sidebar",
+        "risk-assessment",
+        "security",
+        "authorization",
+        "session"
+      ],
+      "created_at": "2026-03-13T20:08:25Z",
+      "updated_at": "2026-03-13T20:08:25Z",
       "created_by": "claude"
     }
   ]

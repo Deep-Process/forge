@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T19:55:42Z",
+  "updated": "2026-03-13T20:07:57Z",
   "decisions": [
     {
       "id": "D-001",
@@ -2258,7 +2258,621 @@
         "data-exposure",
         "KR-5"
       ]
+    },
+    {
+      "id": "D-067",
+      "task_id": "O-024",
+      "type": "exploration",
+      "issue": "How should AI session authorization work? Need scope-enforced, per-session tokens that prevent unauthorized tool calls even if LLM attempts them.",
+      "recommendation": "Redis Scope Snapshot: store allowed scopes per session in Redis, validate every tool call server-side. Stateless, fast lookup, invalidate on scope change.",
+      "reasoning": "JWT approach was considered but adds complexity (signing, refresh, revocation). Redis snapshot is simpler: on session create or scope change, write allowed_scopes set to Redis key with session TTL. Tool executor checks membership before executing. Already have Redis infrastructure.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "Current system has NO auth on chat endpoint - any tool call is executed if in registry",
+        "Permission engine exists (3-layer merge) but is not session-bound",
+        "Redis Scope Snapshot: O(1) lookup, atomic invalidation, natural TTL expiry",
+        "JWT alternative: adds signing/verification overhead, harder to revoke mid-session"
+      ],
+      "options": [
+        {
+          "name": "Redis Scope Snapshot",
+          "pros": [
+            "Simple O(1) lookup",
+            "Atomic invalidation on scope change",
+            "Natural TTL alignment with session",
+            "Already have Redis"
+          ],
+          "cons": [
+            "Extra Redis key per session",
+            "Must sync on scope toggle"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "JWT Session Token",
+          "pros": [
+            "Stateless verification",
+            "Standard approach"
+          ],
+          "cons": [
+            "Revocation requires blacklist (negates stateless benefit)",
+            "Signing overhead",
+            "More complex"
+          ],
+          "recommendation": "CONDITIONAL - only if Redis unavailable"
+        }
+      ],
+      "open_questions": [
+        "Should scope snapshot include tool-level granularity or just module scopes?"
+      ],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [],
+      "tags": [
+        "security",
+        "authorization",
+        "session"
+      ]
+    },
+    {
+      "id": "D-068",
+      "task_id": "O-024",
+      "type": "exploration",
+      "issue": "What progressive context strategy should AI use? Need lightweight always-on context + on-demand detail without exceeding token budgets.",
+      "recommendation": "Hybrid: static app map (~500 tokens) + full current page context (from annotations) + on-demand getToolContract(toolName) for detailed parameter schemas.",
+      "reasoning": "Full tool registry dump would be 3000+ tokens. Static map gives overview of all capabilities. Page context (already implemented as SKILL-like format) gives actionable detail for current page. getToolContract bridges the gap when AI needs parameter details for a tool not on current page.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "Current page context (SKILL-like format) averages 300-800 tokens - fits within budget",
+        "Full tool registry has ~50 tools, dumping all schemas would be ~3000 tokens",
+        "App map (module -> tool names only, no schemas) fits in ~500 tokens",
+        "getToolContract returns full JSON Schema for one tool - ~100-200 tokens per call"
+      ],
+      "options": [
+        {
+          "name": "Hybrid (map + page + on-demand)",
+          "pros": [
+            "Minimal token overhead",
+            "AI can self-serve detail",
+            "Page context auto-updates from annotations"
+          ],
+          "cons": [
+            "Extra tool call for detailed schemas",
+            "Map needs maintenance"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "Full Registry Dump",
+          "pros": [
+            "Complete context always available"
+          ],
+          "cons": [
+            "3000+ tokens always consumed",
+            "Noise for irrelevant tools",
+            "Slower responses"
+          ],
+          "recommendation": "NO-GO - token waste"
+        },
+        {
+          "name": "Page Context Only",
+          "pros": [
+            "Zero extra tokens",
+            "Already implemented"
+          ],
+          "cons": [
+            "AI blind to tools not on current page",
+            "Cannot help with cross-module tasks"
+          ],
+          "recommendation": "NO-GO - too limited"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [],
+      "tags": [
+        "context",
+        "token-budget",
+        "progressive-disclosure"
+      ]
+    },
+    {
+      "id": "D-069",
+      "task_id": "O-024",
+      "type": "exploration",
+      "issue": "How should getToolContract work? AI needs to discover available tools and get parameter schemas on demand.",
+      "recommendation": "Two-Tool Pattern: listAvailableTools() returns tool names grouped by module (filtered by session scopes), getToolContract(toolName) returns full JSON Schema + description + examples for one tool.",
+      "reasoning": "Single tool would either return too much (all schemas) or require AI to guess tool names. Two-tool pattern: list first (cheap, ~200 tokens), then get detail for specific tool (100-200 tokens). Naturally supports scope filtering - only list tools the session has access to.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "ToolRegistry already has all data needed: name, description, parameters (JSON Schema), scope",
+        "listAvailableTools can filter by session scopes from Redis snapshot",
+        "getToolContract can return full ToolDef metadata minus handler function",
+        "Both tools should be always-available (no scope requirement - meta-tools)"
+      ],
+      "options": [
+        {
+          "name": "Two-Tool Pattern (list + get)",
+          "pros": [
+            "Progressive disclosure",
+            "Scope-filtered listing",
+            "Low token cost per call"
+          ],
+          "cons": [
+            "Two round-trips for full detail"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "Single getAllTools",
+          "pros": [
+            "One call"
+          ],
+          "cons": [
+            "Either too verbose or too terse",
+            "No progressive disclosure"
+          ],
+          "recommendation": "NO-GO"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [],
+      "tags": [
+        "tools",
+        "discovery",
+        "api"
+      ]
+    },
+    {
+      "id": "D-070",
+      "task_id": "O-024",
+      "type": "exploration",
+      "issue": "How should scope changes propagate from UI toggles to active AI sessions?",
+      "recommendation": "localStorage Event Listener: UI writes scopes to localStorage, AISidebar listens for storage events, invalidates Redis scope snapshot, and notifies active agent loop.",
+      "reasoning": "Already use localStorage for scope persistence. Storage events fire cross-tab. Agent loop can check scope validity at each iteration boundary. No WebSocket needed for scope sync - only for chat streaming.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "Scopes already persisted in localStorage by AISidebar",
+        "Storage events fire on changes from other tabs/components",
+        "Agent loop has natural iteration boundaries for scope recheck",
+        "Redis scope snapshot can be atomically replaced on scope change"
+      ],
+      "options": [
+        {
+          "name": "localStorage Event Listener",
+          "pros": [
+            "Uses existing infrastructure",
+            "Cross-tab sync built-in",
+            "Simple implementation"
+          ],
+          "cons": [
+            "Same-tab changes need manual dispatch",
+            "Slight delay at iteration boundary"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "WebSocket Scope Channel",
+          "pros": [
+            "Real-time propagation",
+            "Works server-side"
+          ],
+          "cons": [
+            "Extra WS channel",
+            "More complex",
+            "Overkill for infrequent changes"
+          ],
+          "recommendation": "CONDITIONAL"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [],
+      "tags": [
+        "scopes",
+        "propagation",
+        "ui"
+      ]
+    },
+    {
+      "id": "D-071",
+      "task_id": "O-024",
+      "type": "exploration",
+      "issue": "Where should the app map (overview of all AI capabilities) be generated?",
+      "recommendation": "Backend-Generated from ToolRegistry: endpoint returns tool names grouped by module, filtered by session scopes. Cached in memory, invalidated on registry changes.",
+      "reasoning": "ToolRegistry is the single source of truth for available tools. Backend generation ensures consistency with actual tool availability. Frontend would need to duplicate tool knowledge. Memory caching is fine - registry changes only on deploy.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "ToolRegistry.create_default_registry() has all tool metadata",
+        "Tools already have scope field for grouping",
+        "App map is static per deployment - safe to cache",
+        "Scope filtering at query time (not cache time) for per-session results"
+      ],
+      "options": [
+        {
+          "name": "Backend from ToolRegistry",
+          "pros": [
+            "Single source of truth",
+            "Scope-filtered",
+            "Cacheable"
+          ],
+          "cons": [
+            "Extra endpoint"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "Frontend hardcoded",
+          "pros": [
+            "No backend change"
+          ],
+          "cons": [
+            "Duplicate knowledge",
+            "Out of sync risk",
+            "No scope filtering"
+          ],
+          "recommendation": "NO-GO"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [],
+      "tags": [
+        "app-map",
+        "tools",
+        "backend"
+      ]
+    },
+    {
+      "id": "D-072",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "No authentication on chat endpoint - any tool call is executed if tool exists in registry, regardless of user intent or scope configuration.",
+      "recommendation": "Implement session-scoped authorization via Redis scope snapshots. Every tool call must pass scope validation before execution.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "HIGH",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Phase 1: Add scope validation in tool executor (agent_loop). Store allowed scopes in Redis per session. Reject calls to tools outside allowed scopes with clear error message.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "critical",
+        "authorization"
+      ]
+    },
+    {
+      "id": "D-073",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Scope enforcement is frontend-only - scopes filter what AI sees in page context but backend executes any valid tool call regardless of configured scopes.",
+      "recommendation": "Backend must enforce scopes independently. Defense-in-depth: frontend filters context, backend validates execution.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "HIGH",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Add server-side scope check in agent_loop._call_tool() before executing handler. Compare tool scope against session allowed scopes from Redis.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "critical",
+        "scope-enforcement"
+      ]
+    },
+    {
+      "id": "D-074",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Permission config (3-layer merge) is not bound to sessions - config changes affect all sessions immediately, including in-flight agent loops.",
+      "recommendation": "Snapshot permissions at session creation. In-flight sessions use their snapshot, not live config.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Store merged permission config in Redis alongside scope snapshot at session creation. Agent loop reads from snapshot, not live config.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "session",
+        "permissions"
+      ]
+    },
+    {
+      "id": "D-075",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Prompt injection could trick LLM into calling tools outside intended scope. Even with backend enforcement, crafted prompts could exploit allowed tools maliciously.",
+      "recommendation": "Layer defenses: scope enforcement prevents cross-scope calls, input sanitization reduces injection surface, tool result validation prevents data exfiltration.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "MEDIUM",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "1. Backend scope enforcement (primary defense). 2. Rate limiting on tool calls per session. 3. Audit logging of all tool calls. 4. Consider tool result size limits.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "prompt-injection"
+      ]
+    },
+    {
+      "id": "D-076",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Scope change race condition in agent loop - if user toggles scope while agent is mid-execution, tool calls may execute against stale scope set.",
+      "recommendation": "Check scope validity at each iteration boundary. If scope changed mid-loop, complete current iteration but block new tool calls outside new scope.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Agent loop checks Redis scope snapshot version at each iteration start. If version changed, reload scopes. Current iteration tools already dispatched are allowed to complete.",
+      "resolution_notes": "",
+      "tags": [
+        "concurrency",
+        "scopes",
+        "agent-loop"
+      ]
+    },
+    {
+      "id": "D-077",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "WebSocket chat events may leak data across sessions if session isolation is not properly enforced in the streaming endpoint.",
+      "recommendation": "Ensure WebSocket connections are bound to specific sessions. Validate session ownership on connection and each event.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "LOW",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "WebSocket handler validates session_id ownership on connect. Events include session_id, client-side filters by active session.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "websocket",
+        "session-isolation"
+      ]
+    },
+    {
+      "id": "D-078",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Redis memory growth from scope snapshots - each session creates a Redis key for scope data, potentially accumulating if sessions are not properly cleaned up.",
+      "recommendation": "Use TTL-aligned keys. Session scope key expires with session TTL (1h default). No manual cleanup needed.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "LOW",
+      "likelihood": "LOW",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Set EXPIRE on scope snapshot keys equal to session TTL. Monitor Redis memory usage.",
+      "resolution_notes": "",
+      "tags": [
+        "infrastructure",
+        "redis",
+        "memory"
+      ]
+    },
+    {
+      "id": "D-079",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "getToolContract could be used for reconnaissance - AI or malicious prompt could enumerate all tools to discover system capabilities beyond intended scope.",
+      "recommendation": "getToolContract must respect session scopes - only return contracts for tools within allowed scopes.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "listAvailableTools and getToolContract both filter by session scopes. Requesting contract for out-of-scope tool returns permission denied, not tool details.",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "tools",
+        "reconnaissance"
+      ]
+    },
+    {
+      "id": "D-080",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Context staleness - page context in system prompt reflects state at message send time, but tool calls may change state during execution (e.g., task status changes).",
+      "recommendation": "Accept staleness for page context (refreshed on next message). Tool results always return current state. Document this as expected behavior.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "LOW",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Page context is re-serialized on each user message. Tool results reflect live state. No mid-conversation context refresh needed.",
+      "resolution_notes": "",
+      "tags": [
+        "context",
+        "staleness",
+        "ux"
+      ]
+    },
+    {
+      "id": "D-081",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Token budget exceeded if app map + page context + tool contracts + conversation history approach model context limit.",
+      "recommendation": "Budget: app map ~500, page context ~800, max 3 tool contracts ~600 = ~1900 tokens for AI context. Well within limits. Monitor and add hard cap if needed.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "LOW",
+      "likelihood": "LOW",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Set maxChars on serializer (already 4000). App map endpoint respects maxChars. Log context token counts for monitoring.",
+      "resolution_notes": "",
+      "tags": [
+        "token-budget",
+        "context",
+        "performance"
+      ]
+    },
+    {
+      "id": "D-082",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Over-engineering risk - O-024 has 6 KRs spanning auth, context, tools, scopes, UX. Full implementation could take weeks and delay other objectives.",
+      "recommendation": "Phase deliveries: Phase 1 (backend scope enforcement + fix tool execution), Phase 2 (progressive context + getToolContract), Phase 3 (app map + polish).",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Break into 3 phases. Phase 1 delivers security (KR-1, KR-2) and fixes core tool execution. Phase 2 adds intelligence (KR-3, KR-4). Phase 3 adds completeness (KR-5, KR-6).",
+      "resolution_notes": "",
+      "tags": [
+        "scope-creep",
+        "phasing",
+        "planning"
+      ]
+    },
+    {
+      "id": "D-083",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Error message information leakage - detailed error messages from tool execution could expose internal system details (file paths, Redis keys, stack traces).",
+      "recommendation": "Sanitize error messages returned to LLM. Log full details server-side, return generic errors to AI.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-13T20:07:57Z",
+      "severity": "LOW",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-024",
+      "mitigation_plan": "Tool executor catches exceptions, logs full error, returns sanitized message to LLM (e.g., 'Tool execution failed: permission denied' not full traceback).",
+      "resolution_notes": "",
+      "tags": [
+        "security",
+        "error-handling"
+      ]
     }
   ],
-  "open_count": 14
+  "open_count": 31
 }
