@@ -37,7 +37,7 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.method = opts?.method ?? "";
     this.url = opts?.url ?? "";
-    const raw = typeof detail === "string" ? detail : JSON.stringify(detail);
+    const raw = typeof detail === "string" ? detail : (JSON.stringify(detail) ?? "");
     this.responseExcerpt = raw.slice(0, 500);
   }
 }

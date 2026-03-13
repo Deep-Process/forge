@@ -24,10 +24,12 @@ export function ErrorDetail({ error, id }: { error: unknown; id?: string }) {
     label: "Error Detail",
     description: isApiError
       ? `API error ${(error as ApiError).status} on ${(error as ApiError).method} ${(error as ApiError).url}`
-      : `Error: ${error instanceof Error ? error.message : String(error)}`,
+      : error ? `Error: ${error instanceof Error ? error.message : String(error)}` : "No error",
     value: isApiError ? `${(error as ApiError).status}` : "error",
     actions: [],
   });
+
+  if (!error) return null;
 
   if (!isApiError) {
     const message = error instanceof Error ? error.message : String(error);
