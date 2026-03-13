@@ -219,6 +219,9 @@ class ClaudeCodeProvider:
                     msg.tool_call_id,
                 )
             elif msg.role in ("user", "assistant"):
+                # Skip empty assistant turns (e.g., text-tool mode with only tool calls)
+                if msg.role == "assistant" and not msg.content:
+                    continue
                 label = "User" if msg.role == "user" else "Assistant"
                 conversation_parts.append(f"{label}: {msg.content}")
 

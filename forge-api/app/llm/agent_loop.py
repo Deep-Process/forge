@@ -360,18 +360,26 @@ class AgentLoop:
                                 ))
                             continue  # Skip to next tool call
 
-                    # Execute tool (with defense-in-depth permission check)
-                    try:
-                        tool_result = await self._tool_registry.execute(
-                            tool_name=tool_name,
-                            args=tool_input,
-                            storage=self._storage,
-                            context=context,
-                            permissions=self._permissions,
-                        )
-                    except Exception as e:
-                        logger.warning("Tool %s execution error: %s", tool_name, e)
-                        tool_result = {"error": f"{type(e).__name__}: {e}"}
+                    # Handle parse errors from text-tool mode
+                    if tool_name == "__parse_error__":
+                        tool_result = {
+                            "error": f"Failed to parse your tool call: {tool_input.get('error', 'unknown')}. "
+                            f"Raw input: {str(tool_input.get('raw', ''))[:200]}. "
+                            "Please fix the JSON and try again."
+                        }
+                    else:
+                        # Execute tool (with defense-in-depth permission check)
+                        try:
+                            tool_result = await self._tool_registry.execute(
+                                tool_name=tool_name,
+                                args=tool_input,
+                                storage=self._storage,
+                                context=context,
+                                permissions=self._permissions,
+                            )
+                        except Exception as e:
+                            logger.warning("Tool %s execution error: %s", tool_name, e)
+                            tool_result = {"error": f"{type(e).__name__}: {e}"}
 
                     try:
                         result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
@@ -411,6 +419,12 @@ class AgentLoop:
                     # --- Check for blocking decision ---
                     blocking_id = _extract_blocking_decision(tool_name, tool_result)
                     if blocking_id:
+                        # Flush pending text-tool results before pausing
+                        if text_tool_mode and text_tool_results:
+                            from app.llm.text_tool_adapter import format_tool_results as _fmt
+                            conversation.append(Message(
+                                role="user", content=_fmt(text_tool_results),
+                            ))
                         if on_event:
                             await on_event(StreamEvent("paused", {
                                 "reason": "blocked_by_decision",
