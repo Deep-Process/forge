@@ -57,6 +57,7 @@ class ChatSession:
     session_status: str = "active" # "active" | "paused" | "completed" | "failed"
     target_entity_type: str = ""   # "objective" | "task" | "idea" | etc.
     target_entity_id: str = ""     # Target entity ID (e.g., O-001, T-003)
+    scopes: list[str] = field(default_factory=list)  # Allowed tool scopes for this session
     messages: list[ChatMessage] = field(default_factory=list)
     total_tokens_in: int = 0
     total_tokens_out: int = 0
@@ -126,6 +127,7 @@ class SessionManager:
         session_type: str = "chat",
         target_entity_type: str = "",
         target_entity_id: str = "",
+        scopes: list[str] | None = None,
     ) -> ChatSession:
         """Create a new chat session.
 
@@ -137,6 +139,7 @@ class SessionManager:
             session_type: Session purpose (chat, plan, execute, verify, compound).
             target_entity_type: Entity type being worked on (objective, task, etc.).
             target_entity_id: Target entity ID (O-001, T-003, etc.).
+            scopes: Allowed tool scopes for this session.
 
         Returns:
             The created ChatSession.
@@ -149,6 +152,7 @@ class SessionManager:
             session_type=session_type,
             target_entity_type=target_entity_type,
             target_entity_id=target_entity_id,
+            scopes=scopes or [],
         )
 
         await self._save(session)
@@ -314,6 +318,33 @@ class SessionManager:
             await self._save(session)
             return True
 
+    async def update_scopes(
+        self,
+        session_id: str,
+        scopes: list[str],
+    ) -> bool:
+        """Update allowed scopes for a session.
+
+        Atomically replaces the scope list. Used when the user toggles
+        scopes in the AI Sidebar — the new scopes take effect on the
+        next agent_loop iteration.
+
+        Args:
+            session_id: Session to update.
+            scopes: New list of allowed scopes.
+
+        Returns:
+            True if updated, False if session not found.
+        """
+        async with self._get_lock(session_id):
+            session = await self.load(session_id)
+            if session is None:
+                return False
+
+            session.scopes = scopes
+            await self._save(session)
+            return True
+
     async def delete(self, session_id: str) -> bool:
         """Delete a session from Redis.
 
@@ -367,6 +398,7 @@ class SessionManager:
                 "target_entity_id": data.get("target_entity_id", ""),
                 "pause_reason": data.get("pause_reason", ""),
                 "blocked_by_decision_id": data.get("blocked_by_decision_id", ""),
+                "scopes": data.get("scopes", []),
                 "model_used": data.get("model_used"),
                 "message_count": len(data.get("messages", [])),
                 "total_tokens_in": data.get("total_tokens_in", 0),
@@ -439,6 +471,7 @@ class SessionManager:
                 "target_entity_id": data.get("target_entity_id", ""),
                 "pause_reason": data.get("pause_reason", ""),
                 "blocked_by_decision_id": data.get("blocked_by_decision_id", ""),
+                "scopes": data.get("scopes", []),
                 "model_used": data.get("model_used"),
                 "message_count": len(messages),
                 "total_tokens_in": data.get("total_tokens_in", 0),

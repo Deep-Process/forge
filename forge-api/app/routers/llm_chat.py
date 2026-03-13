@@ -204,6 +204,7 @@ async def chat(
             session_type=body.session_type or "chat",
             target_entity_type=body.target_entity_type or "",
             target_entity_id=body.target_entity_id or "",
+            scopes=body.scopes or [],
         )
 
     # --- Inject uploaded file content into user message ---
