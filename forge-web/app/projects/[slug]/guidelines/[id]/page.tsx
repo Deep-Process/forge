@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { guidelines as guidelinesApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Guideline, GuidelineUpdate } from "@/lib/types";
 
 const WEIGHT_VARIANT: Record<string, "danger" | "warning" | "default"> = {
@@ -82,6 +83,31 @@ export default function GuidelineDetailPage() {
       setSaving(false);
     }
   };
+
+  // --- AI Annotations ---
+  useAIPage({
+    id: "guideline-detail",
+    title: guideline ? `Guideline ${guideline.id} — ${guideline.title}` : "Guideline Detail (loading)",
+    description: guideline ? `[${guideline.scope}] ${guideline.weight} — ${guideline.status}` : "Loading...",
+    route: `/projects/${slug}/guidelines/${id}`,
+  });
+
+  useAIElement({
+    id: "guideline-entity",
+    type: "display",
+    label: guideline ? `Guideline ${guideline.id}` : "Guideline",
+    description: guideline ? `${guideline.status} ${guideline.weight} guideline` : undefined,
+    data: guideline ? {
+      status: guideline.status,
+      scope: guideline.scope,
+      weight: guideline.weight,
+      derived_from: guideline.derived_from,
+      examples_count: guideline.examples.length,
+    } : undefined,
+    actions: [
+      { label: "Update guideline", toolName: "updateGuideline", toolParams: ["id*", "content", "status", "weight", "scope"] },
+    ],
+  });
 
   if (loading) return <p className="p-6 text-sm text-gray-400">Loading guideline...</p>;
   if (error) return <p className="p-6 text-sm text-red-600">{error}</p>;

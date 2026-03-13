@@ -6,6 +6,7 @@ import useSWR, { mutate } from "swr";
 import { useChatStore } from "@/stores/chatStore";
 import type { ChatSessionSummary } from "@/stores/chatStore";
 import { StatusFilter } from "@/components/shared/StatusFilter";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 
 const SESSION_TYPES = ["chat", "plan", "execute", "verify", "compound"];
 const SESSION_STATUSES = ["active", "paused", "completed", "failed"];
@@ -107,6 +108,21 @@ export default function SessionsPage() {
     const active = sessions.filter((s) => s.session_status === "active").length;
     return { total: sessions.length, active, totalTokens, totalCost };
   }, [sessions]);
+
+  useAIPage({
+    id: "sessions",
+    title: `Sessions (${stats.total})`,
+    description: "LLM chat session history",
+    route: "/sessions",
+  });
+
+  useAIElement({
+    id: "session-list",
+    type: "list",
+    label: "Sessions",
+    description: `${filtered.length} shown of ${stats.total} total`,
+    data: { total: stats.total, active: stats.active, filtered: filtered.length },
+  });
 
   const handleDelete = async (sessionId: string) => {
     if (!confirm("Delete this session?")) return;

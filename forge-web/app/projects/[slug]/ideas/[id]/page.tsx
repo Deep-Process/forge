@@ -8,6 +8,7 @@ import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Idea, Decision, Objective } from "@/lib/types";
 
 const STATUS_TRANSITIONS: Record<string, Array<{ label: string; target: string; className: string }>> = {
@@ -95,6 +96,33 @@ export default function IdeaDetailPage() {
     });
     useSidebarStore.getState().setActiveTab("chat");
   };
+
+  // --- AI Annotations ---
+  useAIPage({
+    id: "idea-detail",
+    title: idea ? `Idea ${idea.id} — ${idea.title}` : "Idea Detail (loading)",
+    description: idea ? `${idea.category} — ${idea.status}` : "Loading...",
+    route: `/projects/${slug}/ideas/${id}`,
+  });
+
+  useAIElement({
+    id: "idea-entity",
+    type: "display",
+    label: idea ? `Idea ${idea.id}` : "Idea",
+    description: idea ? `${idea.status} ${idea.category}` : undefined,
+    data: idea ? {
+      status: idea.status,
+      category: idea.category,
+      priority: idea.priority,
+      parent_id: idea.parent_id,
+      children_count: idea.children?.length ?? 0,
+      advances_krs: idea.advances_key_results,
+    } : undefined,
+    actions: [
+      { label: "Update idea", toolName: "updateIdea", toolParams: ["id*", "status", "exploration_notes", "relations"] },
+      { label: "Commit idea", toolName: "commitIdea", toolParams: ["id*"], availableWhen: "status = APPROVED" },
+    ],
+  });
 
   if (loading) return <p className="text-sm text-gray-400">Loading idea...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;

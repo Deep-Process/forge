@@ -105,15 +105,15 @@ describe("AI Annotations Integration", () => {
 
     // Serialize context (what AISidebar does)
     const serialized = serializePageContext(snap!);
-    expect(serialized).toContain("Page: Tasks (25)");
-    expect(serialized).toContain("[filter] Status Filter");
-    expect(serialized).toContain("[list] Tasks");
+    expect(serialized).toContain("## Current Page: Tasks (25)");
+    expect(serialized).toContain("Status Filter");
+    expect(serialized).toContain("Tasks");
     expect(serialized).toContain("TODO: 8");
     expect(serialized).toContain("IN_PROGRESS: 5");
     expect(serialized).toContain("DONE: 12");
-    expect(serialized).toContain("[form] Task Form");
-    expect(serialized).toContain("updateTask(task_id*, status=IN_PROGRESS)");
-    expect(serialized).toContain("createTask(name*, description, type*)");
+    expect(serialized).toContain("Task Form");
+    expect(serialized).toContain("`updateTask(");
+    expect(serialized).toContain("`createTask(name, description, type)`");
 
     // Derive scopes (what AISidebar does)
     const scopes = deriveScopesFromElements(snap!.elements.values());
@@ -156,8 +156,8 @@ describe("AI Annotations Integration", () => {
     const snap = getSnapshot()!;
 
     const serialized = serializePageContext(snap);
-    expect(serialized).toContain("Page: Decisions (10)");
-    expect(serialized).toContain("[list] Decisions");
+    expect(serialized).toContain("## Current Page: Decisions (10)");
+    expect(serialized).toContain("Decisions");
     expect(serialized).toContain("OPEN: 3");
 
     const scopes = deriveScopesFromElements(snap.elements.values());
@@ -259,7 +259,7 @@ describe("AI Annotations Integration", () => {
     };
 
     expect(chatRequest.page_context).toBeDefined();
-    expect(chatRequest.page_context).toContain("Page: Objectives (2)");
+    expect(chatRequest.page_context).toContain("## Current Page: Objectives (2)");
     expect(chatRequest.page_context).toContain("ACTIVE: 1");
     // Backend max_length is 8000
     expect(chatRequest.page_context!.length).toBeLessThan(8000);

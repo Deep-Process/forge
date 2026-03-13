@@ -11,10 +11,18 @@ import {
 } from "@/lib/api";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
 import { Badge } from "@/components/shared/Badge";
+import { useAIPage } from "@/lib/ai-context";
 import type { ProjectDetail, Gate, Guideline } from "@/lib/types";
 
 export default function SettingsPage() {
   const { slug } = useParams() as { slug: string };
+
+  useAIPage({
+    id: "project-settings",
+    title: `Project Settings — ${slug}`,
+    description: `Configuration, gates, guideline scopes for project ${slug}`,
+    route: `/projects/${slug}/settings`,
+  });
 
   return (
     <div className="space-y-8 max-w-3xl">

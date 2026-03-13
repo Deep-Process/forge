@@ -8,11 +8,19 @@ import { Button } from "@/components/shared/Button";
 import { ContextView } from "@/components/execution/ContextView";
 import { ExecutionStream } from "@/components/execution/ExecutionStream";
 import { ProgressTracker } from "@/components/execution/ProgressTracker";
+import { useAIPage } from "@/lib/ai-context";
 import type { TaskContext, ExecutionStatus, TokenUsage } from "@/lib/types";
 
 export default function ExecutionPage() {
   const { slug, taskId } = useParams() as { slug: string; taskId: string };
   const router = useRouter();
+
+  useAIPage({
+    id: "execution",
+    title: `Executing ${taskId}`,
+    description: `Task execution view for ${taskId} in project ${slug}`,
+    route: `/projects/${slug}/execution/${taskId}`,
+  });
 
   // Context state
   const [ctx, setCtx] = useState<TaskContext | null>(null);

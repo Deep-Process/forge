@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -70,11 +71,31 @@ class DecisionCreate(BaseModel):
 
 
 class DecisionUpdate(BaseModel):
+    # Core fields
     status: VALID_STATUS | None = None
+    task_id: str | None = None
+    issue: str | None = None
     recommendation: str | None = None
     reasoning: str | None = None
+    alternatives: list[str] | None = None
+    confidence: VALID_CONFIDENCE | None = None
     decided_by: Literal["claude", "user", "imported"] | None = None
+    file: str | None = None
+    scope: str | None = None
+    tags: list[str] | None = None
     resolution_notes: str | None = None
+    evidence_refs: list[str] | None = None
+    # Linked entity (generic — all decision types)
+    linked_entity_type: str | None = None
+    linked_entity_id: str | None = None
+    # Risk fields
+    severity: str | None = None
+    likelihood: str | None = None
+    mitigation_plan: str | None = None
+    # Exploration fields
+    exploration_type: str | None = None
+    open_questions: list[str] | None = None
+    blockers: list[str] | None = None
 
 
 @router.get("")
@@ -142,9 +163,14 @@ async def update_decision(request: Request, slug: str, decision_id: str, body: D
                 raise HTTPException(422, f"Invalid transition: {old_status} -> {new_status}")
         for k, v in updates.items():
             decision[k] = v
+        decision["updated_at"] = datetime.now(timezone.utc).isoformat()
         await save_entity(storage, slug, "decisions", data)
     if body.status == "CLOSED":
         await emit_event(request, slug, "decision.closed", {
             "decision_id": decision_id, "resolution": decision.get("recommendation", ""),
+        })
+    else:
+        await emit_event(request, slug, "decision.updated", {
+            "decision_id": decision_id, "fields": list(updates.keys()),
         })
     return decision

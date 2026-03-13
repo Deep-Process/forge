@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Knowledge, KnowledgeUpdate } from "@/lib/types";
 
 type Tab = "content" | "versions" | "links" | "impact";
@@ -155,6 +156,32 @@ export default function KnowledgeDetailPage() {
       setError((e as Error).message);
     }
   };
+
+  // --- AI Annotations ---
+  useAIPage({
+    id: "knowledge-detail",
+    title: item ? `Knowledge ${item.id} — ${item.title}` : "Knowledge Detail (loading)",
+    description: item ? `${item.category} — ${item.status}` : "Loading...",
+    route: `/projects/${slug}/knowledge/${id}`,
+  });
+
+  useAIElement({
+    id: "knowledge-entity",
+    type: "display",
+    label: item ? `Knowledge ${item.id}` : "Knowledge",
+    description: item ? `${item.status} ${item.category}` : undefined,
+    data: item ? {
+      status: item.status,
+      category: item.category,
+      scopes: item.scopes,
+      tags: item.tags,
+      linked_entities_count: item.linked_entities?.length ?? 0,
+    } : undefined,
+    actions: [
+      { label: "Update content", toolName: "updateKnowledge", toolParams: ["id*", "content", "change_reason"] },
+      { label: "Update status", toolName: "updateKnowledge", toolParams: ["id*", "status"] },
+    ],
+  });
 
   if (loading) return <p className="text-sm text-gray-400">Loading...</p>;
   if (!item && error) return <p className="text-sm text-red-600">{error}</p>;

@@ -260,7 +260,7 @@ class GitSyncService:
 
             return GitSyncResult(
                 success=True,
-                message=f"Pushed {len(staged)} change(s) to origin/{branch}",
+                message=f"Pushed {len(staged)} change(s) to origin/{remote_branch}",
                 files_changed=len(staged),
             )
 
@@ -321,6 +321,142 @@ class GitSyncService:
             git_status.last_commit = log_result.stdout.strip()
 
         return git_status
+
+    async def list_remote_skills(self) -> list[RemoteSkillEntry]:
+        """List all skill directories in origin/{branch} by inspecting the remote ref.
+
+        Uses ``git ls-tree`` to enumerate directories, then ``git show`` to
+        extract metadata from each skill's ``_config.json`` and ``SKILL.md``.
+        """
+        self._check_configured()
+        if not (self.skills_dir / ".git").is_dir():
+            return []
+
+        # Ensure we have fresh remote refs
+        await self._run_git("fetch", "origin", check=False)
+        branch = await self._get_default_branch()
+
+        # List top-level directories in remote ref
+        result = await self._run_git(
+            "ls-tree", f"origin/{branch}", "--name-only", "-d",
+            check=False,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        entries: list[RemoteSkillEntry] = []
+        for dir_name in result.stdout.strip().splitlines():
+            dir_name = dir_name.strip()
+            if not dir_name or dir_name.startswith((".", "_")):
+                continue
+
+            entry = RemoteSkillEntry(name=dir_name)
+            entry.exists_locally = (self.skills_dir / dir_name).is_dir()
+
+            # Try to read _config.json from remote ref
+            cfg_result = await self._run_git(
+                "show", f"origin/{branch}:{dir_name}/_config.json",
+                check=False,
+            )
+            if cfg_result.returncode == 0 and cfg_result.stdout.strip():
+                try:
+                    config = json.loads(cfg_result.stdout)
+                    entry.categories = config.get("categories", [])
+                    entry.status = config.get("status", "")
+                    entry.sync = config.get("sync", False)
+                    entry.description = config.get("description", "")
+                except json.JSONDecodeError:
+                    pass
+
+            # Try to read SKILL.md frontmatter from remote ref
+            md_result = await self._run_git(
+                "show", f"origin/{branch}:{dir_name}/SKILL.md",
+                check=False,
+            )
+            if md_result.returncode == 0 and md_result.stdout.strip():
+                try:
+                    from app.services.frontmatter import parse_frontmatter
+                    fm = parse_frontmatter(md_result.stdout)
+                    entry.display_name = fm.name or dir_name
+                    if fm.description and not entry.description:
+                        entry.description = fm.description
+                except Exception:
+                    pass
+
+            entries.append(entry)
+
+        return sorted(entries, key=lambda e: e.name)
+
+    async def checkout_skill(self, name: str) -> GitSyncResult:
+        """Checkout a specific skill directory from origin/{branch} to working tree."""
+        self._check_configured()
+        if not (self.skills_dir / ".git").is_dir():
+            raise GitSyncError("Repository not initialized")
+
+        branch = await self._get_default_branch()
+
+        # Verify skill exists in remote
+        check_result = await self._run_git(
+            "ls-tree", f"origin/{branch}", "--name-only", "-d", check=False,
+        )
+        remote_dirs = check_result.stdout.strip().splitlines() if check_result.returncode == 0 else []
+        if name not in [d.strip() for d in remote_dirs]:
+            raise GitSyncError(f"Skill '{name}' not found in remote repository")
+
+        async with self._sync_lock:
+            await self._run_git("checkout", f"origin/{branch}", "--", f"{name}/")
+
+            # Resync index so the new skill appears in local listing
+            if self._skill_storage and hasattr(self._skill_storage, "resync_index"):
+                await self._skill_storage.resync_index()
+
+            return GitSyncResult(
+                success=True,
+                message=f"Checked out skill '{name}' from origin/{branch}",
+            )
+
+    async def delete_remote_skill(self, name: str, message: str = "") -> GitSyncResult:
+        """Delete a skill from the repository and push the change.
+
+        Uses ``git rm -r`` + commit + push.  Only operates on skills that exist
+        in the remote tracking branch.
+        """
+        self._check_configured()
+        if not (self.skills_dir / ".git").is_dir():
+            raise GitSyncError("Repository not initialized")
+
+        branch = await self._get_default_branch()
+
+        # Verify skill exists in remote ref
+        check_result = await self._run_git(
+            "ls-tree", f"origin/{branch}", "--name-only", "-d", check=False,
+        )
+        remote_dirs = check_result.stdout.strip().splitlines() if check_result.returncode == 0 else []
+        if name not in [d.strip() for d in remote_dirs]:
+            raise GitSyncError(f"Skill '{name}' not found in remote repository")
+
+        async with self._sync_lock:
+            # Ensure the skill directory exists on disk so git rm works
+            skill_dir = self.skills_dir / name
+            if not skill_dir.is_dir():
+                await self._run_git(
+                    "checkout", f"origin/{branch}", "--", f"{name}/",
+                    check=False,
+                )
+
+            await self._run_git("rm", "-r", f"{name}/")
+
+            commit_msg = message or f"Delete skill '{name}'"
+            await self._run_git("commit", "-m", commit_msg)
+
+            local_branch = await self._get_local_branch()
+            remote_branch = await self._get_default_branch()
+            await self._run_git("push", "origin", f"{local_branch}:{remote_branch}")
+
+            return GitSyncResult(
+                success=True,
+                message=f"Deleted skill '{name}' from remote repository",
+            )
 
     # -- helpers ----------------------------------------------------------
 

@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-13T14:32:58Z",
+  "updated": "2026-03-13T15:37:06Z",
   "config": {},
   "tasks": [
     {
@@ -6083,10 +6083,12 @@
       ],
       "origin": "O-022",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T14:35:07Z",
+      "completed_at": "2026-03-13T14:36:48Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "9abf7da750f04bf2c0c2dfc0cb7f8a7d2962c035"
     },
     {
       "id": "T-195",
@@ -6114,10 +6116,12 @@
       ],
       "origin": "O-022",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T14:38:50Z",
+      "completed_at": "2026-03-13T14:41:04Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "60a0d5558a0c1bffdec6d465ad865f01484e84f8"
     },
     {
       "id": "T-196",
@@ -6143,10 +6147,12 @@
       ],
       "origin": "O-019",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T14:42:45Z",
+      "completed_at": "2026-03-13T14:45:16Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "07b73c588ba6dd55098bdd35c92b00ab07be815b"
     },
     {
       "id": "T-197",
@@ -6175,10 +6181,12 @@
       ],
       "origin": "O-019",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T14:46:48Z",
+      "completed_at": "2026-03-13T14:50:41Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "13691f83d555844a4e303128d13352b6b73b3686"
     },
     {
       "id": "T-198",
@@ -6207,10 +6215,12 @@
       ],
       "origin": "O-019",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T14:54:24Z",
+      "completed_at": "2026-03-13T14:59:05Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "c7207eeaee64ca97bf94c332b851e1604d109aae"
     },
     {
       "id": "T-199",
@@ -6237,10 +6247,12 @@
       ],
       "origin": "O-019",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:01:31Z",
+      "completed_at": "2026-03-13T15:04:30Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "1f0595d39fec0236264714e1506c0ce62798e665"
     },
     {
       "id": "T-200",
@@ -6267,10 +6279,12 @@
       ],
       "origin": "O-020",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:07:52Z",
+      "completed_at": "2026-03-13T15:11:15Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "0b77df7a97431beffa75906143d2ffc9f336289e"
     },
     {
       "id": "T-201",
@@ -6295,10 +6309,12 @@
       ],
       "origin": "O-020",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:13:12Z",
+      "completed_at": "2026-03-13T15:16:44Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "1ea73f73f01372e12e1ae4e5318c867d83598e34"
     },
     {
       "id": "T-202",
@@ -6327,10 +6343,12 @@
       ],
       "origin": "O-020",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:18:25Z",
+      "completed_at": "2026-03-13T15:24:13Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "65dc88aa2440765a6e936f0da10ea460a3adb1ee"
     },
     {
       "id": "T-203",
@@ -6359,10 +6377,12 @@
       ],
       "origin": "O-020",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:26:38Z",
+      "completed_at": "2026-03-13T15:28:12Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "75d9bb2c3ad24b94cfc112988b9dd91dc3c46d8b"
     },
     {
       "id": "T-204",
@@ -6388,10 +6408,12 @@
       ],
       "origin": "O-021",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:29:58Z",
+      "completed_at": "2026-03-13T15:32:31Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "51d0eee72966375002b74e8ce1e478a82ce2cbd4"
     },
     {
       "id": "T-205",
@@ -6417,10 +6439,12 @@
       ],
       "origin": "O-015",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-13T15:34:34Z",
+      "completed_at": "2026-03-13T15:37:06Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "3470be318190cc8218ab83b45a3cc6abed163319"
     }
   ]
 }

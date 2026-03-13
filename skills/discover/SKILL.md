@@ -42,8 +42,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | W4 | `python -m core.decisions add {project} --data '{json}'` | Records risk decisions (type=risk) | Step 6 — from risk analysis | `decisions:add` |
 | W5 | `python -m core.pipeline init {slug} --goal "..."` | Creates project if none exists | Step 6 — before recording | — |
 | W6 | `python -m core.ideas update {project} --data '{json}'` | Updates idea status to EXPLORING | Step 6 — if idea-scoped | `ideas:update` |
-| W7 | Write `forge_output/{project}/research/{skill}-{slug}.md` | Persists full deep-* analysis output | Step 5 — after each skill completes | — |
-| W8 | `python -m core.research add {project} --data '{json}'` | Creates R-NNN research object | Step 5 — after writing research file | `research:add` |
+| W7 | `python -m core.research add {project} --data '{json}'` | Creates R-NNN research object AND writes research file (via `content` field) | Step 5 — after each skill completes | `research:add` |
 | W9 | `python -m core.research update {project} --data '{json}'` | Updates R-NNN (add decision_ids, set ACTIVE) | Step 6 — after recording decisions | `research:update` |
 
 ## Output
@@ -52,8 +51,8 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 |------|----------|------------|
 | `forge_output/{project}/decisions.json` | All discovery findings: standard decisions (W1), exploration decisions (W3), and risk decisions (W4) | W1, W3, W4 |
 | `forge_output/{project}/lessons.json` | Discovery insights (if significant) | W2 |
-| `forge_output/{project}/research/*.md` | Full deep-* analysis outputs (option maps, risk registers, ADRs, feasibility scores) | W7 |
-| `forge_output/{project}/research.json` | Structured research objects (R-NNN) linking analyses to entities | W8, W9 |
+| `forge_output/{project}/research/*.md` | Full deep-* analysis outputs (written by core.research via `content` field) | W7 |
+| `forge_output/{project}/research.json` | Structured research objects (R-NNN) linking analyses to entities | W7, W9 |
 
 ## Success Criteria
 
@@ -187,28 +186,7 @@ Skills that must be sequential:
 
 3. **Execute** — run each skill per its SKILL.md procedure
 
-After each skill completes, persist its full output (W7):
-
-```bash
-mkdir -p forge_output/{project}/research
-```
-
-Write the complete analysis to `forge_output/{project}/research/{skill-name}-{slug}.md` using this structure:
-
-```
-# {Skill Name} Analysis: {topic}
-Date: {ISO timestamp}
-Skill: {skill-name} v{version}
-Decision: {D-NNN} (linked after Step 6)
-
----
-
-{Complete analysis output — option map, scoring tables, risk register, ADRs, etc.}
-```
-
-This file persists across sessions. When context compresses, the full analysis is recoverable from disk.
-
-After writing the research file, create a structured R-NNN research object (W8):
+After each skill completes, persist its full output via `core.research add` with the `content` field (W7). The core module writes the research file to disk automatically — **do NOT write files directly**.
 
 ```bash
 python -m core.research add {project} --data '[{
@@ -219,12 +197,17 @@ python -m core.research add {project} --data '[{
   "linked_entity_type": "{objective|idea}",
   "linked_entity_id": "{O-NNN or I-NNN}",
   "skill": "{deep-explore|deep-risk|deep-architect|deep-feasibility}",
-  "file_path": "research/{skill-name}-{slug}.md",
+  "content": "# {Skill Name} Analysis: {topic}\nDate: {ISO timestamp}\nSkill: {skill-name} v{version}\n\n---\n\n{Complete analysis output — option map, scoring tables, risk register, ADRs, etc.}",
   "key_findings": ["{finding 1}", "{finding 2}"],
   "scopes": ["{from entity scopes}"],
   "tags": ["{topic keywords}"]
 }]'
 ```
+
+The `content` field causes the core module to:
+1. Auto-generate `file_path` as `research/{skill}-{slug}.md`
+2. Write the markdown file to that path
+3. Store the file_path reference in research.json
 
 This creates a DRAFT research object. It will be updated to ACTIVE with decision_ids after Step 6.
 
@@ -351,7 +334,7 @@ python -m core.lessons add {project} --data '[{
 
 **e. Update research objects with decision IDs (W9):**
 
-After recording all decisions, link them to the corresponding R-NNN research objects created in Step 5:
+After recording all decisions, link them to the corresponding R-NNN research objects created in Step 5 (W7):
 
 ```bash
 python -m core.research update {project} --data '[{

@@ -7,6 +7,7 @@ import { objectives as objectivesApi, ideas as ideasApi, guidelines as guideline
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Objective, Idea, Guideline, Task, KeyResult, ObjectiveRelation, ObjectiveStatus } from "@/lib/types";
 
 const KR_STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "ACHIEVED"] as const;
@@ -237,6 +238,32 @@ export default function ObjectiveDetailPage() {
     });
     useSidebarStore.getState().setActiveTab("chat");
   };
+
+  // --- AI Annotations ---
+  useAIPage({
+    id: "objective-detail",
+    title: objective ? `Objective ${objective.id} — ${objective.title}` : "Objective Detail (loading)",
+    description: objective ? `${objective.status}, ${objective.key_results?.length ?? 0} KRs` : "Loading...",
+    route: `/projects/${slug}/objectives/${id}`,
+  });
+
+  useAIElement({
+    id: "objective-entity",
+    type: "display",
+    label: objective ? `Objective ${objective.id}` : "Objective",
+    description: objective ? `${objective.status} objective` : undefined,
+    data: objective ? {
+      status: objective.status,
+      appetite: objective.appetite,
+      key_results_count: objective.key_results?.length ?? 0,
+      linked_ideas: linkedIdeas.length,
+      derived_guidelines: derivedGuidelines.length,
+    } : undefined,
+    actions: [
+      { label: "Update status", toolName: "updateObjective", toolParams: ["id*", "status"], availableWhen: "status = ACTIVE or PAUSED" },
+      { label: "Update KR progress", toolName: "updateObjective", toolParams: ["id*", "key_results"] },
+    ],
+  });
 
   if (loading) return <p className="text-sm text-gray-400">Loading objective...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;

@@ -18,7 +18,6 @@ export default function DecisionsPage() {
   const saving = useDecisionStore((s) => s.saving);
   const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
-  const [editingDecision, setEditingDecision] = useState<Decision | undefined>();
 
   const decisions = items;
   const filtered = statusFilter
@@ -76,17 +75,15 @@ export default function DecisionsPage() {
     type: "form",
     label: "Decision Form",
     value: formOpen,
-    description: formOpen ? `open (${editingDecision ? `editing ${editingDecision.id}` : "creating"})` : "closed",
+    description: formOpen ? "open (creating)" : "closed",
     data: {
       fields: ["task_id*", "type*", "issue*", "recommendation*", "reasoning", "alternatives", "confidence"],
     },
     actions: [
       {
-        label: editingDecision ? "Update" : "Create",
-        toolName: editingDecision ? "updateDecision" : "createDecision",
-        toolParams: editingDecision
-          ? ["id*", "status", "resolution_notes", "mitigation_plan"]
-          : ["task_id*", "type*", "issue*", "recommendation*", "reasoning"],
+        label: "Create",
+        toolName: "createDecision",
+        toolParams: ["task_id*", "type*", "issue*", "recommendation*", "reasoning"],
       },
     ],
   });
@@ -95,19 +92,12 @@ export default function DecisionsPage() {
     updateDecisionAction(slug, id, { status: status as Decision["status"] });
   };
 
-  const handleEdit = (decision: Decision) => {
-    setEditingDecision(decision);
-    setFormOpen(true);
-  };
-
   const handleCreate = () => {
-    setEditingDecision(undefined);
     setFormOpen(true);
   };
 
   const handleFormClose = () => {
     setFormOpen(false);
-    setEditingDecision(undefined);
   };
 
   const handleFormSuccess = useCallback(() => {
@@ -135,7 +125,7 @@ export default function DecisionsPage() {
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
       <div className="space-y-3">
         {filtered.map((d) => (
-          <DecisionCard key={d.id} decision={d} slug={slug} onStatusChange={handleStatusChange} onEdit={handleEdit} />
+          <DecisionCard key={d.id} decision={d} slug={slug} onStatusChange={handleStatusChange} />
         ))}
         {!isLoading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No decisions{statusFilter ? ` with status ${statusFilter}` : ""}</p>
@@ -146,7 +136,6 @@ export default function DecisionsPage() {
         slug={slug}
         open={formOpen}
         onClose={handleFormClose}
-        decision={editingDecision}
         onSuccess={handleFormSuccess}
       />
     </div>

@@ -31,7 +31,7 @@ from app.services.agentskills_validator import (
 )
 from app.services.teslint import check_teslint_available, run_teslint
 from app.services.skill_storage import SkillStorageService
-from app.services.git_sync import GitSyncService, GitSyncNotConfigured, GitSyncError
+from app.services.git_sync import GitSyncService, GitSyncNotConfigured, GitSyncError, RemoteSkillEntry
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -469,10 +469,93 @@ async def git_push(
 @router.post("/git/scan")
 async def git_scan(
     svc: SkillStorageService = Depends(get_skill_storage),
+    git_svc=Depends(get_git_sync),
 ):
-    """Resync the skill index by scanning all directories."""
+    """Resync the skill index by scanning all directories.
+
+    Also discovers remote-only skills if git is configured.
+    """
     entries = await svc.resync_index()
-    return {"resynced": len(entries), "skills": [e["name"] for e in entries]}
+    result: dict = {"resynced": len(entries), "skills": [e["name"] for e in entries]}
+
+    if git_svc is not None:
+        try:
+            remote = await git_svc.list_remote_skills()
+            result["remote_only"] = [e.name for e in remote if not e.exists_locally]
+            result["remote_only_count"] = len(result["remote_only"])
+        except Exception:
+            pass
+    return result
+
+
+@router.get("/git/remote-skills")
+async def list_remote_skills(
+    git_svc=Depends(get_git_sync),
+):
+    """List skills in the remote repository with exists_locally flag."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured")
+    try:
+        entries = await git_svc.list_remote_skills()
+        return {
+            "skills": [
+                {
+                    "name": e.name,
+                    "display_name": e.display_name or e.name,
+                    "description": e.description,
+                    "categories": e.categories,
+                    "status": e.status,
+                    "sync": e.sync,
+                    "exists_locally": e.exists_locally,
+                }
+                for e in entries
+            ],
+            "total": len(entries),
+            "repo_only": sum(1 for e in entries if not e.exists_locally),
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
+
+
+@router.post("/git/checkout/{name}")
+async def git_checkout_skill(
+    name: str,
+    request: Request,
+    git_svc=Depends(get_git_sync),
+):
+    """Pull (checkout) a specific skill from the remote repository."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured")
+    try:
+        result = await git_svc.checkout_skill(name)
+        await emit_event(request, _WS_NS, "skill.synced", {"action": "checkout", "name": name})
+        return {
+            "success": result.success,
+            "message": result.message,
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
+
+
+@router.delete("/git/remote/{name}")
+async def git_delete_remote_skill(
+    name: str,
+    request: Request,
+    message: str = Query("", description="Commit message for the deletion"),
+    git_svc=Depends(get_git_sync),
+):
+    """Delete a skill from the remote repository (git rm + commit + push)."""
+    if git_svc is None:
+        raise HTTPException(503, "Git sync not configured")
+    try:
+        result = await git_svc.delete_remote_skill(name, message)
+        await emit_event(request, _WS_NS, "skill.synced", {"action": "delete-remote", "name": name})
+        return {
+            "success": result.success,
+            "message": result.message,
+        }
+    except (GitSyncError, GitSyncNotConfigured) as e:
+        raise HTTPException(500, str(e))
 
 
 @router.post("/git/init")

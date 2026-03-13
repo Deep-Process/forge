@@ -6,7 +6,7 @@ description: >
   technical infrastructure. Triggers: "design the architecture", "system design",
   "how should we build this", "architecture for", "design a service".
 version: "1.0.0"
-allowed-tools: [Read, Glob, Grep, Bash, Write]
+allowed-tools: [Read, Glob, Grep, Bash]
 ---
 
 > **Provenance**: Adapted from [Deep-Process](https://github.com/Deep-Process/deep-process) `deep-architect` v1.0.0.

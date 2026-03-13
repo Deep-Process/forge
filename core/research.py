@@ -74,7 +74,7 @@ CONTRACTS = {
         "required": ["title", "topic", "category", "summary"],
         "optional": [
             "linked_entity_type", "linked_entity_id", "linked_idea_id",
-            "skill", "file_path", "key_findings", "decision_ids",
+            "skill", "file_path", "content", "key_findings", "decision_ids",
             "scopes", "tags", "created_by",
         ],
         "enums": {
@@ -96,7 +96,8 @@ CONTRACTS = {
             "linked_entity_id: O-NNN or I-NNN ID of linked entity",
             "linked_idea_id: I-NNN — additional idea link when primary entity is an objective",
             "skill: which deep-* skill produced this (e.g., 'deep-explore')",
-            "file_path: path to research markdown file relative to project dir (e.g., 'research/deep-explore-caching.md')",
+            "file_path: path to research markdown file relative to project dir (e.g., 'research/deep-explore-caching.md'). Auto-generated from skill+title if content is provided and file_path is omitted.",
+            "content: full markdown content for the research file. When provided, the file is written to file_path (or auto-generated path) by the core module. Use this instead of writing files directly.",
             "key_findings: list of bullet-point findings (strings)",
             "decision_ids: list of D-NNN IDs that originated from this research",
             "scopes: guideline scopes this research relates to (e.g., ['backend', 'performance'])",
@@ -226,6 +227,28 @@ def cmd_add(args):
             print(f"WARNING: linked_entity_id set but linked_entity_type missing for '{item['title']}'",
                   file=sys.stderr)
 
+        # Handle content → file writing
+        content = item.get("content")
+        file_path = item.get("file_path")
+        if content and not file_path:
+            # Auto-generate file_path from skill + title
+            skill = item.get("skill", "research")
+            slug = item["title"].lower()
+            slug = slug.replace(" ", "-").replace(":", "")[:60]
+            # Keep only safe chars
+            slug = "".join(c for c in slug if c.isalnum() or c == "-")
+            slug = slug.strip("-")
+            file_path = f"research/{skill}-{slug}.md"
+
+        if content and file_path:
+            storage = JSONFileStorage()
+            project_dir = storage.base_dir / args.project
+            full_path = os.path.join(str(project_dir), file_path)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            print(f"  Wrote research file: {file_path}")
+
         research = {
             "id": r_id,
             "title": item["title"],
@@ -236,7 +259,7 @@ def cmd_add(args):
             "linked_entity_id": entity_id,
             "linked_idea_id": item.get("linked_idea_id"),
             "skill": item.get("skill"),
-            "file_path": item.get("file_path"),
+            "file_path": file_path,
             "summary": item["summary"],
             "key_findings": item.get("key_findings", []),
             "decision_ids": item.get("decision_ids", []),

@@ -104,7 +104,7 @@ CONTRACTS = {
                                  "risk", "feasibility"},
             "severity": {"HIGH", "MEDIUM", "LOW"},
             "likelihood": {"HIGH", "MEDIUM", "LOW"},
-            "linked_entity_type": {"idea", "task", "objective"},
+            "linked_entity_type": {"idea", "task", "objective", "research"},
         },
         "types": {
             "alternatives": list,
@@ -184,8 +184,13 @@ CONTRACTS = {
     "update": {
         "required": ["id"],
         "optional": ["status", "action", "override_value", "override_reason",
+                      "task_id", "issue", "recommendation", "reasoning",
+                      "alternatives", "confidence", "decided_by",
+                      "file", "scope", "tags", "evidence_refs",
                       "severity", "likelihood", "mitigation_plan",
-                      "resolution_notes", "title", "tags"],
+                      "resolution_notes", "title",
+                      "linked_entity_type", "linked_entity_id",
+                      "exploration_type", "open_questions", "blockers"],
         "enums": {
             "status": {"OPEN", "CLOSED", "DEFERRED", "ANALYZING", "MITIGATED", "ACCEPTED"},
             "action": {"accept", "override", "defer"},
@@ -194,6 +199,10 @@ CONTRACTS = {
         },
         "types": {
             "tags": list,
+            "alternatives": list,
+            "evidence_refs": list,
+            "open_questions": list,
+            "blockers": list,
         },
         "invariant_texts": [
             "id: existing decision ID (D-NNN)",
@@ -465,10 +474,17 @@ def cmd_update(args):
         if "override_reason" in u:
             d["override_reason"] = u["override_reason"]
 
-        # Risk update fields
-        updatable_risk = ["severity", "likelihood", "mitigation_plan",
-                          "resolution_notes", "tags"]
-        for field in updatable_risk:
+        # Updatable fields (all decision types)
+        updatable_fields = [
+            "task_id", "issue", "recommendation", "reasoning",
+            "alternatives", "confidence", "decided_by",
+            "file", "scope", "tags", "evidence_refs",
+            "severity", "likelihood", "mitigation_plan",
+            "resolution_notes",
+            "linked_entity_type", "linked_entity_id",
+            "exploration_type", "open_questions", "blockers",
+        ]
+        for field in updatable_fields:
             if field in u:
                 d[field] = u[field]
 

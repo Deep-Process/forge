@@ -39,17 +39,31 @@ export const decisionCreateSchema = z.object({
 });
 
 export const decisionUpdateSchema = z.object({
+  // Core fields
   status: decisionStatus.optional(),
+  task_id: z.string().optional(),
+  issue: z.string().optional(),
   recommendation: z.string().optional(),
   reasoning: z.string().optional(),
+  alternatives: z.array(z.string()).optional(),
+  confidence: confidence.optional(),
   decided_by: z.enum(["claude", "user", "imported"]).optional(),
+  file: z.string().optional(),
+  scope: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   resolution_notes: z.string().optional(),
+  evidence_refs: z.array(z.string()).optional(),
+  // Linked entity (generic — all decision types)
+  linked_entity_type: z.string().optional(),
+  linked_entity_id: z.string().optional(),
   // Risk fields
   severity: z.string().optional(),
   likelihood: z.string().optional(),
   mitigation_plan: z.string().optional(),
   // Exploration fields
   exploration_type: z.string().optional(),
+  open_questions: z.array(z.string()).optional(),
+  blockers: z.array(z.string()).optional(),
 });
 
 export type DecisionCreateForm = z.infer<typeof decisionCreateSchema>;

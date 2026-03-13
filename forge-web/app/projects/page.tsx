@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useProjectStore } from "@/stores/projectStore";
 import { Card } from "@/components/shared/Card";
 import { Button } from "@/components/shared/Button";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 
 export default function ProjectsPage() {
   const { slugs, statuses, loading, error, fetchProjects, fetchStatus, createProject } =
@@ -27,6 +28,23 @@ export default function ProjectsPage() {
       }
     });
   }, [slugs, fetchStatus]);
+
+  useAIPage({
+    id: "projects",
+    title: `Projects (${slugs.length})`,
+    description: "All Forge projects",
+    route: "/projects",
+  });
+
+  useAIElement({
+    id: "project-list",
+    type: "list",
+    label: "Projects",
+    data: { count: slugs.length },
+    actions: [
+      { label: "Create project", toolName: "createProject", toolParams: ["slug*", "goal"] },
+    ],
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

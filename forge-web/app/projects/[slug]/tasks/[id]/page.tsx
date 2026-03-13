@@ -8,6 +8,7 @@ import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Task, Decision, ChangeRecord, TaskContext, ContextSection, Guideline, Knowledge } from "@/lib/types";
 
 type Tab = "overview" | "dependencies" | "decisions" | "changes" | "context";
@@ -109,6 +110,48 @@ export default function TaskDetailPage() {
     });
     useSidebarStore.getState().setActiveTab("chat");
   };
+
+  // --- AI Annotations (must be before early returns) ---
+  useAIPage({
+    id: "task-detail",
+    title: task ? `Task ${task.id} — ${task.name}` : "Task Detail (loading)",
+    description: task ? `${task.status} ${task.type} task` : "Loading...",
+    route: `/projects/${slug}/tasks/${id}`,
+  });
+
+  useAIElement({
+    id: "task-entity",
+    type: "display",
+    label: task ? `Task ${task.id}` : "Task",
+    description: task ? `${task.status} ${task.type}` : undefined,
+    data: task ? {
+      status: task.status,
+      type: task.type,
+      scopes: task.scopes,
+      depends_on: task.depends_on,
+      acceptance_criteria_count: task.acceptance_criteria.length,
+      origin: task.origin || "none",
+    } : undefined,
+    actions: [
+      {
+        label: "Update task",
+        toolName: "updateTask",
+        toolParams: ["task_id*", "name", "description", "depends_on", "scopes"],
+        availableWhen: "status = TODO or FAILED",
+      },
+      {
+        label: "Complete task",
+        toolName: "completeTask",
+        toolParams: ["task_id*", "reasoning"],
+        availableWhen: "status = IN_PROGRESS",
+      },
+      {
+        label: "Get task context",
+        toolName: "getTaskContext",
+        toolParams: ["task_id*"],
+      },
+    ],
+  });
 
   if (loading) return <p className="text-sm text-gray-400">Loading task...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;

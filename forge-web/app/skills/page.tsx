@@ -9,9 +9,36 @@ import { StatusFilter } from "@/components/shared/StatusFilter";
 import { Button } from "@/components/shared/Button";
 import { SkillsCategoryPanel } from "@/components/skills/SkillsCategoryPanel";
 import { useLeftPanel } from "@/components/layout/LeftPanelProvider";
-import type { Skill, BulkLintResult, SkillCategoryDef, SkillGitStatus } from "@/lib/types";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
+import type { Skill, BulkLintResult, SkillCategoryDef, SkillGitStatus, RemoteSkill } from "@/lib/types";
 
 const STATUSES = ["DRAFT", "ACTIVE", "DEPRECATED", "ARCHIVED"];
+
+/** Minimal Skill-like shape for repo-only entries so SkillRow can render them. */
+function remoteToSkillStub(rs: RemoteSkill): Skill {
+  return {
+    name: rs.name,
+    display_name: rs.display_name,
+    description: rs.description,
+    categories: rs.categories,
+    status: (rs.status || "DRAFT") as Skill["status"],
+    sync: rs.sync,
+    skill_md_content: null,
+    version: "",
+    allowed_tools: [],
+    evals_json: [],
+    files: [],
+    teslint_config: null,
+    tags: [],
+    scopes: [],
+    promoted_with_warnings: false,
+    promotion_history: [],
+    usage_count: 0,
+    created_by: null,
+    created_at: "",
+    updated_at: "",
+  };
+}
 
 export default function SkillsPage() {
   const router = useRouter();
@@ -36,6 +63,10 @@ export default function SkillsPage() {
   const [gitSyncing, setGitSyncing] = useState(false);
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [pushMessage, setPushMessage] = useState("Sync skills");
+
+  // Remote (repo-only) skills
+  const [remoteSkills, setRemoteSkills] = useState<RemoteSkill[]>([]);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const fetchSkills = useCallback(async () => {
     setLoading(true);
@@ -68,11 +99,34 @@ export default function SkillsPage() {
     }
   }, []);
 
+  const fetchRemoteSkills = useCallback(async () => {
+    try {
+      const res = await skillsApi.gitRemoteSkills();
+      // Only keep repo-only skills (not already local)
+      setRemoteSkills(res.skills.filter((s) => !s.exists_locally));
+    } catch {
+      // Non-critical — git may not be configured
+    }
+  }, []);
+
   useEffect(() => {
     fetchSkills();
     fetchCategories();
     fetchGitStatus();
   }, [fetchSkills, fetchCategories, fetchGitStatus]);
+
+  // Fetch remote skills once git status is known
+  useEffect(() => {
+    if (gitStatus?.configured && gitStatus?.initialized) {
+      fetchRemoteSkills();
+    }
+  }, [gitStatus?.configured, gitStatus?.initialized, fetchRemoteSkills]);
+
+  // Set of repo-only skill names for quick lookup
+  const repoOnlyNames = useMemo(
+    () => new Set(remoteSkills.map((rs) => rs.name)),
+    [remoteSkills],
+  );
 
   // Category counts (multi-category: each skill can be in multiple)
   const categoryCounts = useMemo(() => {
@@ -82,8 +136,13 @@ export default function SkillsPage() {
         counts[cat] = (counts[cat] || 0) + 1;
       }
     }
+    for (const rs of remoteSkills) {
+      for (const cat of (rs.categories ?? [])) {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    }
     return counts;
-  }, [items]);
+  }, [items, remoteSkills]);
 
   // Unique category keys from both fetched categories + item data
   const allCategoryKeys = useMemo(() => {
@@ -92,8 +151,11 @@ export default function SkillsPage() {
     items.forEach((s) => {
       for (const cat of (s.categories ?? [])) keys.add(cat);
     });
+    remoteSkills.forEach((rs) => {
+      for (const cat of (rs.categories ?? [])) keys.add(cat);
+    });
     return Array.from(keys);
-  }, [categories, items]);
+  }, [categories, items, remoteSkills]);
 
   // Register category panel in left panel
   useLeftPanel(
@@ -102,12 +164,19 @@ export default function SkillsPage() {
       setCategoryFilter={setCategoryFilter}
       allCategoryKeys={allCategoryKeys}
       categoryCounts={categoryCounts}
-      totalCount={items.length}
+      totalCount={items.length + remoteSkills.length}
     />
   );
 
+  // Merged & filtered list: local skills + repo-only stubs
   const filtered = useMemo(() => {
-    return items
+    const localNames = new Set(items.map((s) => s.name));
+    const repoStubs = remoteSkills
+      .filter((rs) => !localNames.has(rs.name))
+      .map(remoteToSkillStub);
+    const all = [...items, ...repoStubs];
+
+    return all
       .filter((s) => !statusFilter || s.status === statusFilter)
       .filter((s) => !categoryFilter || (s.categories ?? []).includes(categoryFilter))
       .filter((s) => {
@@ -119,7 +188,22 @@ export default function SkillsPage() {
           (s.tags ?? []).some((t) => t.toLowerCase().includes(q))
         );
       });
-  }, [items, statusFilter, categoryFilter, search]);
+  }, [items, remoteSkills, statusFilter, categoryFilter, search]);
+
+  useAIPage({
+    id: "skills",
+    title: `Skills (${items.length})`,
+    description: "Skill registry with git sync",
+    route: "/skills",
+  });
+
+  useAIElement({
+    id: "skill-list",
+    type: "list",
+    label: "Skills",
+    description: `${filtered.length} shown of ${items.length} local + ${remoteSkills.length} remote`,
+    data: { local: items.length, remote: remoteSkills.length, filtered: filtered.length },
+  });
 
   // Per-skill sync indicators from git status local_changes
   const syncIndicators = useMemo(() => {
@@ -154,10 +238,23 @@ export default function SkillsPage() {
         map[s.name] = "local-only";
       }
     }
-    return map;
-  }, [gitStatus, items]);
 
-  // Selection handlers
+    // Repo-only skills
+    for (const rs of remoteSkills) {
+      if (!map[rs.name]) {
+        map[rs.name] = "repo-only";
+      }
+    }
+
+    return map;
+  }, [gitStatus, items, remoteSkills]);
+
+  // Selection handlers (only local skills can be selected)
+  const selectableFiltered = useMemo(
+    () => filtered.filter((s) => !repoOnlyNames.has(s.name)),
+    [filtered, repoOnlyNames],
+  );
+
   const toggleSelect = (name: string, checked: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -168,7 +265,7 @@ export default function SkillsPage() {
   };
 
   const selectAll = () => {
-    setSelected(new Set(filtered.map((s) => s.name)));
+    setSelected(new Set(selectableFiltered.map((s) => s.name)));
   };
 
   const deselectAll = () => {
@@ -208,6 +305,7 @@ export default function SkillsPage() {
     try {
       await skillsApi.gitPull();
       await fetchSkills();
+      await fetchRemoteSkills();
       await fetchGitStatus();
     } catch (e) {
       setError((e as Error).message);
@@ -224,6 +322,7 @@ export default function SkillsPage() {
       await skillsApi.gitPush(pushMessage, names);
       await fetchGitStatus();
       await fetchSkills();
+      await fetchRemoteSkills();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -232,11 +331,42 @@ export default function SkillsPage() {
     }
   };
 
-  const handleGitScan = async () => {
+  const handleScanRepo = async () => {
     setGitSyncing(true);
     try {
       await skillsApi.gitScan();
       await fetchSkills();
+      await fetchRemoteSkills();
+      await fetchGitStatus();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setGitSyncing(false);
+    }
+  };
+
+  const handleCheckoutSkill = async (name: string) => {
+    setCheckoutLoading(name);
+    try {
+      await skillsApi.gitCheckout(name);
+      await fetchSkills();
+      await fetchRemoteSkills();
+      await fetchGitStatus();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleDeleteRemoteSkill = async (name: string) => {
+    if (!confirm(`Delete skill "${name}" from the remote repository? This cannot be undone.`)) {
+      return;
+    }
+    setGitSyncing(true);
+    try {
+      await skillsApi.gitDeleteRemote(name, `Delete skill '${name}'`);
+      await fetchRemoteSkills();
       await fetchGitStatus();
     } catch (e) {
       setError((e as Error).message);
@@ -263,13 +393,15 @@ export default function SkillsPage() {
     }
   };
 
+  const gitReady = gitStatus?.configured && gitStatus?.initialized;
+
   return (
     <div className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">
             Skills
-            <span className="text-base font-normal text-gray-400 ml-2">({items.length})</span>
+            <span className="text-base font-normal text-gray-400 ml-2">({items.length}{remoteSkills.length > 0 ? ` + ${remoteSkills.length} repo` : ""})</span>
           </h1>
           <div className="flex items-center gap-2">
             <StatusFilter options={STATUSES} value={statusFilter} onChange={setStatusFilter} />
@@ -285,6 +417,16 @@ export default function SkillsPage() {
             placeholder="Search skills..."
             className="flex-1 rounded-md border px-3 py-1.5 text-sm focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
           />
+          {gitReady && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleScanRepo}
+              disabled={gitSyncing}
+            >
+              {gitSyncing ? "Scanning..." : "Scan Repo"}
+            </Button>
+          )}
           <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
             Import
           </Button>
@@ -331,11 +473,13 @@ export default function SkillsPage() {
               const modified = Object.values(syncIndicators).filter((v) => v === "modified").length;
               const untracked = Object.values(syncIndicators).filter((v) => v === "untracked").length;
               const synced = Object.values(syncIndicators).filter((v) => v === "synced").length;
+              const repoOnly = remoteSkills.length;
               return (
                 <span className="flex items-center gap-2 text-xs">
                   {synced > 0 && <span className="text-green-600">{synced} synced</span>}
                   {modified > 0 && <span className="text-amber-600">{modified} modified</span>}
                   {untracked > 0 && <span className="text-blue-600">{untracked} new</span>}
+                  {repoOnly > 0 && <span className="text-purple-600">{repoOnly} repo-only</span>}
                 </span>
               );
             })()}
@@ -357,14 +501,6 @@ export default function SkillsPage() {
                   disabled={gitSyncing}
                 >
                   Push
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleGitScan}
-                  disabled={gitSyncing}
-                >
-                  Scan
                 </Button>
               </>
             ) : (
@@ -405,7 +541,7 @@ export default function SkillsPage() {
               autoFocus
             />
             <Button size="sm" onClick={handleGitPush} disabled={!pushMessage.trim()}>
-              Push
+              Push{selected.size > 0 ? ` (${selected.size})` : ""}
             </Button>
             <button
               onClick={() => { setPushDialogOpen(false); setPushMessage("Sync skills"); }}
@@ -423,12 +559,17 @@ export default function SkillsPage() {
               {selected.size} selected
             </span>
             <button onClick={selectAll} className="text-xs text-forge-600 hover:underline">
-              Select all ({filtered.length})
+              Select all ({selectableFiltered.length})
             </button>
             <button onClick={deselectAll} className="text-xs text-gray-500 hover:underline">
               Clear
             </button>
             <div className="flex-1" />
+            {gitReady && (
+              <Button size="sm" variant="secondary" onClick={() => setPushDialogOpen(true)} disabled={gitSyncing}>
+                Push Selected
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={handleExportSelected}>
               Export selected
             </Button>
@@ -447,20 +588,27 @@ export default function SkillsPage() {
 
         {/* Skills list */}
         <div className="space-y-1">
-          {filtered.map((skill) => (
-            <SkillRow
-              key={skill.name}
-              skill={skill}
-              selected={selected.has(skill.name)}
-              onSelect={toggleSelect}
-              syncIndicator={syncIndicators[skill.name]}
-            />
-          ))}
+          {filtered.map((skill) => {
+            const isRepoOnly = repoOnlyNames.has(skill.name);
+            return (
+              <SkillRow
+                key={skill.name}
+                skill={skill}
+                selected={selected.has(skill.name)}
+                onSelect={isRepoOnly ? undefined : toggleSelect}
+                syncIndicator={syncIndicators[skill.name]}
+                isRepoOnly={isRepoOnly}
+                onCheckout={isRepoOnly ? handleCheckoutSkill : undefined}
+                onDeleteRemote={isRepoOnly ? handleDeleteRemoteSkill : undefined}
+                checkoutLoading={checkoutLoading === skill.name}
+              />
+            );
+          })}
         </div>
 
         {!loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400 mt-4">
-            {items.length === 0
+            {items.length === 0 && remoteSkills.length === 0
               ? "No skills yet. Create your first skill or import an existing SKILL.md file."
               : "No skills matching filters."}
           </p>

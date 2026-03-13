@@ -1,221 +1,266 @@
 # Forge
 
-Structured change orchestrator for Claude Code. Turns high-level goals into tracked, dependency-aware tasks with full traceability and observability.
+A structured development loop for AI coding agents. Forge turns high-level goals into tracked, dependency-aware tasks — then guides execution with contracts, decisions, and validation gates so nothing falls through the cracks.
 
-Every code change goes through: **Plan → Track → Decide → Execute → Record → Validate**
+> AI agents write code fast. Forge makes sure the code is **planned, reasoned about, and auditable**.
 
-Three tracks: **`/do`** (quick — 80% of tasks) | **`/plan`** (standard) | **full workflow** (objective → idea → discover → plan)
+## What Problem Does Forge Solve?
 
-## Why Forge
+AI coding assistants generate code without structure. They don't remember why a decision was made, don't check if the change broke something upstream, and can't resume where they left off. Forge fixes this by wrapping every code change in a discipline loop:
 
-Most AI coding assistants generate code without structure. Forge adds:
+1. **Align** — build shared understanding before touching code
+2. **Plan** — decompose the goal into tasks with explicit dependencies
+3. **Decide** — record every non-trivial choice (architecture, library, trade-off)
+4. **Execute** — make changes, guided by project guidelines and prior context
+5. **Record** — log what changed and *why* (reasoning trace, not just diffs)
+6. **Validate** — run tests, lint, secret scanning before marking done
 
-- **Traceability** — every change linked to a task, decision, and reasoning trace
-- **Decision log** — architectural choices recorded with provenance (who, why, alternatives)
-- **Validation gates** — tests, lint, and secret scanning before task completion
-- **Resumability** — interrupt and resume at any point; state persists in JSON
-- **Compound learning** — lessons extracted from past projects inform future ones
+The result: a full audit trail from business goal down to individual file edits, resumable at any point.
+
+## How It Works
+
+### The Three Tracks
+
+Forge adapts ceremony to task complexity:
+
+```
+/do Fix the login timeout bug          ← Quick track (80% of tasks)
+                                           One task, start to finish, minimum overhead.
+
+/plan Add Redis caching to the API      ← Standard track
+                                           Decompose → dependency DAG → execute in order.
+
+/objective Reduce API response time     ← Full track (complex/risky work)
+/idea Redis caching layer                  Why → What → Explore → Plan → Execute → Learn
+/discover I-001
+/plan I-001
+```
+
+### The Development Loop
+
+```
+         ┌──────────────────────────────────────────────────┐
+         │                                                  │
+    /objective  ──→  /idea  ──→  /discover  ──→  /plan      │
+      (why)        (what)      (assess)       (how)         │
+         │                                                  │
+         │     ┌────────────────────────────────────┐       │
+         │     │  For each task:                    │       │
+         └──→  │  1. Load context (deps + guidelines)│      │
+               │  2. Execute code changes            │      │
+               │  3. Record decisions                │      │
+               │  4. Run gates (test/lint)           │      │
+               │  5. Mark complete (auto-records git)│      │
+               └────────────────────────────────────┘       │
+                              │                             │
+                        /compound  ──→  lessons ───────────→┘
+                          (learn)       (feed next project)
+```
+
+### Entity Flow
+
+Everything connects:
+
+```
+Objective O-001 "Reduce p95 latency"        ← Business goal with measurable KRs
+  ├── Guideline G-010 "Latency benchmarks"  ← Standards (loaded by scope into task context)
+  ├── Research R-001 "Caching options"       ← Structured analysis output
+  ├── Idea I-001 "Redis caching layer"      ← Proposal (advances KR-1)
+  │     ├── Decision D-001 (exploration)    ← Options explored, risks assessed
+  │     └── Decision D-002 (risk)           ← Severity, likelihood, mitigation
+  └── Task T-001 "setup-redis"              ← Execution unit
+        ├── Context loads: guidelines, research, dependency outputs, active risks
+        ├── Changes auto-recorded on complete (git diff → reasoning trace)
+        └── Gates checked before DONE
+```
+
+## Forge Core (Python Engine)
+
+Forge core is a set of Python modules that manage state in JSON files. No database required — everything lives in `forge_output/{project}/`.
+
+### Pipeline — Task Graph
+
+Tasks form a DAG with dependencies. The pipeline enforces order, detects conflicts, and supports parallel multi-agent execution.
+
+```bash
+python -m core.pipeline init myproject --goal "Build a REST API"
+python -m core.pipeline draft-plan myproject --data '[...]'   # Draft → review
+python -m core.pipeline approve-plan myproject                # Approve → materialize
+python -m core.pipeline next myproject                        # Get next ready task
+python -m core.pipeline complete myproject T-001 --reasoning "Added Redis connection pool"
+python -m core.pipeline status myproject                      # Dashboard + DAG
+```
+
+Task states: `TODO → IN_PROGRESS → DONE` (or `FAILED` / `SKIPPED`). Each task carries: acceptance criteria, scopes (for guideline loading), origin (idea or objective), knowledge references, and test requirements.
+
+### Decisions — The Why Log
+
+Every non-trivial choice gets recorded — architecture, library selection, trade-offs, and risks. Three types unified under one system:
+
+- **Standard** — architecture, implementation, security, naming, etc.
+- **Exploration** (type=exploration) — findings, options, open questions from `/discover`
+- **Risk** (type=risk) — severity, likelihood, mitigation plan
+
+```bash
+python -m core.decisions add myproject --data '[...]'
+python -m core.decisions read myproject --status OPEN
+python -m core.decisions read myproject --type risk
+```
+
+Tasks can be **blocked by decisions** — they won't start until the decision is CLOSED. This forces architectural alignment before implementation.
+
+### Changes — What and Why
+
+Every file modification is tracked with a mandatory `reasoning_trace` — not just *what* changed but *why*. Auto-recorded from git diff on task completion.
+
+```bash
+python -m core.changes auto myproject T-001 --reasoning "Added connection pool for Redis"
+python -m core.changes summary myproject
+```
+
+### Gates — Validation Before Done
+
+Configurable per project: tests, lint, type-check, secret scanning. Required gates block task completion until fixed.
+
+```bash
+python -m core.gates config myproject --data '[{"name": "test", "command": "pytest", "required": true}]'
+python -m core.gates check myproject --task T-001
+```
+
+### Guidelines — Project Standards
+
+Scoped (`backend`, `frontend`, `database`, etc.) and weighted (`must` / `should` / `may`). Automatically injected into task context during execution based on task scopes.
+
+```bash
+python -m core.guidelines add myproject --data '[{"title": "Use Repository Pattern", "scope": "backend", "weight": "must", ...}]'
+python -m core.guidelines context myproject --scopes "backend,database"
+```
+
+### Other Entities
+
+| Entity | Purpose | Command |
+|--------|---------|---------|
+| **Objectives** | Business goals with measurable Key Results | `python -m core.objectives` |
+| **Ideas** | Hierarchical proposals (DRAFT → EXPLORING → APPROVED → COMMITTED) | `python -m core.ideas` |
+| **Research** | Structured analysis output linked to objectives/ideas | `python -m core.research` |
+| **Knowledge** | Domain context — rules, patterns, API references (versioned) | `python -m core.knowledge` |
+| **AC Templates** | Reusable parameterized acceptance criteria | `python -m core.ac_templates` |
+| **Lessons** | Cross-project learning extracted via `/compound` | `python -m core.lessons` |
+
+## Contracts — Why They Exist
+
+Every entity has a **contract**: a schema that defines the exact shape of data the module accepts. Run `python -m core.{module} contract {action}` to see it.
+
+Contracts serve two purposes:
+1. **For the AI agent** — the contract is injected into the prompt so the LLM knows exactly what JSON to produce. No guessing, no hallucinated fields.
+2. **For validation** — Python validates the LLM output against the contract before writing to disk. If it doesn't match, the operation fails with a clear error.
+
+This is the Python/LLM boundary: Python handles I/O and validation, the LLM handles judgment. The contract is the handshake between them.
+
+```bash
+python -m core.pipeline contract add-tasks    # See task schema
+python -m core.decisions contract add          # See decision schema
+python -m core.guidelines contract add         # See guideline schema
+```
+
+## Skills — Reusable Agent Procedures
+
+Skills are structured instruction sets (in SKILL.md format) that guide the AI agent through complex multi-step procedures. They're not just prompts — they define:
+
+- **Steps** with explicit inputs and outputs
+- **Verification criteria** — how to check the work is correct
+- **Scope transparency** — what the skill does NOT cover
+- **Tool permissions** — which tools the agent may use
+
+### Built-in Skills
+
+| Skill | When It Runs | What It Does |
+|-------|-------------|--------------|
+| `plan` | `/plan {goal}` | Decompose goal into dependency DAG (two-phase: draft → approve) |
+| `next` | `/next` | Execute a task with context loading, guidelines, verification |
+| `discover` | `/discover {topic}` | Explore options and assess risks before committing |
+| `review` | `/review {task}` | 6-perspective code review |
+| `onboard` | `/onboard {path}` | Import existing project knowledge into Forge |
+| `deep-explore` | Auto via `/discover` | Structured option exploration with consequence tracing |
+| `deep-risk` | Auto via `/discover` | 5-dimensional risk assessment with cascade analysis |
+| `deep-architect` | Manual | Architecture design with 8 adversarial challenges |
+| `deep-verify` | Manual | Artifact verification with impossibility pattern matching |
+
+Skills can be created, edited, linted, and promoted via the Forge web UI or CLI. They support git sync for sharing across environments.
+
+## Multi-Agent Support
+
+Multiple AI agents can work on the same project in parallel:
+
+```bash
+python -m core.pipeline next myproject --agent alice
+python -m core.pipeline next myproject --agent bob
+```
+
+- Two-phase claiming prevents race conditions (`CLAIMING → IN_PROGRESS`)
+- `conflicts_with` on tasks prevents concurrent modification of the same files
+- Each agent's changes are tracked independently
 
 ## Quick Start
 
 ```bash
-# Quick path — simple tasks (bug fix, refactor, small feature):
-/do Fix the login timeout bug in auth.py    # One task, start to finish
+# Simple task — just do it:
+/do Fix the login timeout bug in auth.py
 
-# Standard path — multi-task work:
-/plan Add Redis caching to API              # Decompose → execute → done
+# Multi-task feature:
+/plan Add Redis caching to API responses
 
-# Full path — complex/risky work:
-/objective Reduce API response time         # Define business goal
-/idea Redis caching                         # Capture proposal
-/discover I-001                             # Explore risks & options
-/plan I-001                                 # Draft plan → approve → execute
+# Existing codebase — import first, then plan:
+/onboard ./my-project
+/plan Add user authentication
+
+# Full workflow for risky/complex work:
+/objective Reduce API response time          # Define measurable goal
+/idea Redis caching layer                    # Capture proposal
+/discover I-001                              # Explore risks & options
+/plan I-001                                  # Draft plan → approve → execute
+/next                                        # Execute tasks one by one
+/run                                         # Or execute all continuously
+/compound                                    # Extract lessons when done
 ```
 
-```bash
-# Other useful commands:
-/guideline use Repository Pattern --scope backend  # Set project standards
-/next                                       # Execute next task (with verification)
-/run                                        # Execute all tasks continuously
-/status                                     # Show project dashboard + DAG
-```
-
-For existing codebases, start with `/onboard {path}` to import project knowledge before planning.
-
-## Slash Commands
+## Slash Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| **`/do {task}`** | **Quick path — single task, start to finish, minimum ceremony** |
-| `/plan {goal\|idea_id}` | Decompose goal into task graph (two-phase: draft → approve) |
-| `/idea {title}` | Add idea to staging area (supports hierarchy and relations) |
-| `/ideas [id] [action]` | List/show/manage ideas (explore, approve, reject, commit) |
-| `/discover {topic\|idea_id}` | Explore options, assess risks → creates exploration + risk decisions |
-| `/risk [title\|id] [action]` | Manage risks (add, analyze, mitigate, accept, close) |
-| `/guideline {text}` | Add project guideline |
-| `/guidelines [scope]` | List/manage guidelines |
-| `/next` | Execute next task (includes verification + guidelines check) |
-| `/run [tasks]` | Continuous execution (`/run`, `/run 3`, `/run T-003..T-007`) |
-| `/status` | Show project state, decisions, and change summary |
-| `/decide` | Review and resolve open decisions (accept/override/defer) |
-| `/review {task_id}` | Deep code review (optional — basic built into `/next`) |
-| `/log` | Full audit trail: decisions + changes + narrative |
-| `/compound` | Extract lessons learned from project execution |
-| `/onboard {path}` | Import brownfield project knowledge into Forge |
+| **`/do {task}`** | Quick path — single task, start to finish |
+| `/objective {title}` | Define business goal with measurable KRs |
+| `/idea {title}` | Add idea to staging area |
+| `/discover {topic\|idea_id}` | Explore options, assess risks |
+| `/plan {goal\|idea_id}` | Decompose into task graph (draft → approve) |
+| `/guideline {text}` | Add project standard |
+| `/knowledge [id] [action]` | Manage domain knowledge |
+| `/task {description}` | Quick-add a single task |
+| `/next` | Execute next task |
+| `/run [tasks]` | Continuous execution |
+| `/decide` | Review and resolve open decisions |
+| `/review {task_id}` | Deep code review |
+| `/status` | Project dashboard |
+| `/log` | Full audit trail |
+| `/compound` | Extract lessons learned |
+| `/onboard {path}` | Import existing project |
+| `/help` | Show all commands |
 
-## Architecture
+## State Storage
 
-```
-forge/
-  core/                  # Domain-agnostic Python engine
-    pipeline.py          # Task graph state machine (DAG with dependencies, two-phase planning)
-    decisions.py         # Unified decision log (standard + exploration + risk)
-    changes.py           # Change tracking with reasoning traces
-    contracts.py         # Contract-first validation (render + validate)
-    gates.py             # Validation gates (test, lint, secrets)
-    lessons.py           # Compound learning across projects
-    guidelines.py        # Project standards and conventions registry
-    ideas.py             # Hierarchical idea staging with relations
-  skills/                # Built-in skill definitions (SKILL.md format)
-    discover/            #   Explore, assess, design before planning
-    plan/                #   Decompose goal into task graph
-    next/                #   Execute task with full traceability
-    onboard/             #   Import brownfield project knowledge
-    review/              #   Structured 6-perspective code review
-    deep-orchestration/  #   Coordinate analysis workflows
-    deep-explore/        #   Structured option exploration
-    deep-risk/           #   5D risk assessment
-    deep-architect/      #   Architecture with adversarial testing
-    deep-verify/         #   Artifact verification with scoring
-    deep-aggregate/      #   Combine analysis outputs
-    deep-align/          #   Goal alignment before analysis
-    optional/            #   Additional skills (deep-feasibility, deep-requirements, niche-scout)
-  docs/                  # Design documentation
-    DESIGN.md            #   Architecture, concepts, Python/LLM boundary
-    ASSUMPTIONS.md       #   Active assumptions and deferred decisions
-    STANDARDS.md         #   Standards for skills and core modules
-  .claude/               # Claude Code integration
-    CLAUDE.md            #   Agent instructions and command reference
-    commands/            #   Slash command definitions
-    settings.json        #   PostToolUse hooks
-  forge_output/          # Runtime state (per-project JSON files)
-```
+All state lives in `forge_output/{project}/` as JSON files:
 
-## Core Concepts
+| File | Contents |
+|------|----------|
+| `tracker.json` | Task graph (DAG with dependencies, statuses, draft plans) |
+| `decisions.json` | Decision log (standard + exploration + risk) |
+| `changes.json` | File change records with reasoning traces |
+| `guidelines.json` | Project standards and conventions |
+| `objectives.json` | Business objectives with key results |
+| `ideas.json` | Idea staging area |
+| `research.json` | Structured analysis outputs |
+| `knowledge.json` | Domain knowledge (versioned) |
+| `lessons.json` | Cross-project learning |
+| `ac_templates.json` | Reusable acceptance criteria templates |
 
-### Pipeline (Task Graph)
-
-Tasks form a DAG with explicit dependencies. States: `TODO → IN_PROGRESS → DONE` (or `FAILED`/`SKIPPED`). Supports parallel execution, conflict detection, and subtask decomposition.
-
-### Decision Log (Unified)
-
-Every non-trivial choice is recorded with: issue, recommendation, reasoning, alternatives, confidence level, and who decided (human vs AI). Three types:
-- **Standard** decisions: architecture, implementation, security, etc. Statuses: `OPEN`, `CLOSED`, `DEFERRED`, `OVERRIDE`.
-- **Exploration** decisions (type=exploration): findings, options, open questions from `/discover`. Carries `exploration_type`, `findings`, `options`.
-- **Risk** decisions (type=risk): severity, likelihood, mitigation plan. Lifecycle: `OPEN → ANALYZING → MITIGATED/ACCEPTED → CLOSED`.
-
-### Change Records
-
-Every file modification tracked with `reasoning_trace` (mandatory) — an array of steps explaining *why* the change was made, linked to tasks and decisions.
-
-### Validation Gates
-
-Configurable per project: test, lint, type-check, secret scanning. Required gates block task completion until fixed. Runs automatically before marking a task DONE.
-
-### Compound Learning
-
-Lessons extracted from completed projects (patterns discovered, mistakes avoided, decisions validated). Stored and queried across projects to improve future work.
-
-### Guidelines
-
-Project-wide coding standards, architectural conventions, and rules. Scoped (backend, frontend, database, general, etc.) and weighted (must/should/may) to control context injection. Automatically loaded into task context during execution — `must` guidelines always visible, `should` when count is manageable, `may` on demand.
-
-### Ideas (Staging)
-
-Hierarchical proposals that mature before becoming tasks. Lifecycle: `DRAFT → EXPLORING → APPROVED → COMMITTED`. Ideas support parent-child hierarchy (`parent_id`) and typed relations (`depends_on`, `related_to`, `supersedes`, `duplicates`). During EXPLORING, run `/discover` to create exploration and risk decisions. APPROVED ideas are committed to the task pipeline via `/plan` (two-phase: draft → user approval → materialize). REJECTED ideas are preserved with reasoning.
-
-## CLI Usage (standalone, without Claude Code)
-
-```bash
-# Pipeline
-python -m core.pipeline init myproject --goal "Build a REST API"
-python -m core.pipeline add-tasks myproject --data '[...]'
-python -m core.pipeline next myproject
-python -m core.pipeline complete myproject T-001
-python -m core.pipeline status myproject
-
-# Decisions
-python -m core.decisions add myproject --data '[...]'
-python -m core.decisions read myproject --status OPEN
-python -m core.decisions update myproject --data '[...]'
-
-# Changes
-python -m core.changes diff myproject T-001
-python -m core.changes record myproject --data '[...]'
-python -m core.changes summary myproject
-
-# Gates
-python -m core.gates config myproject --data '[...]'
-python -m core.gates check myproject --task T-001
-# Lessons
-python -m core.lessons add myproject --data '[...]'
-python -m core.lessons read-all --severity critical --limit 15
-
-# Ideas (hierarchical)
-python -m core.ideas add myproject --data '[{"title": "...", "parent_id": "I-001", "relations": [...]}]'
-python -m core.ideas read myproject --status EXPLORING --parent root
-python -m core.ideas show myproject I-001
-python -m core.ideas commit myproject I-001
-
-# Decisions (explorations + risks)
-python -m core.decisions read myproject --type exploration
-python -m core.decisions read myproject --type risk --status OPEN
-python -m core.decisions show myproject D-001
-
-# Guidelines
-python -m core.guidelines add myproject --data '[...]'
-python -m core.guidelines read myproject --scope backend
-python -m core.guidelines context myproject --scopes "backend,database"
-
-```
-
-Use `contract` subcommand on any module to see the expected data format (e.g. `python -m core.pipeline contract add-tasks`).
-
-## Multi-Agent Support
-
-Forge supports multiple agents working on the same project in parallel:
-
-- Each agent identifies with `--agent {name}` on `next` and `complete`
-- Two-phase claiming prevents race conditions (`CLAIMING → IN_PROGRESS`)
-- `conflicts_with` on tasks prevents concurrent modification of the same files
-
-## Analysis Skills (Deep-Process)
-
-Forge includes built-in analysis skills adapted from [Deep-Process](https://github.com/Deep-Process/deep-process):
-
-| Skill | Purpose |
-|-------|---------|
-| deep-orchestration | Coordinate analysis workflows (conductor) |
-| deep-explore | Structured option exploration with consequence tracing |
-| deep-risk | 5-dimensional risk assessment with cascade analysis |
-| deep-feasibility | 10-dimension feasibility with GO/NO-GO verdict |
-| deep-architect | Architecture design with 8 adversarial challenges |
-| deep-verify | Artifact verification with impossibility pattern matching |
-| deep-requirements | Requirements extraction and contradiction checking |
-| deep-aggregate | Combine multiple analysis outputs into decision brief |
-
-These are invoked automatically via `/discover` or manually during task execution. Findings are recorded as Forge decisions with full provenance.
-
-To check for updates from upstream: compare version in each `skills/deep-*/SKILL.md` provenance header against https://github.com/Deep-Process/deep-process.
-
-## Heritage
-
-
-| Pattern | Description |
-|---------|-------------|
-| Contract-first | One Python dict drives both the LLM prompt and validation |
-| Pipeline state machine | Resumable task execution with dependency tracking |
-| Decision log | Accept/override/defer with human vs AI provenance |
-| Python/LLM boundary | Python handles I/O + validation, LLM handles judgment |
-
-See `docs/DESIGN.md` for full architecture documentation.
+No database. No migrations. `git diff` on the JSON files shows exactly what changed between sessions.

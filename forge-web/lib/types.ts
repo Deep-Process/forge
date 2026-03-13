@@ -199,17 +199,31 @@ export interface DecisionCreate {
 }
 
 export interface DecisionUpdate {
+  // Core fields
   status?: DecisionStatus;
+  task_id?: string;
+  issue?: string;
   recommendation?: string;
   reasoning?: string;
+  alternatives?: string[];
+  confidence?: Confidence;
   decided_by?: "claude" | "user" | "imported";
+  file?: string;
+  scope?: string;
+  tags?: string[];
   resolution_notes?: string;
+  evidence_refs?: string[];
+  // Linked entity (generic — all decision types)
+  linked_entity_type?: string;
+  linked_entity_id?: string;
   // Risk fields
   severity?: string;
   likelihood?: string;
   mitigation_plan?: string;
   // Exploration fields
   exploration_type?: string;
+  open_questions?: string[];
+  blockers?: string[];
 }
 
 // ---------------------------------------------------------------------------

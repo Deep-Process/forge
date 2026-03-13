@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T09:05:44Z",
+  "updated": "2026-03-13T19:55:02Z",
   "objectives": [
     {
       "id": "O-001",
@@ -1669,6 +1669,168 @@
       "status": "ACTIVE",
       "created": "2026-03-13T08:36:49Z",
       "updated": "2026-03-13T08:36:49Z"
+    },
+    {
+      "id": "O-023",
+      "title": "Debug Console v2 — funkcjonalność, czytelność i podgląd streamu AI",
+      "description": "Konsola debugowania (BottomPanel + AI Sidebar) ma krytyczne problemy: LLM Monitor i Event Stream nie działają poza stronami projektu (useParams=undefined), API Inspector pokazuje wydarzenia od najstarszego, błędy wyświetlane są nieczytelnie ([Error: API error 500]), brak podglądu streamu AI w sidebar, nie można zaznaczyć tekstu w response body. Cel: w pełni funkcjonalna, atrakcyjna wizualnie konsola debugowania z ustrukturyzowanym podglądem streamu LLM.",
+      "key_results": [
+        {
+          "id": "KR-1",
+          "description": "LLM Monitor i Event Stream działają poprawnie na stronach projektu (naprawiony useParams, WebSocket scope)",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-2",
+          "description": "API Inspector: wydarzenia od najnowszego, auto-scroll do nowych, czytelne formatowanie błędów z kodem statusu i excerptami response",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-3",
+          "description": "AI Sidebar ma zakładkę Debug z ustrukturyzowanym widokiem streamu (sekcje: thinking, tool calls, response) — osobne źródło danych od LLM Monitor",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-4",
+          "description": "Błędy we wszystkich komponentach debug wyświetlają informacje diagnostyczne (status code, endpoint, fragment response body) zamiast generycznych komunikatów",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-5",
+          "description": "Request/response body z zaznaczalnym tekstem, widoczne parametry requestu (headers, query params, body) w API Inspector",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-6",
+          "description": "Wizualny redesign konsoli debugowania — spójny design system, atrakcyjna prezentacja danych, kolorowanie składni JSON",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "appetite": "large",
+      "scope": "project",
+      "assumptions": [
+        "useParams() w BottomPanel to główna przyczyna niedziałającego LLM Monitor i Event Stream",
+        "WebSocket jest już stabilny — problem dotyczy scopeu połączenia, nie samego transportu",
+        "Backend debug endpoints działają poprawnie (503 tylko gdy DebugCapture nie zainicjalizowany)",
+        "Ustrukturyzowany widok streamu wymaga parsowania SSE/WS tokenów na sekcje (thinking, tool_use, text)"
+      ],
+      "tags": [
+        "debugging",
+        "dx",
+        "ui",
+        "monitoring",
+        "ai-sidebar"
+      ],
+      "scopes": [
+        "frontend",
+        "debugging",
+        "ai-sidebar"
+      ],
+      "derived_guidelines": [],
+      "knowledge_ids": [],
+      "guideline_ids": [],
+      "relations": [
+        {
+          "type": "supersedes",
+          "target_id": "O-007",
+          "notes": "O-007 (Debug Console) was ACHIEVED but many features degraded or incomplete — this is v2"
+        }
+      ],
+      "status": "ACTIVE",
+      "created": "2026-03-13T17:51:33Z",
+      "updated": "2026-03-13T17:51:33Z"
+    },
+    {
+      "id": "O-024",
+      "title": "AI Sidebar Operational Autonomy — secure tool execution with progressive context",
+      "description": "AI in Sidebar must be fully operational: understand the entire app structure, know what it can do on each page, execute operations via tool calls, and be securely limited by scope configuration. Currently AI sees page data but cannot act — tool calls fail or are missing from sessions. Users cannot trust AI to perform operations because there is no enforced authorization boundary. This objective makes AI a real operational assistant: it knows the app map, understands current page deeply, can request contracts on-demand, executes tools with session-scoped authorization, and respects scope changes in real-time across concurrent sessions.",
+      "key_results": [
+        {
+          "id": "KR-1",
+          "description": "Session-scoped authorization: each AI session gets a scoped token validated server-side. Changing scopes in UI invalidates the token and issues a new one. Works correctly with multiple concurrent sessions.",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-2",
+          "description": "Tool execution works end-to-end: AI calls tool (e.g. createDecision) via tool_call, backend executes it, result flows back to conversation. Zero 500 errors from tool execution in normal operation.",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-3",
+          "description": "Progressive context system: AI receives lightweight app map (all pages + available actions ~500 tokens) + full current page context. Can request detailed contracts via getToolContract(toolName) tool.",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-4",
+          "description": "Scope enforcement is hard: if decisions scope is disabled, AI physically cannot call createDecision/updateDecision even if it tries. Backend rejects with clear error, not 500.",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-5",
+          "description": "Auto-updating context: when user navigates to a new page or changes scopes, AI context updates automatically from annotations + scope config. No manual refresh needed.",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-6",
+          "description": "AI understands its own capabilities: system prompt acts as SKILL — instructs AI what it can do, how to request more info, how to call tools, with examples. AI never says it cannot do something that it actually can.",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "appetite": "large",
+      "scope": "project",
+      "assumptions": [
+        "Existing tool_registry.py with ~50 tools is the execution layer — we fix and use it, not replace it",
+        "Redis-based session manager supports token storage alongside session data",
+        "Frontend AI annotations (useAIPage/useAIElement) provide sufficient data for context generation",
+        "Multiple concurrent AI sessions per user is a real use case that must work",
+        "Scope changes must propagate to ALL active sessions for that user, not just the current one",
+        "getToolContract is a new backend tool that returns JSON schema + examples for any registered tool",
+        "App map is generated from AI annotations or a static registry, not hand-maintained"
+      ],
+      "tags": [
+        "ai",
+        "security",
+        "tools",
+        "authorization",
+        "context",
+        "sidebar",
+        "sessions"
+      ],
+      "scopes": [
+        "backend",
+        "frontend",
+        "ai",
+        "llm",
+        "security"
+      ],
+      "derived_guidelines": [],
+      "knowledge_ids": [],
+      "guideline_ids": [],
+      "relations": [
+        {
+          "type": "depends_on",
+          "target_id": "O-015",
+          "notes": "Builds on deep context and chat UX foundation"
+        },
+        {
+          "type": "depends_on",
+          "target_id": "O-013",
+          "notes": "Uses scope system and capability contracts"
+        },
+        {
+          "type": "related_to",
+          "target_id": "O-019",
+          "notes": "Multi-session orchestration requires session-scoped auth"
+        },
+        {
+          "type": "related_to",
+          "target_id": "O-022",
+          "notes": "Workflow awareness needs working tool execution"
+        }
+      ],
+      "status": "ACTIVE",
+      "created": "2026-03-13T19:55:02Z",
+      "updated": "2026-03-13T19:55:02Z"
     }
   ]
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEntityData } from "@/hooks/useEntityData";
 import { updateTask as updateTaskAction } from "@/stores/taskStore";
 import { Badge } from "@/components/shared/Badge";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Task, TaskStatus } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,24 @@ export default function BoardPage() {
     for (const t of tasks) counts[t.status] = (counts[t.status] || 0) + 1;
     return counts;
   }, [tasks]);
+
+  useAIPage({
+    id: "board",
+    title: `Task Board — ${slug}`,
+    description: `${view} view of ${tasks.length} tasks`,
+    route: `/projects/${slug}/board`,
+  });
+
+  useAIElement({
+    id: "board-view",
+    type: "display",
+    label: `Task Board (${view})`,
+    description: `${filtered.length} shown of ${tasks.length} total`,
+    data: { view, total: tasks.length, filtered: filtered.length, ...statusCounts },
+    actions: [
+      { label: "Update task status", toolName: "updateTask", toolParams: ["task_id*", "status"] },
+    ],
+  });
 
   return (
     <div className="h-full flex flex-col">

@@ -6,7 +6,6 @@ interface DecisionCardProps {
   decision: Decision;
   slug: string;
   onStatusChange?: (id: string, status: string) => void;
-  onEdit?: (decision: Decision) => void;
 }
 
 const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; className: string }>> = {
@@ -24,7 +23,7 @@ const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; clas
   ],
 };
 
-export function DecisionCard({ decision, slug, onStatusChange, onEdit }: DecisionCardProps) {
+export function DecisionCard({ decision, slug, onStatusChange }: DecisionCardProps) {
   const actions = STATUS_ACTIONS[decision.status] || [];
 
   return (
@@ -43,14 +42,6 @@ export function DecisionCard({ decision, slug, onStatusChange, onEdit }: Decisio
           <p className="text-xs text-gray-500 mt-1">{decision.recommendation}</p>
         </Link>
         <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-          {onEdit && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(decision); }}
-              className="text-xs text-gray-400 hover:text-gray-600 font-medium"
-            >
-              Edit
-            </button>
-          )}
           {onStatusChange && actions.map((action) => (
             <button
               key={action.status}

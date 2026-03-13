@@ -9,6 +9,7 @@ import { useActivityStore } from "@/stores/activityStore";
 import { Card, CardTitle } from "@/components/shared/Card";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { ActivityFeed } from "@/components/shared/ActivityFeed";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type {
   Task,
   Decision,
@@ -37,6 +38,13 @@ export default function ProjectDashboardPage() {
   const params = useParams();
   const slug = params.slug as string;
 
+  useAIPage({
+    id: "project-dashboard",
+    title: `Project Dashboard — ${slug}`,
+    description: `Overview of project ${slug}: objectives, pipeline, decisions, alerts`,
+    route: `/projects/${slug}`,
+  });
+
   return (
     <div className="space-y-6">
       <ObjectivesSection slug={slug} />
@@ -64,6 +72,14 @@ function ObjectivesSection({ slug }: { slug: string }) {
     () => objectives.filter((o) => o.status === "ACTIVE"),
     [objectives],
   );
+
+  useAIElement({
+    id: "dashboard-objectives",
+    type: "section",
+    label: "Active Objectives",
+    description: `${active.length} active of ${objectives.length} total`,
+    data: { active: active.length, total: objectives.length },
+  });
 
   if (isLoading) return null;
   if (active.length === 0) return null;
@@ -141,6 +157,14 @@ function PipelineSection({ slug }: { slug: string }) {
     return { statusCounts: counts, totalTasks: tasks.length };
   }, [tasks]);
 
+  useAIElement({
+    id: "dashboard-pipeline",
+    type: "section",
+    label: "Task Pipeline",
+    description: `${totalTasks} tasks`,
+    data: { total: totalTasks, ...statusCounts },
+  });
+
   if (isLoading) return null;
 
   return (
@@ -194,6 +218,17 @@ function OpenDecisionsSection({ slug }: { slug: string }) {
     () => decisions.filter((d) => d.status === "OPEN" || d.status === "ANALYZING"),
     [decisions],
   );
+
+  useAIElement({
+    id: "dashboard-open-decisions",
+    type: "section",
+    label: "Open Decisions",
+    description: `${openDecisions.length} open of ${decisions.length} total`,
+    data: { open: openDecisions.length, total: decisions.length },
+    actions: [
+      { label: "Close decision", toolName: "updateDecision", toolParams: ["id*", "status=CLOSED", "resolution_notes"] },
+    ],
+  });
 
   return (
     <Card>

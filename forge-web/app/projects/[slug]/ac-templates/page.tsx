@@ -6,6 +6,7 @@ import { useEntityStore } from "@/stores/entityStore";
 import { ACTemplateCard } from "@/components/entities/ACTemplateCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { acTemplates as acTemplatesApi } from "@/lib/api";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { ACTemplate, ACTemplateCreate, ACTemplateCategory } from "@/lib/types";
 
 const STATUSES = ["ACTIVE", "DEPRECATED"];
@@ -60,6 +61,25 @@ export default function ACTemplatesPage() {
   const filtered = templates
     .filter((t) => !statusFilter || t.status === statusFilter)
     .filter((t) => !categoryFilter || t.category === categoryFilter);
+
+  useAIPage({
+    id: "ac-templates",
+    title: `AC Templates (${slices.acTemplates.count})`,
+    description: `Reusable acceptance criteria templates for project ${slug}`,
+    route: `/projects/${slug}/ac-templates`,
+  });
+
+  useAIElement({
+    id: "template-list",
+    type: "list",
+    label: "AC Templates",
+    description: `${filtered.length} shown of ${slices.acTemplates.count} total`,
+    data: { count: slices.acTemplates.count, filtered: filtered.length },
+    actions: [
+      { label: "Create template", toolName: "createACTemplate", toolParams: ["title*", "template*", "category*", "description", "parameters", "scopes"] },
+      { label: "Instantiate", toolName: "instantiateACTemplate", toolParams: ["template_id*", "params*"] },
+    ],
+  });
 
   const handleAddTag = () => {
     const tag = tagInput.trim();

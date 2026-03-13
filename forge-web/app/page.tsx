@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useProjectStore } from "@/stores/projectStore";
 import { Card } from "@/components/shared/Card";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 
 export default function DashboardPage() {
   const { slugs, statuses, loading, error, fetchProjects, fetchStatus } = useProjectStore();
@@ -12,6 +13,20 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  useAIPage({
+    id: "dashboard",
+    title: "Forge Dashboard",
+    description: `Overview of ${slugs.length} projects`,
+    route: "/",
+  });
+
+  useAIElement({
+    id: "project-list",
+    type: "list",
+    label: "Projects",
+    data: { count: slugs.length },
+  });
 
   // Fetch status for each project once (tracked by ref to avoid re-render loops)
   useEffect(() => {

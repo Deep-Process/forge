@@ -162,6 +162,7 @@ function ScopesTab({
   pageTitle,
   pageElementCount,
   annotationScopes,
+  pageContextText,
 }: {
   activeScopes: string[];
   onAdd: (scope: string) => void;
@@ -176,7 +177,10 @@ function ScopesTab({
   pageElementCount: number;
   /** Scopes derived from page annotations. */
   annotationScopes: string[];
+  /** Full serialized page context text (what the LLM actually sees). */
+  pageContextText?: string;
 }) {
+  const [contextExpanded, setContextExpanded] = useState(false);
   const activeSet = new Set(activeScopes);
   const disabledSet = new Set(disabledCapabilities);
 
@@ -215,6 +219,36 @@ function ScopesTab({
               <> &middot; scopes: {annotationScopes.join(", ")}</>
             )}
           </div>
+          {/* Collapsible raw context preview */}
+          {pageContextText && (
+            <div className="mt-1.5 border-t border-forge-200 pt-1.5">
+              <button
+                onClick={() => setContextExpanded((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-forge-500 hover:text-forge-700"
+              >
+                <svg
+                  className={`w-3 h-3 transition-transform ${contextExpanded ? "rotate-90" : ""}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                AI sees (raw)
+              </button>
+              {contextExpanded && (
+                <div className="mt-1 relative">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(pageContextText)}
+                    className="absolute top-1 right-1 text-[9px] text-gray-400 hover:text-forge-600 bg-white/80 px-1.5 py-0.5 rounded border"
+                  >
+                    Copy
+                  </button>
+                  <pre className="text-[10px] text-gray-600 bg-gray-50 border rounded p-2 max-h-64 overflow-auto whitespace-pre-wrap font-mono leading-relaxed">
+                    {pageContextText}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -478,15 +512,15 @@ export default function AISidebar() {
     return aiCtx.subscribe(() => setAnnotationVersion((v) => v + 1));
   }, [aiCtx]);
   const pageSnapshot = aiCtx?.getSnapshot() ?? null;
-  const pageContextText = pageSnapshot && pageSnapshot.elements.size > 0
-    ? serializePageContext(pageSnapshot)
-    : undefined;
-
   // Merge URL scopes with annotation-derived scopes
   const annotationScopes = pageSnapshot && pageSnapshot.elements.size > 0
     ? deriveScopesFromElements(pageSnapshot.elements.values())
     : [];
   const scopes = Array.from(new Set([...urlScopes, ...annotationScopes]));
+
+  const pageContextText = pageSnapshot && pageSnapshot.elements.size > 0
+    ? serializePageContext(pageSnapshot, { activeScopes: scopes })
+    : undefined;
 
   // Load LLM config for permissions
   const { data: llmConfig } = useSWR<LLMConfig>("llm-config", () => llm.getConfig());
@@ -552,6 +586,7 @@ export default function AISidebar() {
             pageTitle={pageSnapshot?.pageConfig?.title ?? null}
             pageElementCount={pageSnapshot?.elements.size ?? 0}
             annotationScopes={annotationScopes}
+            pageContextText={pageContextText}
           />
         )}
 

@@ -267,7 +267,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
       return response;
     } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : "Unknown error";
+      const errorMsg = (e instanceof Error ? e.message : "Unknown error") || "Request failed";
       set((s) => {
         const key = sessionId ?? "pending";
         const conv = s.conversations[key];
@@ -363,7 +363,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       }
       case "chat.error": {
         const p = payload as Record<string, unknown>;
-        state.handleError(sessionId, (p.message ?? p.reason ?? "Unknown error") as string);
+        state.handleError(sessionId, ((p.message ?? p.reason ?? "Unknown error") as string) || "Unknown error");
         break;
       }
     }
@@ -428,15 +428,16 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   handleError: (sessionId, error) => {
+    const msg = error || "Unknown error";
     set((s) => {
       const conv = s.conversations[sessionId];
-      if (!conv) return { streaming: false, error };
+      if (!conv) return { streaming: false, error: msg };
       const messages = conv.messages.map((m) =>
-        m.streaming ? { ...m, content: `[Error: ${error}]`, streaming: false } : m,
+        m.streaming ? { ...m, content: `[Error: ${msg}]`, streaming: false } : m,
       );
       return {
         streaming: false,
-        error,
+        error: msg,
         conversations: {
           ...s.conversations,
           [sessionId]: { ...conv, messages },

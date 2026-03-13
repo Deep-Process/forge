@@ -24,7 +24,8 @@ export class ApiError extends Error {
     public status: number,
     public detail: unknown,
   ) {
-    super(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const msg = typeof detail === "string" ? detail : JSON.stringify(detail);
+    super(msg || `API error ${status}`);
     this.name = "ApiError";
   }
 }

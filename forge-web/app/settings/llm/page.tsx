@@ -21,6 +21,7 @@ import {
   type CapabilityDef,
   type CapabilityContract,
 } from "@/lib/capabilities";
+import { useAIPage } from "@/lib/ai-context";
 
 const MODULE_LABELS: Record<string, string> = {
   skills: "Skills",
@@ -53,6 +54,13 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
 };
 
 export default function LLMSettingsPage() {
+  useAIPage({
+    id: "llm-settings",
+    title: "LLM Settings",
+    description: "AI providers, feature flags, module permissions",
+    route: "/settings/llm",
+  });
+
   return (
     <div className="space-y-8 max-w-4xl p-6">
       <div>

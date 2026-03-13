@@ -4,7 +4,7 @@ import type { AIElementDescriptor } from "./types";
  * Tool name prefix → scope mapping.
  * E.g., "createTask" starts with "Task" entity → scope "tasks".
  */
-const TOOL_ENTITY_TO_SCOPE: Record<string, string> = {
+export const TOOL_ENTITY_TO_SCOPE: Record<string, string> = {
   Task: "tasks",
   Decision: "decisions",
   Objective: "objectives",
@@ -44,6 +44,17 @@ export function deriveScopesFromElements(
   }
 
   return Array.from(scopes);
+}
+
+/**
+ * Get the scope name for a tool, or null if unknown.
+ * E.g., "createTask" → "tasks", "updateGuideline" → "guidelines".
+ */
+export function toolScopeFromName(toolName: string): string | null {
+  for (const [entity, scope] of Object.entries(TOOL_ENTITY_TO_SCOPE)) {
+    if (toolName.includes(entity)) return scope;
+  }
+  return null;
 }
 
 function extractScopeFromTool(toolName: string, scopes: Set<string>): void {

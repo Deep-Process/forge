@@ -5,11 +5,19 @@ import { useParams, useRouter } from "next/navigation";
 import { tasks as tasksApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { ContextView } from "@/components/execution/ContextView";
+import { useAIPage } from "@/lib/ai-context";
 import type { TaskContext } from "@/lib/types";
 
 export default function TaskContextPage() {
   const { slug, taskId } = useParams() as { slug: string; taskId: string };
   const router = useRouter();
+
+  useAIPage({
+    id: "task-context",
+    title: `Task Context — ${taskId}`,
+    description: `Context preview for task ${taskId}`,
+    route: `/projects/${slug}/execution/context/${taskId}`,
+  });
   const [ctx, setCtx] = useState<TaskContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useEntityStore } from "@/stores/entityStore";
 import { ChangeCard } from "@/components/entities/ChangeCard";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { ChangeRecord } from "@/lib/types";
 
 export default function ChangesPage() {
@@ -20,6 +21,24 @@ export default function ChangesPage() {
     ? changes.filter((c) => c.action === actionFilter)
     : changes;
   const sorted = [...filtered].reverse(); // newest first
+
+  useAIPage({
+    id: "changes",
+    title: `Changes (${slices.changes.count})`,
+    description: `Change audit log for project ${slug}`,
+    route: `/projects/${slug}/changes`,
+  });
+
+  useAIElement({
+    id: "change-list",
+    type: "list",
+    label: "Changes",
+    description: `${filtered.length} shown of ${slices.changes.count} total`,
+    data: { count: slices.changes.count, filtered: filtered.length },
+    actions: [
+      { label: "Record change", toolName: "recordChange", toolParams: ["task_id*", "file*", "action*", "summary*"] },
+    ],
+  });
 
   return (
     <div>

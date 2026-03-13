@@ -5,6 +5,7 @@ import useSWR from "swr";
 import Message from "@/components/ai/Message";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { useAIPage } from "@/lib/ai-context";
 import type { ChatSession, ChatMessage } from "@/lib/types";
 
 /** Format token count. */
@@ -61,6 +62,13 @@ export default function SessionDetailPage() {
   const router = useRouter();
 
   const { data: session, error, isLoading } = useSWR<ChatSession>(`/llm/sessions/${id}`);
+
+  useAIPage({
+    id: "session-detail",
+    title: session ? `Session — ${session.session_type || "chat"}` : "Session Detail (loading)",
+    description: session ? `${session.message_count ?? 0} messages, ${session.context_type}` : "Loading...",
+    route: `/sessions/${id}`,
+  });
 
   if (isLoading) return <p className="p-6 text-sm text-gray-400">Loading session...</p>;
   if (error) return <p className="p-6 text-sm text-red-600">{(error as Error).message}</p>;

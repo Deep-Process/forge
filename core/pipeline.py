@@ -299,6 +299,51 @@ CONTRACTS = {
             },
         ],
     },
+    "draft-plan": {
+        "description": "Draft plan wraps an array of tasks (same schema as add-tasks) with metadata about the source objective/idea. "
+                       "Stored in tracker.json['draft_plan']. Approve with approve-plan to materialize.",
+        "required": ["tasks"],
+        "optional": ["idea_id", "objective_id"],
+        "types": {
+            "tasks": list,
+        },
+        "invariant_texts": [
+            "tasks: JSON array of task objects — each task follows the add-tasks contract (id, name required; see `pipeline contract add-tasks`)",
+            "idea_id: source idea ID (I-NNN) this plan was derived from",
+            "objective_id: source objective ID (O-NNN) this plan was derived from",
+            "Only ONE draft plan exists at a time — new draft overwrites previous",
+            "Draft is NOT materialized until `approve-plan` is called",
+            "CLI usage: python -m core.pipeline draft-plan {project} --data '[{tasks}]' [--idea I-NNN] [--objective O-NNN]",
+            "The --data argument is the tasks array (not the wrapper). idea_id and objective_id are passed as --idea and --objective flags.",
+        ],
+        "example": [
+            {
+                "id": "T-010",
+                "name": "setup-redis-cache",
+                "description": "Configure Redis caching layer",
+                "depends_on": [],
+                "type": "feature",
+                "scopes": ["backend", "infrastructure"],
+                "origin": "I-003",
+                "acceptance_criteria": [
+                    "Redis client configured and connected",
+                    "Health check endpoint returns Redis status",
+                ],
+            },
+            {
+                "id": "T-011",
+                "name": "implement-cache-middleware",
+                "description": "Add caching middleware to API routes",
+                "depends_on": ["T-010"],
+                "type": "feature",
+                "scopes": ["backend"],
+                "acceptance_criteria": [
+                    "GET endpoints cached with 60s TTL",
+                    "Cache invalidated on POST/PUT/DELETE",
+                ],
+            },
+        ],
+    },
 }
 
 

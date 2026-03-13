@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { skills as skillsApi } from "@/lib/api";
 import { SkillEditor } from "@/components/skills/SkillEditor";
+import { useAIPage } from "@/lib/ai-context";
 import type { Skill } from "@/lib/types";
 
 export default function SkillDetailPage() {
@@ -28,6 +29,13 @@ export default function SkillDetailPage() {
   useEffect(() => {
     fetchSkill();
   }, [fetchSkill]);
+
+  useAIPage({
+    id: "skill-detail",
+    title: skill ? `Skill — ${skill.display_name || skill.name}` : "Skill Detail (loading)",
+    description: skill ? `${skill.status} — ${(skill.categories ?? []).join(", ")}` : "Loading...",
+    route: `/skills/${name}`,
+  });
 
   if (loading) return <p className="text-sm text-gray-400 p-4">Loading...</p>;
   if (error) return <p className="text-sm text-red-600 p-4">{error}</p>;

@@ -199,6 +199,13 @@ class AgentLoop:
                         total_input, total_output, iteration, model,
                         on_event, f"Provider error: {e}",
                     )
+                except Exception as e:
+                    logger.error("Unexpected error on iteration %d: %s", iteration, e, exc_info=True)
+                    return await self._stop(
+                        "error", conversation, all_tool_calls,
+                        total_input, total_output, iteration, model,
+                        on_event, f"Unexpected error: {type(e).__name__}: {e}",
+                    )
 
                 # Update counters
                 total_input += result.usage.input_tokens

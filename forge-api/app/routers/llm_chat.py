@@ -243,7 +243,7 @@ async def chat(
 
     # --- Append page context from UI annotations (if provided) ---
     if body.page_context:
-        system_prompt += f"\n\n## Current Page (what the user sees)\n\n{body.page_context}"
+        system_prompt += f"\n\n{body.page_context}"
 
     # --- Build permissions ---
     permissions = PermissionEngine.load_permissions(config)
@@ -345,7 +345,7 @@ async def chat(
             role="assistant",
             content=error_msg,
         )
-        raise HTTPException(status_code=500, detail=f"Chat failed: {type(e).__name__}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {type(e).__name__}: {str(e)[:300]}")
 
     # --- Save assistant response to session ---
     tool_calls_data = [
