@@ -266,6 +266,38 @@ python -m core.gates contract config                   Show gate contract
 
 Tip: Configure secret scanning as a gate: `{"name": "secrets", "command": "gitleaks detect --no-git -v", "required": true}`
 
+### Git Workflow (branch, worktree, PR automation)
+```
+python -m core.git_ops status                    Show branches and worktrees
+python -m core.git_ops cleanup {project}         Clean up completed task branches/worktrees
+```
+
+**Configuration** (via `pipeline config`):
+```json
+{
+  "git_workflow": {
+    "enabled": true,
+    "branch_prefix": "forge/",
+    "use_worktrees": false,
+    "worktree_dir": "forge_worktrees",
+    "auto_push": true,
+    "auto_pr": true,
+    "pr_target": "main",
+    "pr_draft": true
+  }
+}
+```
+
+**How it works**:
+- `pipeline next` creates a branch `{prefix}{task_id}-{slug}` and optionally a worktree
+- `pipeline complete` pushes branch, creates PR (if configured), cleans up worktree
+- Branch-only mode (default): checkout branch in main repo — for single-agent work
+- Worktree mode (`use_worktrees: true`): creates `forge_worktrees/{task_id}-{slug}/` — for multi-agent parallel work
+- Each agent works in its own worktree directory, pipeline commands run from main repo
+- `auto_record_changes` is worktree-aware (uses correct cwd for git diff)
+
+**Stored on task**: `branch`, `worktree_path`, `pr_url` — recorded automatically by pipeline
+
 ## Slash Commands
 
 ### Quick Path (80% of tasks)
@@ -418,7 +450,7 @@ Provides: everything — objectives, ideas, discovery, risk assessment, full tra
 - **Record decisions** for any non-trivial choice (architecture, library, pattern, trade-off).
 - **Record changes** for every file you create, edit, or delete.
 - **reasoning_trace is mandatory** — explain WHY, not just WHAT.
-- **Contracts are the source of truth** — run `contract` before producing structured output.
+- **Contracts are the source of truth** — run `contract` before producing structured output. Note: `contract` does NOT take a project argument (e.g. `python -m core.guidelines contract add`, NOT `... contract add {project}`).
 - **When unsure, create an OPEN decision** — let the human decide.
 - **Tests before completion** — run tests/lint before marking a task DONE.
 - **Use --force on complete** only for tasks that genuinely have no code changes (e.g., investigation, planning).

@@ -263,7 +263,8 @@ CONTRACTS = {
     },
     "config": {
         "required": [],
-        "optional": ["test_cmd", "lint_cmd", "typecheck_cmd", "branch_prefix"],
+        "optional": ["test_cmd", "lint_cmd", "typecheck_cmd", "branch_prefix",
+                      "git_workflow"],
         "enums": {},
         "types": {},
         "invariant_texts": [
@@ -271,13 +272,30 @@ CONTRACTS = {
             "lint_cmd: shell command to run linter (e.g., 'ruff check .', 'npm run lint')",
             "typecheck_cmd: shell command for type checking (e.g., 'mypy src/', 'npx tsc --noEmit')",
             "branch_prefix: prefix for git branches (e.g., 'forge/')",
-            "Config is a flat JSON object, not an array",
+            "git_workflow: nested object for git branch/worktree/PR automation",
+            "  git_workflow.enabled: true to activate (default: false)",
+            "  git_workflow.branch_prefix: branch name prefix (default: 'forge/')",
+            "  git_workflow.use_worktrees: true for worktree-per-task (default: false, uses branch-only)",
+            "  git_workflow.worktree_dir: directory for worktrees (default: 'forge_worktrees')",
+            "  git_workflow.auto_push: push branch on complete (default: true)",
+            "  git_workflow.auto_pr: create PR on complete (default: true)",
+            "  git_workflow.pr_target: PR target branch (default: 'main')",
+            "  git_workflow.pr_draft: create as draft PR (default: true)",
+            "Config is a flat JSON object (except git_workflow which is nested), not an array",
         ],
         "example": [
             {
                 "test_cmd": "pytest",
                 "lint_cmd": "ruff check .",
-                "branch_prefix": "forge/",
+                "git_workflow": {
+                    "enabled": True,
+                    "branch_prefix": "forge/",
+                    "use_worktrees": False,
+                    "auto_push": True,
+                    "auto_pr": True,
+                    "pr_target": "main",
+                    "pr_draft": True,
+                },
             },
         ],
     },
@@ -408,8 +426,13 @@ def _get_current_commit() -> str:
         return ""
 
 
-def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning: str) -> int:
+def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning: str,
+                          cwd: str = None) -> int:
     """Auto-detect git changes since base_commit and record unrecorded ones.
+
+    Args:
+        cwd: Working directory for git commands (e.g. worktree path).
+             If None, uses current directory.
 
     Returns number of new changes recorded.
     """
@@ -422,7 +445,8 @@ def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning
     try:
         result = subprocess.run(
             ["git", "diff", "--numstat", base_commit, "HEAD"],
-            capture_output=True, text=True, encoding="utf-8"
+            capture_output=True, text=True, encoding="utf-8",
+            cwd=cwd,
         )
         committed = result.stdout.strip()
     except FileNotFoundError:
@@ -431,7 +455,8 @@ def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning
     # Also get uncommitted changes
     result2 = subprocess.run(
         ["git", "diff", "--numstat", "HEAD"],
-        capture_output=True, text=True, encoding="utf-8"
+        capture_output=True, text=True, encoding="utf-8",
+        cwd=cwd,
     )
     uncommitted = result2.stdout.strip()
 
@@ -481,14 +506,16 @@ def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning
         if added > 0 and removed == 0:
             check = subprocess.run(
                 ["git", "diff", "--diff-filter=A", "--name-only", base_commit, "HEAD", "--", filepath],
-                capture_output=True, text=True, encoding="utf-8"
+                capture_output=True, text=True, encoding="utf-8",
+                cwd=cwd,
             )
             if filepath in check.stdout:
                 action = "create"
         elif added == 0 and removed > 0:
             check = subprocess.run(
                 ["git", "diff", "--diff-filter=D", "--name-only", base_commit, "HEAD", "--", filepath],
-                capture_output=True, text=True, encoding="utf-8"
+                capture_output=True, text=True, encoding="utf-8",
+                cwd=cwd,
             )
             if filepath in check.stdout:
                 action = "delete"
@@ -515,6 +542,40 @@ def _auto_record_changes(project: str, task_id: str, base_commit: str, reasoning
         storage.save_data(project, 'changes', ch_data)
 
     return len(new_changes)
+
+
+def _apply_git_workflow_start(project: str, tracker: dict, task: dict) -> dict:
+    """Apply git workflow on task start (branch + optional worktree).
+
+    Returns dict with branch/worktree_path keys, or empty dict if disabled.
+    """
+    try:
+        from git_ops import get_git_workflow_config, on_task_start
+    except ImportError:
+        return {}
+
+    config = get_git_workflow_config(tracker)
+    if not config.get("enabled"):
+        return {}
+
+    return on_task_start(project, task, config)
+
+
+def _apply_git_workflow_complete(project: str, tracker: dict, task: dict) -> dict:
+    """Apply git workflow on task complete (push + PR + cleanup).
+
+    Returns dict with pr_url and other result keys, or empty dict if disabled.
+    """
+    try:
+        from git_ops import get_git_workflow_config, on_task_complete
+    except ImportError:
+        return {}
+
+    config = get_git_workflow_config(tracker)
+    if not config.get("enabled"):
+        return {}
+
+    return on_task_complete(project, task, config)
 
 
 def _get_active_ids(tracker: dict) -> set:
@@ -568,11 +629,21 @@ def _claim_with_retry(args, candidate, agent, max_retries=5):
             task["status"] = "IN_PROGRESS"
             task["started_at"] = now_iso()
             task["started_at_commit"] = _get_current_commit()
+
+            # Git workflow: create branch + optional worktree
+            git_result = _apply_git_workflow_start(args.project, tracker, task)
+            if git_result:
+                task.update(git_result)
+
             save_tracker(args.project, tracker)
 
             print(f"## Next task: {task['id']} — {task['name']}")
             print(f"Agent: {agent}")
             print(f"Status: TODO -> CLAIMING -> **IN_PROGRESS**")
+            if task.get("branch"):
+                print(f"Branch: `{task['branch']}`")
+            if task.get("worktree_path"):
+                print(f"Worktree: `{task['worktree_path']}`")
             print()
             print_task_detail(task)
             return
@@ -725,11 +796,21 @@ def cmd_next(args):
         candidate["agent"] = agent
         candidate["started_at"] = now_iso()
         candidate["started_at_commit"] = _get_current_commit()
+
+        # Git workflow: create branch + optional worktree
+        git_result = _apply_git_workflow_start(args.project, tracker, candidate)
+        if git_result:
+            candidate.update(git_result)
+
         save_tracker(args.project, tracker)
 
         print(f"## Next task: {candidate['id']} — {candidate['name']}")
         print(f"Agent: {agent}")
         print(f"Status: TODO -> **IN_PROGRESS**")
+        if candidate.get("branch"):
+            print(f"Branch: `{candidate['branch']}`")
+        if candidate.get("worktree_path"):
+            print(f"Worktree: `{candidate['worktree_path']}`")
         print()
         print_task_detail(candidate)
     else:
@@ -763,7 +844,12 @@ def cmd_complete(args):
     # Auto-record changes from git before checking
     base_commit = task.get("started_at_commit", "")
     if base_commit:
-        auto_count = _auto_record_changes(args.project, args.task_id, base_commit, reasoning)
+        # Use worktree path for git commands if task was executed in a worktree
+        git_cwd = task.get("worktree_path")
+        if git_cwd and not os.path.isdir(git_cwd):
+            git_cwd = None  # Worktree removed, fall back to main repo
+        auto_count = _auto_record_changes(args.project, args.task_id, base_commit,
+                                           reasoning, cwd=git_cwd)
         if auto_count:
             print(f"  Auto-recorded {auto_count} change(s) from git.")
 
@@ -787,6 +873,11 @@ def cmd_complete(args):
             print(f"WARNING: Gates failed: {', '.join(failed)}. "
                   f"Use --force to complete anyway.", file=sys.stderr)
             sys.exit(1)
+
+    # Git workflow: push + PR + cleanup
+    git_result = _apply_git_workflow_complete(args.project, tracker, task)
+    if git_result:
+        task.update(git_result)
 
     task["status"] = "DONE"
     task["completed_at"] = now_iso()
@@ -2024,8 +2115,9 @@ def main():
     p = sub.add_parser("approve-plan", help="Approve draft plan and materialize into pipeline")
     p.add_argument("project")
 
-    p = sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     p = sub.add_parser("register-subtasks", help="Register subtasks")
     p.add_argument("project")

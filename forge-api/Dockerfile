@@ -2,13 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System dependencies for asyncpg, psycopg2, and Node.js
+# System dependencies for asyncpg, psycopg2, Node.js, and git (for skill sync)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \
     ca-certificates \
     gnupg \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 20 LTS (required for Claude Code CLI)

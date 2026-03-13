@@ -121,11 +121,15 @@ class FileMoveRequest(BaseModel):
 
 class GitPushRequest(BaseModel):
     message: str = "Sync skills"
+    skill_names: list[str] | None = None  # explicit list; falls back to sync-flagged skills
 
 
 class SkillsConfigUpdate(BaseModel):
     repo_url: str | None = None
     skills_dir: str | None = None
+    git_user_name: str | None = None
+    git_user_email: str | None = None
+    git_token: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +455,7 @@ async def git_push(
     if git_svc is None:
         raise HTTPException(503, "Git sync not configured (FORGE_SKILLS_REPO_URL not set)")
     try:
-        result = await git_svc.push(body.message)
+        result = await git_svc.push(body.message, skill_names=body.skill_names)
         await emit_event(request, _WS_NS, "skill.synced", {"action": "push"})
         return {
             "success": result.success,
@@ -515,12 +519,20 @@ async def get_skills_config(storage=Depends(get_storage)):
         except (json.JSONDecodeError, OSError):
             pass
 
+    # Mask token: show only last 4 chars
+    raw_token = persisted.get("git_token", "")
+    masked_token = ("****" + raw_token[-4:]) if len(raw_token) > 4 else ("*" * len(raw_token))
+
     return {
         "repo_url": persisted.get("repo_url", "") or os.environ.get("FORGE_SKILLS_REPO_URL", ""),
         "skills_dir": persisted.get("skills_dir", ""),
         "configured_via": "persisted" if persisted.get("repo_url") else (
             "env" if os.environ.get("FORGE_SKILLS_REPO_URL") else "none"
         ),
+        "git_user_name": persisted.get("git_user_name", ""),
+        "git_user_email": persisted.get("git_user_email", ""),
+        "git_token": masked_token if raw_token else "",
+        "has_git_token": bool(raw_token),
     }
 
 
@@ -545,6 +557,16 @@ async def update_skills_config(
         existing["repo_url"] = body.repo_url
     if body.skills_dir is not None:
         existing["skills_dir"] = body.skills_dir
+    if body.git_user_name is not None:
+        existing["git_user_name"] = body.git_user_name
+    if body.git_user_email is not None:
+        existing["git_user_email"] = body.git_user_email
+    if body.git_token is not None:
+        # Don't overwrite with masked value from GET response
+        if body.git_token and not body.git_token.startswith("****"):
+            existing["git_token"] = body.git_token
+        elif not body.git_token:
+            existing.pop("git_token", None)
 
     config_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
@@ -552,7 +574,13 @@ async def update_skills_config(
     if hasattr(request.app.state, "git_sync"):
         request.app.state.git_sync = None
 
-    return existing
+    # Return with masked token
+    result = dict(existing)
+    raw_token = result.get("git_token", "")
+    if raw_token:
+        result["git_token"] = ("****" + raw_token[-4:]) if len(raw_token) > 4 else ("*" * len(raw_token))
+    result["has_git_token"] = bool(raw_token)
+    return result
 
 
 # ---------------------------------------------------------------------------

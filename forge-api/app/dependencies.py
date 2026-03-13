@@ -176,6 +176,9 @@ def get_git_sync(request: Request):
             skills_dir=skill_storage.skills_dir,
             remote_url=url,
             skill_storage=skill_storage,
+            git_user_name=config.get("git_user_name", ""),
+            git_user_email=config.get("git_user_email", ""),
+            git_token=config.get("git_token", ""),
         )
         request.app.state.git_sync = svc
     return svc

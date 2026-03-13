@@ -14,6 +14,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,18 @@ class GitSyncResult:
     message: str = ""
     files_changed: int = 0
     errors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class RemoteSkillEntry:
+    """A skill directory that exists in the remote ref."""
+    name: str
+    description: str = ""
+    display_name: str = ""
+    categories: list[str] = field(default_factory=list)
+    status: str = ""
+    sync: bool = False
+    exists_locally: bool = False
 
 
 @dataclass
@@ -48,11 +61,17 @@ class GitSyncService:
         skills_dir: Path | str,
         remote_url: str | None = None,
         skill_storage: object | None = None,
+        git_user_name: str = "",
+        git_user_email: str = "",
+        git_token: str = "",
     ):
         self.skills_dir = Path(skills_dir)
         self.remote_url = remote_url or os.environ.get("FORGE_SKILLS_REPO_URL", "")
         self._skill_storage = skill_storage  # SkillStorageService for resync
         self._sync_lock = asyncio.Lock()  # Serialize pull/push operations
+        self._git_user_name = git_user_name
+        self._git_user_email = git_user_email
+        self._git_token = git_token
 
     def _check_configured(self) -> None:
         """Raise if git remote URL is not configured."""
@@ -61,9 +80,26 @@ class GitSyncService:
                 "FORGE_SKILLS_REPO_URL not set — git sync is disabled"
             )
 
+    def _config_args(self) -> list[str]:
+        """Return git -c flags for identity and token-based HTTPS auth.
+
+        Token auth uses url.<authed>.insteadOf=<plain> so the token is
+        never written to .git/config — it only lives in the process argv.
+        """
+        args: list[str] = []
+        if self._git_user_name:
+            args += ["-c", f"user.name={self._git_user_name}"]
+        if self._git_user_email:
+            args += ["-c", f"user.email={self._git_user_email}"]
+        if self._git_token and self.remote_url.startswith("https://"):
+            parsed = urlparse(self.remote_url)
+            host = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+            args += ["-c", f"url.https://{self._git_token}@{host}/.insteadOf=https://{host}/"]
+        return args
+
     async def _run_git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
         """Run a git command in skills_dir via asyncio.to_thread."""
-        cmd = ["git", *args]
+        cmd = ["git", *self._config_args(), *args]
         try:
             result = await asyncio.to_thread(
                 subprocess.run,
@@ -119,7 +155,7 @@ class GitSyncService:
         # Empty dir — clone directly
         parent = self.skills_dir.parent
         dir_name = self.skills_dir.name
-        cmd = ["git", "clone", self.remote_url, dir_name]
+        cmd = ["git", *self._config_args(), "clone", self.remote_url, dir_name]
         try:
             result = await asyncio.to_thread(
                 subprocess.run,
@@ -167,10 +203,15 @@ class GitSyncService:
                 files_changed=len(lines),
             )
 
-    async def push(self, message: str = "Sync skills") -> GitSyncResult:
-        """Push synced skills to remote.
+    async def push(
+        self,
+        message: str = "Sync skills",
+        skill_names: list[str] | None = None,
+    ) -> GitSyncResult:
+        """Push skills to remote.
 
-        Only stages files from skills that have sync:true in _config.json.
+        If *skill_names* is provided, pushes exactly those directories.
+        Otherwise falls back to skills with sync:true flag.
         Auto-initializes the repository if not yet cloned.
         """
         self._check_configured()
@@ -178,8 +219,15 @@ class GitSyncService:
             await self.init_or_clone()
 
         async with self._sync_lock:
-            # Find skills with sync:true
-            synced_paths = self._get_synced_skill_dirs()
+            # Determine which skills to push
+            if skill_names:
+                # Validate each name is an existing directory
+                synced_paths = [
+                    n for n in skill_names
+                    if (self.skills_dir / n).is_dir()
+                ]
+            else:
+                synced_paths = self._get_synced_skill_dirs()
             if not synced_paths:
                 return GitSyncResult(
                     success=True,
@@ -204,10 +252,11 @@ class GitSyncService:
             if not staged:
                 return GitSyncResult(success=True, message="Nothing to push")
 
-            # Commit and push
+            # Commit and push (local branch may differ from remote default)
             await self._run_git("commit", "-m", message)
-            branch = await self._get_default_branch()
-            await self._run_git("push", "origin", branch)
+            local_branch = await self._get_local_branch()
+            remote_branch = await self._get_default_branch()
+            await self._run_git("push", "origin", f"{local_branch}:{remote_branch}")
 
             return GitSyncResult(
                 success=True,
@@ -275,8 +324,17 @@ class GitSyncService:
 
     # -- helpers ----------------------------------------------------------
 
+    async def _get_local_branch(self) -> str:
+        """Return the current local branch name."""
+        result = await self._run_git(
+            "rev-parse", "--abbrev-ref", "HEAD", check=False
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        return "main"
+
     async def _get_default_branch(self) -> str:
-        """Detect the default branch (main or master)."""
+        """Detect the remote default branch (main or master)."""
         result = await self._run_git(
             "symbolic-ref", "refs/remotes/origin/HEAD", check=False
         )
@@ -293,10 +351,18 @@ class GitSyncService:
         return "main"
 
     def _get_synced_skill_dirs(self) -> list[str]:
-        """Return relative paths of skill dirs with sync:true."""
+        """Return relative paths of skill dirs with sync:true.
+
+        Reads from _config.json on disk first.  Falls back to _index.json
+        (which SkillStorageService maintains) so skills without a per-dir
+        _config.json are still picked up.
+        """
         synced: list[str] = []
         if not self.skills_dir.is_dir():
             return synced
+
+        # Primary: per-skill _config.json
+        seen: set[str] = set()
         for entry in sorted(self.skills_dir.iterdir()):
             if not entry.is_dir() or entry.name.startswith((".", "_")):
                 continue
@@ -305,11 +371,28 @@ class GitSyncService:
                 try:
                     with open(config_path, "r", encoding="utf-8") as f:
                         config = json.load(f)
+                    seen.add(entry.name)
                     if config.get("sync", False):
                         synced.append(entry.name)
                 except (json.JSONDecodeError, OSError):
                     continue
-        return synced
+
+        # Fallback: _index.json (covers skills created without _config.json)
+        index_path = self.skills_dir / "_index.json"
+        if index_path.exists():
+            try:
+                with open(index_path, "r", encoding="utf-8") as f:
+                    index = json.load(f)
+                for item in index:
+                    name = item.get("name", "")
+                    if name and name not in seen and item.get("sync", False):
+                        skill_dir = self.skills_dir / name
+                        if skill_dir.is_dir():
+                            synced.append(name)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        return sorted(set(synced))
 
 
 # ---------------------------------------------------------------------------

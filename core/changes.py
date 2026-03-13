@@ -513,7 +513,8 @@ def main():
     p.add_argument("--decision_ids", help="Comma-separated D-NNN IDs")
     p.add_argument("--guidelines", help="Comma-separated G-NNN IDs checked")
 
-    sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 

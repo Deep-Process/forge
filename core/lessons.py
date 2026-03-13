@@ -516,7 +516,8 @@ def main():
     p.add_argument("--category", help="Knowledge category (default: inferred from lesson category)")
     p.add_argument("--scopes", help="Comma-separated scopes (default: from lesson tags)")
 
-    sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 

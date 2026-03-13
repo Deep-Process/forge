@@ -220,8 +220,10 @@ export default function SkillsPage() {
     setGitSyncing(true);
     setPushDialogOpen(false);
     try {
-      await skillsApi.gitPush(pushMessage);
+      const names = selected.size > 0 ? Array.from(selected) : undefined;
+      await skillsApi.gitPush(pushMessage, names);
       await fetchGitStatus();
+      await fetchSkills();
     } catch (e) {
       setError((e as Error).message);
     } finally {

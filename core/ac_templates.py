@@ -520,8 +520,9 @@ def main():
     p.add_argument("template_id")
     p.add_argument("--params", default="{}")
 
-    p = sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 

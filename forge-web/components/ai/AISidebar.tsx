@@ -470,8 +470,13 @@ export default function AISidebar() {
     removedScopes,
   });
 
-  // AI page context from annotations
+  // AI page context from annotations — subscribe for reactive updates
   const aiCtx = useAIPageContextSafe();
+  const [, setAnnotationVersion] = useState(0);
+  useEffect(() => {
+    if (!aiCtx) return;
+    return aiCtx.subscribe(() => setAnnotationVersion((v) => v + 1));
+  }, [aiCtx]);
   const pageSnapshot = aiCtx?.getSnapshot() ?? null;
   const pageContextText = pageSnapshot && pageSnapshot.elements.size > 0
     ? serializePageContext(pageSnapshot)

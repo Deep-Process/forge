@@ -19,6 +19,9 @@ interface AIPageContextValue {
 
   /** Get current snapshot (lazy — only computed when called) */
   getSnapshot: () => AIContextSnapshot;
+
+  /** Subscribe to annotation changes. Returns unsubscribe function. */
+  subscribe: (listener: () => void) => () => void;
 }
 
 const AIPageContext = createContext<AIPageContextValue | null>(null);
@@ -32,18 +35,26 @@ export function AIPageProvider({ children }: { children: React.ReactNode }) {
   // Annotations are metadata, not visual — no need to trigger re-renders.
   const elementsRef = useRef(new Map<string, AIElementDescriptor>());
   const pageConfigRef = useRef<AIPageConfig | null>(null);
+  const listenersRef = useRef(new Set<() => void>());
+
+  const notify = useCallback(() => {
+    listenersRef.current.forEach((fn) => fn());
+  }, []);
 
   const register = useCallback((descriptor: AIElementDescriptor) => {
     elementsRef.current.set(descriptor.id, descriptor);
-  }, []);
+    notify();
+  }, [notify]);
 
   const unregister = useCallback((id: string) => {
     elementsRef.current.delete(id);
-  }, []);
+    notify();
+  }, [notify]);
 
   const setPageConfig = useCallback((config: AIPageConfig | null) => {
     pageConfigRef.current = config;
-  }, []);
+    notify();
+  }, [notify]);
 
   const getSnapshot = useCallback((): AIContextSnapshot => {
     return {
@@ -52,12 +63,18 @@ export function AIPageProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const subscribe = useCallback((listener: () => void) => {
+    listenersRef.current.add(listener);
+    return () => { listenersRef.current.delete(listener); };
+  }, []);
+
   // Stable context value — callbacks are memoized via useCallback
   const value = useRef<AIPageContextValue>({
     register,
     unregister,
     setPageConfig,
     getSnapshot,
+    subscribe,
   }).current;
 
   return (

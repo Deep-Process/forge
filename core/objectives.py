@@ -452,7 +452,7 @@ def cmd_show(args):
         print()
 
     # Overall KR progress
-    numeric_krs = [kr for kr in obj.get("key_results", []) if kr.get("metric")]
+    numeric_krs = [kr for kr in obj.get("key_results", []) if kr.get("metric") and kr.get("target") is not None]
     kr_pcts = [_kr_percentage(kr.get("baseline", 0), kr["target"], kr.get("current", kr.get("baseline", 0)))
                for kr in numeric_krs]
     avg_pct = sum(kr_pcts) // len(kr_pcts) if kr_pcts else 0
@@ -625,7 +625,7 @@ def cmd_status(args):
         # Summary line
         total_krs = len(kr_ids)
         covered_count = len(covered_krs)
-        numeric_krs = [kr for kr in obj.get("key_results", []) if kr.get("metric")]
+        numeric_krs = [kr for kr in obj.get("key_results", []) if kr.get("metric") and kr.get("target") is not None]
         kr_pcts = [_kr_percentage(kr.get("baseline", 0), kr["target"], kr.get("current", kr.get("baseline", 0)))
                    for kr in numeric_krs]
         avg_pct = sum(kr_pcts) // len(kr_pcts) if kr_pcts else 0
@@ -671,8 +671,8 @@ def _kr_progress_summary(key_results: list) -> str:
     """One-line summary of KR progress."""
     if not key_results:
         return "—"
-    numeric_krs = [kr for kr in key_results if kr.get("metric")]
-    descriptive_krs = [kr for kr in key_results if not kr.get("metric")]
+    numeric_krs = [kr for kr in key_results if kr.get("metric") and kr.get("target") is not None]
+    descriptive_krs = [kr for kr in key_results if not (kr.get("metric") and kr.get("target") is not None)]
     parts = []
     if numeric_krs:
         pcts = [_kr_percentage(kr.get("baseline", 0), kr["target"],
@@ -723,8 +723,9 @@ def main():
     p = sub.add_parser("status", help="Coverage dashboard")
     p.add_argument("project")
 
-    p = sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 

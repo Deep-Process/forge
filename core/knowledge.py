@@ -667,7 +667,7 @@ def cmd_impact(args):
     if active_tasks:
         print()
         print(f"WARNING: {len(active_tasks)} active task(s) reference this knowledge — "
-              f"changes may affect them.")
+              f"changes may affect them.", file=sys.stderr)
 
 
 def cmd_contract(args):
@@ -716,8 +716,9 @@ def main():
     p.add_argument("project")
     p.add_argument("knowledge_id")
 
-    p = sub.add_parser("contract", help="Print contract spec")
+    p = sub.add_parser("contract", help="Print contract spec (no project needed)")
     p.add_argument("name", choices=sorted(CONTRACTS.keys()))
+    p.add_argument("_extra", nargs="*", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 

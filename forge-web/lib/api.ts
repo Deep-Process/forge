@@ -535,17 +535,26 @@ export const skills = {
     get<import("@/lib/types").SkillGitStatus>("/skills/git/status"),
   gitPull: () =>
     create<import("@/lib/types").SkillSyncResult>("/skills/git/pull", {}),
-  gitPush: (message: string = "Sync skills") =>
-    create<import("@/lib/types").SkillSyncResult>("/skills/git/push", { message }),
+  gitPush: (message: string = "Sync skills", skillNames?: string[]) =>
+    create<import("@/lib/types").SkillSyncResult>("/skills/git/push", {
+      message,
+      ...(skillNames?.length ? { skill_names: skillNames } : {}),
+    }),
   gitScan: () =>
     create<{ resynced: number; skills: string[] }>("/skills/git/scan", {}),
   gitInit: () =>
     create<import("@/lib/types").SkillSyncResult>("/skills/git/init", {}),
   // Config
   getConfig: () =>
-    get<{ repo_url: string; skills_dir: string; configured_via: string }>("/skills/config"),
-  updateConfig: (data: { repo_url?: string; skills_dir?: string }) =>
-    put<{ repo_url: string; skills_dir: string }>("/skills/config", data),
+    get<{
+      repo_url: string; skills_dir: string; configured_via: string;
+      git_user_name: string; git_user_email: string; git_token: string; has_git_token: boolean;
+    }>("/skills/config"),
+  updateConfig: (data: {
+    repo_url?: string; skills_dir?: string;
+    git_user_name?: string; git_user_email?: string; git_token?: string;
+  }) =>
+    put<Record<string, unknown>>("/skills/config", data),
 };
 
 // -- LLM Chat --

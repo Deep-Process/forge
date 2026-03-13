@@ -375,6 +375,10 @@ function ProvidersSection() {
 function SkillsGitSyncSection() {
   const { addToast } = useToastStore();
   const [repoUrl, setRepoUrl] = useState("");
+  const [gitUserName, setGitUserName] = useState("");
+  const [gitUserEmail, setGitUserEmail] = useState("");
+  const [gitToken, setGitToken] = useState("");
+  const [hasGitToken, setHasGitToken] = useState(false);
   const [configuredVia, setConfiguredVia] = useState("");
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -382,6 +386,9 @@ function SkillsGitSyncSection() {
   useEffect(() => {
     skillsApi.getConfig().then((config) => {
       setRepoUrl(config.repo_url ?? "");
+      setGitUserName(config.git_user_name ?? "");
+      setGitUserEmail(config.git_user_email ?? "");
+      setHasGitToken(config.has_git_token ?? false);
       setConfiguredVia(config.configured_via ?? "none");
       setLoaded(true);
     }).catch(() => setLoaded(true));
@@ -390,22 +397,36 @@ function SkillsGitSyncSection() {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await skillsApi.updateConfig({ repo_url: repoUrl });
+      const payload: Record<string, string> = {
+        repo_url: repoUrl,
+        git_user_name: gitUserName,
+        git_user_email: gitUserEmail,
+      };
+      // Only send token if user typed a new one (not the masked placeholder)
+      if (gitToken && !gitToken.startsWith("****")) {
+        payload.git_token = gitToken;
+      }
+      await skillsApi.updateConfig(payload);
       setConfiguredVia(repoUrl ? "persisted" : "none");
-      addToast({ message: "Skills repo URL saved", action: "updated" });
+      if (gitToken && !gitToken.startsWith("****")) {
+        setHasGitToken(true);
+        setGitToken("");
+      }
+      addToast({ message: "Git sync settings saved", action: "updated" });
     } catch (e) {
       addToast({ message: (e as Error).message, action: "failed" });
     } finally {
       setSaving(false);
     }
-  }, [repoUrl, addToast]);
+  }, [repoUrl, gitUserName, gitUserEmail, gitToken, addToast]);
+
+  const inputCls = "w-full text-sm border rounded-md px-3 py-1.5 focus:border-forge-500 focus:ring-1 focus:ring-forge-500";
 
   return (
     <section className="border rounded-lg p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-1">Skills Git Sync</h3>
       <p className="text-xs text-gray-500 mb-3">
-        Configure the git repository URL for syncing skills. Can also be set via{" "}
-        <code className="bg-gray-100 px-1 rounded text-[10px]">FORGE_SKILLS_REPO_URL</code> env var.
+        Configure git repository, identity, and authentication for syncing skills.
       </p>
 
       {!loaded ? (
@@ -419,8 +440,46 @@ function SkillsGitSyncSection() {
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               placeholder="https://github.com/org/forge-skills.git"
-              className="w-full text-sm border rounded-md px-3 py-1.5 focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
+              className={inputCls}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Git User Name</label>
+              <input
+                type="text"
+                value={gitUserName}
+                onChange={(e) => setGitUserName(e.target.value)}
+                placeholder="Your Name"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Git User Email</label>
+              <input
+                type="email"
+                value={gitUserEmail}
+                onChange={(e) => setGitUserEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              Access Token (GitHub PAT)
+              {hasGitToken && <span className="text-green-600 ml-2">configured</span>}
+            </label>
+            <input
+              type="password"
+              value={gitToken}
+              onChange={(e) => setGitToken(e.target.value)}
+              placeholder={hasGitToken ? "Enter new token to replace" : "ghp_..."}
+              className={inputCls}
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              Used for HTTPS authentication. Never stored in .git/config.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button size="sm" onClick={handleSave} disabled={saving}>
