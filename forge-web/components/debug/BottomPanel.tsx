@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import {
   useDebugPanelStore,
   type PanelState,
@@ -36,6 +37,13 @@ export function BottomPanel() {
     useDebugPanelStore();
   const apiErrorCount = useDebugStore((s) => s.errorCount);
   const apiTotalRequests = useDebugStore((s) => s.totalRequests);
+
+  // Extract project slug from URL pathname (works in root layout, unlike useParams)
+  const pathname = usePathname();
+  const slug = useMemo(() => {
+    const match = pathname?.match(/\/projects\/([^/]+)/);
+    return match ? match[1] : null;
+  }, [pathname]);
 
   // Keyboard shortcut: Ctrl+` to toggle
   const handleKeyDown = useCallback(
@@ -146,13 +154,13 @@ export function BottomPanel() {
       {!isCollapsed && (
         <div className="flex-1 overflow-y-auto p-3 text-sm text-gray-500">
           <div role="tabpanel" id="debug-panel-api" hidden={activeTab !== "api"} className="h-full">
-            <ApiInspector />
+            <ApiInspector slug={slug} />
           </div>
           <div role="tabpanel" id="debug-panel-llm" hidden={activeTab !== "llm"} className="h-full">
-            <LlmMonitor />
+            <LlmMonitor slug={slug} />
           </div>
           <div role="tabpanel" id="debug-panel-events" hidden={activeTab !== "events"} className="h-full">
-            <EventStream />
+            <EventStream slug={slug} />
           </div>
         </div>
       )}

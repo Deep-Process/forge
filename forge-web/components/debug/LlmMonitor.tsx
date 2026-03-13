@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { debug as debugApi } from "@/lib/api";
 import type { DebugSessionSummary, DebugSession, DebugStatus } from "@/lib/types";
@@ -35,16 +34,15 @@ function formatDuration(ms: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function LlmMonitor() {
-  const { slug } = useParams() as { slug: string };
+export function LlmMonitor({ slug }: { slug: string | null }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [taskFilter, setTaskFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Debug status
+  // Debug status (SWR key is null when slug is null — no fetch)
   const { data: statusData, mutate: refreshStatus } = useSWR<DebugStatus>(
     slug ? `debug-status-${slug}` : null,
-    () => debugApi.status(slug),
+    () => debugApi.status(slug!),
     { refreshInterval: 10000 },
   );
 
@@ -55,14 +53,14 @@ export function LlmMonitor() {
 
   const { data: sessionsData, mutate: refreshSessions } = useSWR(
     slug ? `debug-sessions-${slug}-${taskFilter}-${statusFilter}` : null,
-    () => debugApi.sessions(slug, { ...params, limit: 100 }),
+    () => debugApi.sessions(slug!, { ...params, limit: 100 }),
     { refreshInterval: 5000 },
   );
 
   const sessions = sessionsData?.sessions ?? [];
 
   const handleToggle = async () => {
-    if (!statusData) return;
+    if (!statusData || !slug) return;
     try {
       if (statusData.enabled) {
         await debugApi.disable(slug);
@@ -76,6 +74,7 @@ export function LlmMonitor() {
   };
 
   const handleClear = async () => {
+    if (!slug) return;
     try {
       await debugApi.clear(slug);
       refreshSessions();
@@ -93,6 +92,16 @@ export function LlmMonitor() {
     }
     return Array.from(ids).sort();
   }, [sessions]);
+
+  if (!slug) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-xs text-gray-400 text-center">
+          Navigate to a project to see LLM debug sessions
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -159,7 +168,7 @@ export function LlmMonitor() {
             <SessionRow
               key={session.session_id}
               session={session}
-              slug={slug}
+              slug={slug!}
               expanded={expandedId === session.session_id}
               onToggle={() => setExpandedId(
                 expandedId === session.session_id ? null : session.session_id,

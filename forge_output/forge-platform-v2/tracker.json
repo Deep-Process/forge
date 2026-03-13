@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-13T20:00:14Z",
+  "updated": "2026-03-13T20:27:23Z",
   "config": {},
   "tasks": [
     {
@@ -6445,269 +6445,348 @@
       "failed_reason": null,
       "agent": "default",
       "started_at_commit": "3470be318190cc8218ab83b45a3cc6abed163319"
+    },
+    {
+      "id": "T-206",
+      "name": "fix-bottom-panel-slug-passing",
+      "description": "Fix LLM Monitor and Event Stream not working by extracting project slug from usePathname() in BottomPanel and passing as prop to all children. Guard SWR keys and event filtering with null slug check.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In BottomPanel.tsx: import usePathname from next/navigation. Extract slug via regex match on pathname (/projects/([^/]+)/). Pass slug as prop to LlmMonitor, EventStream, ApiInspector.\n2. In LlmMonitor.tsx: accept slug prop instead of calling useParams(). Guard SWR keys: slug ? `debug-status-${slug}` : null. Show disabled state ('Navigate to a project to see LLM debug sessions') when slug is null.\n3. In EventStream.tsx: accept slug prop instead of calling useParams(). Filter events by project === slug. Show disabled state when slug is null.\n4. In ApiInspector.tsx: accept slug prop for consistency (may not use it).\n5. Add AI annotations (useAIElement) for the disabled state messages per G-017.\n6. Test: verify LlmMonitor loads sessions on project pages, shows disabled state on /skills page.",
+      "acceptance_criteria": [
+        "LlmMonitor shows sessions when on a project page (slug extracted from URL)",
+        "LlmMonitor shows disabled state with hint on non-project pages (e.g., /skills)",
+        "EventStream filters events correctly by project slug",
+        "EventStream shows disabled state on non-project pages",
+        "No useParams() calls remain in LlmMonitor or EventStream",
+        "SWR keys are null-guarded (no requests to /projects/undefined/...)"
+      ],
+      "type": "bug",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-13T20:27:23Z",
+      "completed_at": null,
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "d49d1271978cef733c33f1d4959bb8ea321803ee"
+    },
+    {
+      "id": "T-207",
+      "name": "fix-api-inspector-ordering",
+      "description": "Reverse API Inspector event order so newest entries appear at the top, and add auto-scroll behavior to keep the latest entry visible.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In ApiInspector.tsx: render entries using .toReversed() (or [...entries].reverse() for broader compat) so newest appears first.\n2. Add a scrollContainerRef to the entry list. When a new entry is added (entries.length changes), auto-scroll to top if user hasn't scrolled down manually.\n3. Track manual scroll: if user scrolls away from top, pause auto-scroll. Resume when user scrolls back to top.\n4. Add a 'Scroll to top' button that appears when not at top.\n5. Update AI annotations for the entry list per G-017.",
+      "acceptance_criteria": [
+        "Newest API entries appear at the top of the list",
+        "Auto-scroll keeps top entry visible when new requests arrive",
+        "Manual scrolling pauses auto-scroll",
+        "Scroll-to-top button appears when scrolled away from top"
+      ],
+      "type": "bug",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-208",
+      "name": "create-api-error-class-and-error-detail-component",
+      "description": "Create an ApiError class in lib/api.ts that enriches errors with status code, URL, method, and response body excerpt. Create a shared ErrorDetail component for consistent error rendering across all debug views.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In lib/api.ts: create class ApiError extends Error with fields: status (number|null), url (string), method (string), responseExcerpt (string, first 500 chars of response body). In the request() function, when response is not ok, throw new ApiError instead of generic Error.\n2. Create components/debug/ErrorDetail.tsx: renders an ApiError with status code badge (color-coded: 4xx=orange, 5xx=red), HTTP method + URL, response body excerpt in a scrollable monospace block. Falls back to simple error message for non-ApiError errors.\n3. Export ApiError from lib/api.ts for use in catch blocks.\n4. Add AI annotations to ErrorDetail per G-017.",
+      "acceptance_criteria": [
+        "ApiError class exists with status, url, method, responseExcerpt fields",
+        "api.ts request() throws ApiError on non-ok responses",
+        "ErrorDetail component renders status badge, endpoint, and response excerpt",
+        "ErrorDetail gracefully handles non-ApiError errors (plain message)",
+        "ErrorDetail component is exported from components/debug/"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-209",
+      "name": "integrate-error-detail-in-debug-components",
+      "description": "Replace generic error handling in LlmMonitor, EventStream, chatStore, and LLMChat with the ErrorDetail component for informative error display.",
+      "depends_on": [
+        "T-208"
+      ],
+      "parallel": false,
+      "conflicts_with": [
+        "T-206"
+      ],
+      "skill": null,
+      "instruction": "1. In LlmMonitor.tsx: replace silent catch {} blocks with error state. Show ErrorDetail when API calls fail (enable/disable toggle, sessions fetch, session detail).\n2. In chatStore.ts: when sendMessage catches an error, preserve the full ApiError object (not just .message). Store the error object in the streaming message metadata.\n3. In LLMChat.tsx: when rendering error messages (currently [Error: message]), use ErrorDetail component instead of inline text.\n4. In EventStream.tsx: add error display for cases when WS connection fails or events can't be parsed.\n5. Verify all error paths show status code + endpoint + excerpt instead of generic messages.",
+      "acceptance_criteria": [
+        "LlmMonitor shows ErrorDetail on API failures instead of swallowing errors",
+        "Chat errors show status code, endpoint, and response excerpt instead of [Error: message]",
+        "EventStream shows error state when WS events fail",
+        "All error displays use the shared ErrorDetail component"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-210",
+      "name": "investigate-ws-chat-event-metadata",
+      "description": "Investigate whether WebSocket chat.token events include content_block type metadata (thinking, tool_use, text) needed for the structured stream view. If not, extend the backend to include it.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Read forge-api/app/routers/llm.py (or wherever chat streaming is handled) to find where chat.token events are emitted to WebSocket.\n2. Check what fields are included in the WS event payload. Look for: content_block_type, block_type, event_type, or similar discriminator.\n3. Also check chatStore.ts handleWsEvent to see what fields it currently processes from chat.* events.\n4. If metadata IS present: document the exact field names and values. Record as decision.\n5. If metadata is NOT present: extend the backend WS emission to include a 'block_type' field (values: 'thinking', 'tool_use', 'tool_result', 'text') in chat.token events. This is a small change in the streaming loop where tokens are published to Redis/WS.\n6. Record findings as a decision (D-NNN) linked to O-023.",
+      "acceptance_criteria": [
+        "WS chat.token event format is documented (which fields exist)",
+        "If block_type was missing: backend now includes block_type in chat.token events",
+        "Decision recorded with findings about WS event format"
+      ],
+      "type": "investigation",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-211",
+      "name": "create-stream-debug-hook-and-block-components",
+      "description": "Create useStreamDebug hook that subscribes to WS chat events using ref+subscription pattern (per L-018), parses tokens into structured content blocks, and throttles React state updates to 100ms. Create ThinkingBlock, ToolCallBlock, ResponseBlock, ErrorBlock components.",
+      "depends_on": [
+        "T-210"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create hooks/useStreamDebug.ts:\n   - Subscribe to chatStore WS events (chat.token, chat.tool_call, chat.tool_result, chat.complete, chat.error)\n   - Use useRef to accumulate tokens (NOT useState per token — risk D-063, lesson L-018)\n   - Parse incoming events by block_type into structured blocks: {type: 'thinking'|'tool_use'|'tool_result'|'text'|'error', content: string, metadata?: object}\n   - Throttle React state updates to 100ms using requestAnimationFrame\n   - Return: { blocks: ContentBlock[], metadata: StreamMetadata, streaming: boolean, clear: () => void }\n   - StreamMetadata: { model, tokensIn, tokensOut, startTime, sessionId }\n2. Create components/ai/stream/ThinkingBlock.tsx: collapsible block showing AI reasoning, italic text, muted styling\n3. Create components/ai/stream/ToolCallBlock.tsx: shows tool name, params (JSON), result, status indicator (pending/success/error)\n4. Create components/ai/stream/ResponseBlock.tsx: shows final response text, supports streaming cursor\n5. Create components/ai/stream/ErrorBlock.tsx: shows error with ErrorDetail component\n6. Create components/ai/stream/StreamView.tsx: renders array of ContentBlock[] using appropriate block component\n7. Add AI annotations per G-017.",
+      "acceptance_criteria": [
+        "useStreamDebug hook accumulates tokens in useRef (not useState)",
+        "Hook parses content blocks by type (thinking, tool_use, tool_result, text, error)",
+        "React state updates throttled to 100ms intervals",
+        "ThinkingBlock renders with collapsible, muted styling",
+        "ToolCallBlock shows tool name, params, result, and status",
+        "ResponseBlock shows text with streaming cursor",
+        "StreamView renders correct block component for each content block type",
+        "No infinite re-render loops when streaming (verify with React DevTools profiler)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "ai"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-212",
+      "name": "add-debug-tab-to-ai-sidebar",
+      "description": "Add a 5th Debug tab to AI Sidebar alongside Chat, Tools, Scopes, History. The Debug tab shows the structured stream view using useStreamDebug hook and StreamView component.",
+      "depends_on": [
+        "T-211"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In AISidebar.tsx: add 'Debug' to the tab list (after History or between Scopes and History).\n2. Create the Debug tab panel content:\n   - Use useStreamDebug() hook to get blocks, metadata, streaming state\n   - Render StreamView with the blocks\n   - Show StreamMetadata bar at top: model, token counts, elapsed time\n   - Add 'Clear' button to reset the stream view\n   - When not streaming and no blocks: show 'Send a message in Chat to see the LLM stream here'\n3. Add a visual indicator on the Debug tab when streaming is active (pulsing dot or spinner).\n4. Add AI annotations for the Debug tab and its controls per G-017.\n5. Ensure Debug tab subscribes even when not visible (hidden attribute, not conditional render) so it captures data from chat interactions.",
+      "acceptance_criteria": [
+        "AI Sidebar has 5 tabs: Chat, Tools, Scopes, History, Debug",
+        "Debug tab shows structured stream view with thinking/tool_call/response blocks",
+        "Metadata bar shows model, token count, elapsed time",
+        "Streaming indicator visible on Debug tab when LLM is active",
+        "Debug tab captures stream data even when not the active tab",
+        "Clear button resets the stream view",
+        "AI annotations present on all Debug tab interactive elements"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "ai"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-213",
+      "name": "request-detail-panel-in-api-inspector",
+      "description": "Replace the simple expanded view in API Inspector with a full RequestDetailPanel featuring collapsible sections for headers, query params, request body, response body, and timing. All text must be selectable with copy-to-clipboard buttons.",
+      "depends_on": [
+        "T-208"
+      ],
+      "parallel": false,
+      "conflicts_with": [
+        "T-207"
+      ],
+      "skill": null,
+      "instruction": "1. Create components/debug/RequestDetailPanel.tsx:\n   - Collapsible sections: Request Headers, Query Params, Request Body, Response Body, Timing\n   - Headers: parsed from URL + any captured headers (may need extending debugStore.addEntry to capture request headers)\n   - Query Params: parsed from URL search params\n   - Request/Response Body: rendered in monospace, scrollable, with user-select: text CSS\n   - Timing: duration bar visualization\n   - Each section has a copy-to-clipboard button\n2. Ensure all text in pre/code elements has CSS user-select: text (fix the text selection issue)\n3. In ApiInspector.tsx: replace the existing expanded entry view with RequestDetailPanel.\n4. Update debugStore.addEntry to capture request headers if not already captured (check what data the interceptor receives).\n5. Add AI annotations per G-017.",
+      "acceptance_criteria": [
+        "Expanded API entry shows collapsible sections: Headers, Query Params, Request Body, Response Body, Timing",
+        "All text in request/response bodies is selectable (user-select: text)",
+        "Copy-to-clipboard button works for each section",
+        "Query params are extracted and displayed separately from URL",
+        "Timing section shows request duration visually",
+        "RequestDetailPanel component is reusable"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-214",
+      "name": "create-debug-theme-design-tokens",
+      "description": "Create a consistent design token system for all debug console components using CSS custom properties. Define colors, spacing, typography, and status indicators.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create styles/debug-theme.css (or add to existing global styles):\n   - CSS custom properties on [data-debug-panel] selector:\n     --debug-bg-primary, --debug-bg-secondary, --debug-bg-hover\n     --debug-border, --debug-border-active\n     --debug-text-primary, --debug-text-secondary, --debug-text-muted\n     --debug-status-success (green), --debug-status-error (red), --debug-status-warning (orange), --debug-status-info (blue)\n     --debug-font-mono (monospace font stack)\n     --debug-spacing-xs through --debug-spacing-xl\n     --debug-radius (border radius)\n   - Dark theme optimized (debug consoles traditionally use dark backgrounds)\n2. Import the CSS in the root layout or BottomPanel.\n3. Add data-debug-panel attribute to BottomPanel wrapper and AISidebar Debug tab.\n4. Document the token naming convention in a comment block at the top of the CSS file.",
+      "acceptance_criteria": [
+        "CSS custom properties defined on [data-debug-panel] selector",
+        "Color tokens for backgrounds, borders, text, and status indicators",
+        "Spacing and typography tokens defined",
+        "Dark theme optimized for readability",
+        "CSS imported in root layout or BottomPanel",
+        "data-debug-panel attribute applied to debug panel containers"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-215",
+      "name": "create-lightweight-json-highlighter",
+      "description": "Create a custom lightweight JSON syntax highlighter component (<5KB) using regex-based tokenization and CSS classes. Supports copy-to-clipboard and line numbers.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/debug/JsonView.tsx:\n   - Input: data (any JSON-serializable value) or raw (string)\n   - Tokenize JSON string using regex patterns for: strings, numbers, booleans, null, keys, punctuation\n   - Apply CSS classes to each token type for coloring\n   - Features: line numbers (optional prop), copy-to-clipboard button, max-height with scroll\n   - Use CSS classes that reference debug theme tokens (--debug-text-* variables)\n   - Handle edge cases: unicode strings, nested objects, large arrays, null values\n2. Keep total component size under 5KB (no external dependencies).\n3. Add a 'collapsed' prop that shows first line + '...' + last line for large objects.\n4. Add AI annotations per G-017.",
+      "acceptance_criteria": [
+        "JsonView renders JSON with syntax highlighting (strings=green, numbers=blue, keys=purple, etc.)",
+        "Component is under 5KB total (no external dependencies)",
+        "Copy-to-clipboard button copies formatted JSON",
+        "Line numbers shown when enabled",
+        "Collapsed mode for large objects",
+        "Handles edge cases: unicode, deep nesting, null, empty objects/arrays"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-216",
+      "name": "apply-debug-theme-and-json-view-across-components",
+      "description": "Apply the DebugTheme design tokens and JsonView component across all debug console components for a consistent, visually attractive appearance.",
+      "depends_on": [
+        "T-214",
+        "T-215",
+        "T-207",
+        "T-209",
+        "T-212",
+        "T-213"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. ApiInspector.tsx: replace ad-hoc Tailwind classes with debug theme tokens. Use JsonView for request/response body rendering.\n2. LlmMonitor.tsx: apply debug theme tokens for consistent styling. Use JsonView for session detail data.\n3. EventStream.tsx: apply debug theme tokens. Use JsonView for event payload display.\n4. RequestDetailPanel.tsx: use JsonView for JSON bodies. Apply debug theme tokens.\n5. DebugTab in AISidebar: apply debug theme tokens to StreamView and block components.\n6. BottomPanel.tsx: apply debug theme to the shell (tabs, resize handle, status bar).\n7. Ensure status indicator colors use --debug-status-* tokens consistently.\n8. Verify visual consistency across all components — same spacing, fonts, colors.\n9. Deep-verify the visual changes per G-005.",
+      "acceptance_criteria": [
+        "All debug components use CSS custom properties from debug theme (no more ad-hoc colors)",
+        "All JSON bodies rendered with JsonView component",
+        "Consistent spacing and typography across ApiInspector, LlmMonitor, EventStream, Debug tab",
+        "Status colors (success/error/warning/info) use theme tokens everywhere",
+        "Dark theme appearance is visually attractive and readable",
+        "No regressions in existing functionality"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-023",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
     }
-  ],
-  "draft_plan": {
-    "source_idea_id": null,
-    "source_objective_id": "O-023",
-    "created": "2026-03-13T20:00:14Z",
-    "tasks": [
-      {
-        "id": "T-206",
-        "name": "fix-bottom-panel-slug-passing",
-        "description": "Fix LLM Monitor and Event Stream not working by extracting project slug from usePathname() in BottomPanel and passing as prop to all children. Guard SWR keys and event filtering with null slug check.",
-        "instruction": "1. In BottomPanel.tsx: import usePathname from next/navigation. Extract slug via regex match on pathname (/projects/([^/]+)/). Pass slug as prop to LlmMonitor, EventStream, ApiInspector.\n2. In LlmMonitor.tsx: accept slug prop instead of calling useParams(). Guard SWR keys: slug ? `debug-status-${slug}` : null. Show disabled state ('Navigate to a project to see LLM debug sessions') when slug is null.\n3. In EventStream.tsx: accept slug prop instead of calling useParams(). Filter events by project === slug. Show disabled state when slug is null.\n4. In ApiInspector.tsx: accept slug prop for consistency (may not use it).\n5. Add AI annotations (useAIElement) for the disabled state messages per G-017.\n6. Test: verify LlmMonitor loads sessions on project pages, shows disabled state on /skills page.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "bug",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "LlmMonitor shows sessions when on a project page (slug extracted from URL)",
-          "LlmMonitor shows disabled state with hint on non-project pages (e.g., /skills)",
-          "EventStream filters events correctly by project slug",
-          "EventStream shows disabled state on non-project pages",
-          "No useParams() calls remain in LlmMonitor or EventStream",
-          "SWR keys are null-guarded (no requests to /projects/undefined/...)"
-        ]
-      },
-      {
-        "id": "T-207",
-        "name": "fix-api-inspector-ordering",
-        "description": "Reverse API Inspector event order so newest entries appear at the top, and add auto-scroll behavior to keep the latest entry visible.",
-        "instruction": "1. In ApiInspector.tsx: render entries using .toReversed() (or [...entries].reverse() for broader compat) so newest appears first.\n2. Add a scrollContainerRef to the entry list. When a new entry is added (entries.length changes), auto-scroll to top if user hasn't scrolled down manually.\n3. Track manual scroll: if user scrolls away from top, pause auto-scroll. Resume when user scrolls back to top.\n4. Add a 'Scroll to top' button that appears when not at top.\n5. Update AI annotations for the entry list per G-017.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "bug",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "Newest API entries appear at the top of the list",
-          "Auto-scroll keeps top entry visible when new requests arrive",
-          "Manual scrolling pauses auto-scroll",
-          "Scroll-to-top button appears when scrolled away from top"
-        ]
-      },
-      {
-        "id": "T-208",
-        "name": "create-api-error-class-and-error-detail-component",
-        "description": "Create an ApiError class in lib/api.ts that enriches errors with status code, URL, method, and response body excerpt. Create a shared ErrorDetail component for consistent error rendering across all debug views.",
-        "instruction": "1. In lib/api.ts: create class ApiError extends Error with fields: status (number|null), url (string), method (string), responseExcerpt (string, first 500 chars of response body). In the request() function, when response is not ok, throw new ApiError instead of generic Error.\n2. Create components/debug/ErrorDetail.tsx: renders an ApiError with status code badge (color-coded: 4xx=orange, 5xx=red), HTTP method + URL, response body excerpt in a scrollable monospace block. Falls back to simple error message for non-ApiError errors.\n3. Export ApiError from lib/api.ts for use in catch blocks.\n4. Add AI annotations to ErrorDetail per G-017.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "feature",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "ApiError class exists with status, url, method, responseExcerpt fields",
-          "api.ts request() throws ApiError on non-ok responses",
-          "ErrorDetail component renders status badge, endpoint, and response excerpt",
-          "ErrorDetail gracefully handles non-ApiError errors (plain message)",
-          "ErrorDetail component is exported from components/debug/"
-        ]
-      },
-      {
-        "id": "T-209",
-        "name": "integrate-error-detail-in-debug-components",
-        "description": "Replace generic error handling in LlmMonitor, EventStream, chatStore, and LLMChat with the ErrorDetail component for informative error display.",
-        "instruction": "1. In LlmMonitor.tsx: replace silent catch {} blocks with error state. Show ErrorDetail when API calls fail (enable/disable toggle, sessions fetch, session detail).\n2. In chatStore.ts: when sendMessage catches an error, preserve the full ApiError object (not just .message). Store the error object in the streaming message metadata.\n3. In LLMChat.tsx: when rendering error messages (currently [Error: message]), use ErrorDetail component instead of inline text.\n4. In EventStream.tsx: add error display for cases when WS connection fails or events can't be parsed.\n5. Verify all error paths show status code + endpoint + excerpt instead of generic messages.",
-        "depends_on": [
-          "T-208"
-        ],
-        "parallel": false,
-        "type": "feature",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "conflicts_with": [
-          "T-206"
-        ],
-        "acceptance_criteria": [
-          "LlmMonitor shows ErrorDetail on API failures instead of swallowing errors",
-          "Chat errors show status code, endpoint, and response excerpt instead of [Error: message]",
-          "EventStream shows error state when WS events fail",
-          "All error displays use the shared ErrorDetail component"
-        ]
-      },
-      {
-        "id": "T-210",
-        "name": "investigate-ws-chat-event-metadata",
-        "description": "Investigate whether WebSocket chat.token events include content_block type metadata (thinking, tool_use, text) needed for the structured stream view. If not, extend the backend to include it.",
-        "instruction": "1. Read forge-api/app/routers/llm.py (or wherever chat streaming is handled) to find where chat.token events are emitted to WebSocket.\n2. Check what fields are included in the WS event payload. Look for: content_block_type, block_type, event_type, or similar discriminator.\n3. Also check chatStore.ts handleWsEvent to see what fields it currently processes from chat.* events.\n4. If metadata IS present: document the exact field names and values. Record as decision.\n5. If metadata is NOT present: extend the backend WS emission to include a 'block_type' field (values: 'thinking', 'tool_use', 'tool_result', 'text') in chat.token events. This is a small change in the streaming loop where tokens are published to Redis/WS.\n6. Record findings as a decision (D-NNN) linked to O-023.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "investigation",
-        "scopes": [
-          "frontend",
-          "backend"
-        ],
-        "origin": "O-023",
-        "knowledge_ids": [
-          "K-006"
-        ],
-        "acceptance_criteria": [
-          "WS chat.token event format is documented (which fields exist)",
-          "If block_type was missing: backend now includes block_type in chat.token events",
-          "Decision recorded with findings about WS event format"
-        ]
-      },
-      {
-        "id": "T-211",
-        "name": "create-stream-debug-hook-and-block-components",
-        "description": "Create useStreamDebug hook that subscribes to WS chat events using ref+subscription pattern (per L-018), parses tokens into structured content blocks, and throttles React state updates to 100ms. Create ThinkingBlock, ToolCallBlock, ResponseBlock, ErrorBlock components.",
-        "instruction": "1. Create hooks/useStreamDebug.ts:\n   - Subscribe to chatStore WS events (chat.token, chat.tool_call, chat.tool_result, chat.complete, chat.error)\n   - Use useRef to accumulate tokens (NOT useState per token — risk D-063, lesson L-018)\n   - Parse incoming events by block_type into structured blocks: {type: 'thinking'|'tool_use'|'tool_result'|'text'|'error', content: string, metadata?: object}\n   - Throttle React state updates to 100ms using requestAnimationFrame\n   - Return: { blocks: ContentBlock[], metadata: StreamMetadata, streaming: boolean, clear: () => void }\n   - StreamMetadata: { model, tokensIn, tokensOut, startTime, sessionId }\n2. Create components/ai/stream/ThinkingBlock.tsx: collapsible block showing AI reasoning, italic text, muted styling\n3. Create components/ai/stream/ToolCallBlock.tsx: shows tool name, params (JSON), result, status indicator (pending/success/error)\n4. Create components/ai/stream/ResponseBlock.tsx: shows final response text, supports streaming cursor\n5. Create components/ai/stream/ErrorBlock.tsx: shows error with ErrorDetail component\n6. Create components/ai/stream/StreamView.tsx: renders array of ContentBlock[] using appropriate block component\n7. Add AI annotations per G-017.",
-        "depends_on": [
-          "T-210"
-        ],
-        "parallel": false,
-        "type": "feature",
-        "scopes": [
-          "frontend",
-          "ai"
-        ],
-        "origin": "O-023",
-        "knowledge_ids": [
-          "K-006"
-        ],
-        "acceptance_criteria": [
-          "useStreamDebug hook accumulates tokens in useRef (not useState)",
-          "Hook parses content blocks by type (thinking, tool_use, tool_result, text, error)",
-          "React state updates throttled to 100ms intervals",
-          "ThinkingBlock renders with collapsible, muted styling",
-          "ToolCallBlock shows tool name, params, result, and status",
-          "ResponseBlock shows text with streaming cursor",
-          "StreamView renders correct block component for each content block type",
-          "No infinite re-render loops when streaming (verify with React DevTools profiler)"
-        ]
-      },
-      {
-        "id": "T-212",
-        "name": "add-debug-tab-to-ai-sidebar",
-        "description": "Add a 5th Debug tab to AI Sidebar alongside Chat, Tools, Scopes, History. The Debug tab shows the structured stream view using useStreamDebug hook and StreamView component.",
-        "instruction": "1. In AISidebar.tsx: add 'Debug' to the tab list (after History or between Scopes and History).\n2. Create the Debug tab panel content:\n   - Use useStreamDebug() hook to get blocks, metadata, streaming state\n   - Render StreamView with the blocks\n   - Show StreamMetadata bar at top: model, token counts, elapsed time\n   - Add 'Clear' button to reset the stream view\n   - When not streaming and no blocks: show 'Send a message in Chat to see the LLM stream here'\n3. Add a visual indicator on the Debug tab when streaming is active (pulsing dot or spinner).\n4. Add AI annotations for the Debug tab and its controls per G-017.\n5. Ensure Debug tab subscribes even when not visible (hidden attribute, not conditional render) so it captures data from chat interactions.",
-        "depends_on": [
-          "T-211"
-        ],
-        "parallel": false,
-        "type": "feature",
-        "scopes": [
-          "frontend",
-          "ai"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "AI Sidebar has 5 tabs: Chat, Tools, Scopes, History, Debug",
-          "Debug tab shows structured stream view with thinking/tool_call/response blocks",
-          "Metadata bar shows model, token count, elapsed time",
-          "Streaming indicator visible on Debug tab when LLM is active",
-          "Debug tab captures stream data even when not the active tab",
-          "Clear button resets the stream view",
-          "AI annotations present on all Debug tab interactive elements"
-        ]
-      },
-      {
-        "id": "T-213",
-        "name": "request-detail-panel-in-api-inspector",
-        "description": "Replace the simple expanded view in API Inspector with a full RequestDetailPanel featuring collapsible sections for headers, query params, request body, response body, and timing. All text must be selectable with copy-to-clipboard buttons.",
-        "instruction": "1. Create components/debug/RequestDetailPanel.tsx:\n   - Collapsible sections: Request Headers, Query Params, Request Body, Response Body, Timing\n   - Headers: parsed from URL + any captured headers (may need extending debugStore.addEntry to capture request headers)\n   - Query Params: parsed from URL search params\n   - Request/Response Body: rendered in monospace, scrollable, with user-select: text CSS\n   - Timing: duration bar visualization\n   - Each section has a copy-to-clipboard button\n2. Ensure all text in pre/code elements has CSS user-select: text (fix the text selection issue)\n3. In ApiInspector.tsx: replace the existing expanded entry view with RequestDetailPanel.\n4. Update debugStore.addEntry to capture request headers if not already captured (check what data the interceptor receives).\n5. Add AI annotations per G-017.",
-        "depends_on": [
-          "T-208"
-        ],
-        "parallel": false,
-        "type": "feature",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "conflicts_with": [
-          "T-207"
-        ],
-        "acceptance_criteria": [
-          "Expanded API entry shows collapsible sections: Headers, Query Params, Request Body, Response Body, Timing",
-          "All text in request/response bodies is selectable (user-select: text)",
-          "Copy-to-clipboard button works for each section",
-          "Query params are extracted and displayed separately from URL",
-          "Timing section shows request duration visually",
-          "RequestDetailPanel component is reusable"
-        ]
-      },
-      {
-        "id": "T-214",
-        "name": "create-debug-theme-design-tokens",
-        "description": "Create a consistent design token system for all debug console components using CSS custom properties. Define colors, spacing, typography, and status indicators.",
-        "instruction": "1. Create styles/debug-theme.css (or add to existing global styles):\n   - CSS custom properties on [data-debug-panel] selector:\n     --debug-bg-primary, --debug-bg-secondary, --debug-bg-hover\n     --debug-border, --debug-border-active\n     --debug-text-primary, --debug-text-secondary, --debug-text-muted\n     --debug-status-success (green), --debug-status-error (red), --debug-status-warning (orange), --debug-status-info (blue)\n     --debug-font-mono (monospace font stack)\n     --debug-spacing-xs through --debug-spacing-xl\n     --debug-radius (border radius)\n   - Dark theme optimized (debug consoles traditionally use dark backgrounds)\n2. Import the CSS in the root layout or BottomPanel.\n3. Add data-debug-panel attribute to BottomPanel wrapper and AISidebar Debug tab.\n4. Document the token naming convention in a comment block at the top of the CSS file.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "feature",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "CSS custom properties defined on [data-debug-panel] selector",
-          "Color tokens for backgrounds, borders, text, and status indicators",
-          "Spacing and typography tokens defined",
-          "Dark theme optimized for readability",
-          "CSS imported in root layout or BottomPanel",
-          "data-debug-panel attribute applied to debug panel containers"
-        ]
-      },
-      {
-        "id": "T-215",
-        "name": "create-lightweight-json-highlighter",
-        "description": "Create a custom lightweight JSON syntax highlighter component (<5KB) using regex-based tokenization and CSS classes. Supports copy-to-clipboard and line numbers.",
-        "instruction": "1. Create components/debug/JsonView.tsx:\n   - Input: data (any JSON-serializable value) or raw (string)\n   - Tokenize JSON string using regex patterns for: strings, numbers, booleans, null, keys, punctuation\n   - Apply CSS classes to each token type for coloring\n   - Features: line numbers (optional prop), copy-to-clipboard button, max-height with scroll\n   - Use CSS classes that reference debug theme tokens (--debug-text-* variables)\n   - Handle edge cases: unicode strings, nested objects, large arrays, null values\n2. Keep total component size under 5KB (no external dependencies).\n3. Add a 'collapsed' prop that shows first line + '...' + last line for large objects.\n4. Add AI annotations per G-017.",
-        "depends_on": [],
-        "parallel": true,
-        "type": "feature",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "JsonView renders JSON with syntax highlighting (strings=green, numbers=blue, keys=purple, etc.)",
-          "Component is under 5KB total (no external dependencies)",
-          "Copy-to-clipboard button copies formatted JSON",
-          "Line numbers shown when enabled",
-          "Collapsed mode for large objects",
-          "Handles edge cases: unicode, deep nesting, null, empty objects/arrays"
-        ]
-      },
-      {
-        "id": "T-216",
-        "name": "apply-debug-theme-and-json-view-across-components",
-        "description": "Apply the DebugTheme design tokens and JsonView component across all debug console components for a consistent, visually attractive appearance.",
-        "instruction": "1. ApiInspector.tsx: replace ad-hoc Tailwind classes with debug theme tokens. Use JsonView for request/response body rendering.\n2. LlmMonitor.tsx: apply debug theme tokens for consistent styling. Use JsonView for session detail data.\n3. EventStream.tsx: apply debug theme tokens. Use JsonView for event payload display.\n4. RequestDetailPanel.tsx: use JsonView for JSON bodies. Apply debug theme tokens.\n5. DebugTab in AISidebar: apply debug theme tokens to StreamView and block components.\n6. BottomPanel.tsx: apply debug theme to the shell (tabs, resize handle, status bar).\n7. Ensure status indicator colors use --debug-status-* tokens consistently.\n8. Verify visual consistency across all components — same spacing, fonts, colors.\n9. Deep-verify the visual changes per G-005.",
-        "depends_on": [
-          "T-214",
-          "T-215",
-          "T-207",
-          "T-209",
-          "T-212",
-          "T-213"
-        ],
-        "parallel": false,
-        "type": "chore",
-        "scopes": [
-          "frontend"
-        ],
-        "origin": "O-023",
-        "acceptance_criteria": [
-          "All debug components use CSS custom properties from debug theme (no more ad-hoc colors)",
-          "All JSON bodies rendered with JsonView component",
-          "Consistent spacing and typography across ApiInspector, LlmMonitor, EventStream, Debug tab",
-          "Status colors (success/error/warning/info) use theme tokens everywhere",
-          "Dark theme appearance is visually attractive and readable",
-          "No regressions in existing functionality"
-        ]
-      }
-    ]
-  }
+  ]
 }

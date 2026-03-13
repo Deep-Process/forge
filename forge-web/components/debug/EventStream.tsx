@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useActivityStore } from "@/stores/activityStore";
 import type { ActivityEvent } from "@/components/shared/ActivityFeed";
@@ -44,8 +43,7 @@ function formatTime(iso: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function EventStream() {
-  const { slug } = useParams() as { slug: string };
+export function EventStream({ slug }: { slug: string | null }) {
   const allEvents = useActivityStore((s) => s.events);
   const clearEvents = useActivityStore((s) => s.clear);
 
@@ -99,6 +97,16 @@ export function EventStream() {
       return next;
     });
   };
+
+  if (!slug) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-xs text-gray-400 text-center">
+          Navigate to a project to see real-time events
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -163,7 +171,7 @@ export function EventStream() {
 
         <div className="space-y-px">
           {filtered.map((event) => (
-            <EventRow key={event.id} event={event} slug={slug} />
+            <EventRow key={event.id} event={event} slug={slug!} />
           ))}
         </div>
       </div>

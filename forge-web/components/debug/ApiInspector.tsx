@@ -32,7 +32,7 @@ type MethodFilter = "" | "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 type StatusFilter = "" | "2xx" | "4xx" | "5xx" | "err";
 
-export function ApiInspector() {
+export function ApiInspector({ slug: _slug }: { slug: string | null }) {
   const entries = useDebugStore((s) => s.entries);
   const totalRequests = useDebugStore((s) => s.totalRequests);
   const errorCount = useDebugStore((s) => s.errorCount);
