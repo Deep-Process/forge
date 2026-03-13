@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T15:37:06Z",
+  "updated": "2026-03-13T20:48:03Z",
   "changes": [
     {
       "id": "C-143",
@@ -14411,6 +14411,481 @@
       "group_id": "T-205",
       "guidelines_checked": [],
       "timestamp": "2026-03-13T15:37:06Z"
+    },
+    {
+      "id": "C-758",
+      "task_id": "T-206",
+      "file": "forge-web/components/debug/ApiInspector.tsx",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-759",
+      "task_id": "T-206",
+      "file": "forge-web/components/debug/BottomPanel.tsx",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 12,
+      "lines_removed": 4,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-760",
+      "task_id": "T-206",
+      "file": "forge-web/components/debug/EventStream.tsx",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 12,
+      "lines_removed": 4,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-761",
+      "task_id": "T-206",
+      "file": "forge-web/components/debug/LlmMonitor.tsx",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 17,
+      "lines_removed": 8,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-762",
+      "task_id": "T-206",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-763",
+      "task_id": "T-206",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Fixed BottomPanel slug passing: usePathname() extracts slug from URL pathname via regex, passed as prop to LlmMonitor, EventStream, ApiInspector. All three components accept slug prop. LlmMonitor and EventStream show disabled state when slug is null. SWR keys null-guarded. No useParams() calls remain. Changes already committed in 7484e3e9."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 344,
+      "lines_removed": 265,
+      "group_id": "T-206",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:32:06Z"
+    },
+    {
+      "id": "C-764",
+      "task_id": "T-207",
+      "file": "forge-web/components/debug/ApiInspector.tsx",
+      "action": "edit",
+      "summary": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 53,
+      "lines_removed": 3,
+      "group_id": "T-207",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:35:46Z"
+    },
+    {
+      "id": "C-765",
+      "task_id": "T-207",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-207",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:35:46Z"
+    },
+    {
+      "id": "C-766",
+      "task_id": "T-207",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 115,
+      "lines_removed": 1,
+      "group_id": "T-207",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:35:46Z"
+    },
+    {
+      "id": "C-767",
+      "task_id": "T-207",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Reversed API Inspector entry order using [...result].reverse() in useMemo. Added auto-scroll to top on new entries, manual scroll detection (pauses auto-scroll when scrolled > 10px), scroll-to-top sticky button, and toolbar resume link."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 356,
+      "lines_removed": 7,
+      "group_id": "T-207",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:35:46Z"
+    },
+    {
+      "id": "C-768",
+      "task_id": "T-208",
+      "file": "forge-web/components/debug/ErrorDetail.tsx",
+      "action": "create",
+      "summary": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 66,
+      "lines_removed": 0,
+      "group_id": "T-208",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:41:05Z"
+    },
+    {
+      "id": "C-769",
+      "task_id": "T-208",
+      "file": "forge-web/lib/api.ts",
+      "action": "edit",
+      "summary": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 14,
+      "lines_removed": 2,
+      "group_id": "T-208",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:41:05Z"
+    },
+    {
+      "id": "C-770",
+      "task_id": "T-208",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-208",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:41:05Z"
+    },
+    {
+      "id": "C-771",
+      "task_id": "T-208",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 191,
+      "lines_removed": 1,
+      "group_id": "T-208",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:41:05Z"
+    },
+    {
+      "id": "C-772",
+      "task_id": "T-208",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Enriched ApiError class with method, url, responseExcerpt fields. Created ErrorDetail component with color-coded status badge, endpoint display, and scrollable response excerpt. Backward compatible - opts parameter is optional. AI annotations added per G-017."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 362,
+      "lines_removed": 11,
+      "group_id": "T-208",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:41:05Z"
+    },
+    {
+      "id": "C-773",
+      "task_id": "T-209",
+      "file": "forge-web/components/ai/Message.tsx",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 9,
+      "lines_removed": 1,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-774",
+      "task_id": "T-209",
+      "file": "forge-web/components/debug/ApiInspector.tsx",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 10,
+      "lines_removed": 3,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-775",
+      "task_id": "T-209",
+      "file": "forge-web/components/debug/EventStream.tsx",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 9,
+      "lines_removed": 0,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-776",
+      "task_id": "T-209",
+      "file": "forge-web/components/debug/LlmMonitor.tsx",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 16,
+      "lines_removed": 4,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-777",
+      "task_id": "T-209",
+      "file": "forge-web/lib/types.ts",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-778",
+      "task_id": "T-209",
+      "file": "forge-web/stores/activityStore.ts",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 2,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-779",
+      "task_id": "T-209",
+      "file": "forge-web/stores/chatStore.ts",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 2,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-780",
+      "task_id": "T-209",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-781",
+      "task_id": "T-209",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 286,
+      "lines_removed": 1,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
+    },
+    {
+      "id": "C-782",
+      "task_id": "T-209",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Integrated ErrorDetail component across all debug views: chatStore preserves full error object, Message.tsx renders ErrorDetail instead of [Error: text], LlmMonitor surfaces API errors instead of silent catch, EventStream has error state from activityStore, ApiInspector creates proper ApiError objects for entry errors."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 368,
+      "lines_removed": 15,
+      "group_id": "T-209",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T20:48:03Z"
     }
   ]
 }

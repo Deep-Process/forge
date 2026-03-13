@@ -433,7 +433,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       const conv = s.conversations[sessionId];
       if (!conv) return { streaming: false, error: msg };
       const messages = conv.messages.map((m) =>
-        m.streaming ? { ...m, content: `[Error: ${msg}]`, streaming: false } : m,
+        m.streaming ? { ...m, content: `[Error: ${msg}]`, streaming: false, error: new Error(msg) } : m,
       );
       return {
         streaming: false,
