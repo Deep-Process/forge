@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useDebugStore, type ApiEntry } from "@/stores/debugStore";
 
 const METHOD_COLORS: Record<string, string> = {
@@ -65,8 +65,27 @@ export function ApiInspector({ slug: _slug }: { slug: string | null }) {
       result = result.filter((e) => e.url.toLowerCase().includes(lower));
     }
 
-    return result;
+    return [...result].reverse();
   }, [entries, methodFilter, statusFilterVal, urlFilter]);
+
+  // Auto-scroll state
+  const listRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  // Auto-scroll to top when new entries arrive (newest are at top)
+  useEffect(() => {
+    if (autoScroll && filtered.length > prevCountRef.current && listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+    prevCountRef.current = filtered.length;
+  }, [filtered.length, autoScroll]);
+
+  // Detect manual scroll to pause auto-scroll
+  const handleScroll = useCallback(() => {
+    if (!listRef.current) return;
+    setAutoScroll(listRef.current.scrollTop < 10);
+  }, []);
 
   const avgTime = useMemo(() => {
     if (entries.length === 0) return 0;
@@ -97,6 +116,20 @@ export function ApiInspector({ slug: _slug }: { slug: string | null }) {
           )}
           {errorCount > 0 && <span className="text-gray-300">|</span>}
           <span>avg {formatDuration(avgTime)}</span>
+          {!autoScroll && (
+            <>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => {
+                  if (listRef.current) listRef.current.scrollTop = 0;
+                  setAutoScroll(true);
+                }}
+                className="text-forge-600 hover:text-forge-700"
+              >
+                Resume auto-scroll
+              </button>
+            </>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -152,7 +185,11 @@ export function ApiInspector({ slug: _slug }: { slug: string | null }) {
       </div>
 
       {/* Entries list */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto relative"
+      >
         {filtered.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-4">
             {entries.length === 0 ? "No API calls captured yet" : "No matching entries"}
@@ -169,6 +206,19 @@ export function ApiInspector({ slug: _slug }: { slug: string | null }) {
             />
           ))}
         </div>
+
+        {/* Scroll to top button */}
+        {!autoScroll && filtered.length > 0 && (
+          <button
+            onClick={() => {
+              if (listRef.current) listRef.current.scrollTop = 0;
+              setAutoScroll(true);
+            }}
+            className="sticky bottom-2 left-1/2 -translate-x-1/2 bg-forge-600 text-white text-[10px] px-3 py-1 rounded-full shadow-md hover:bg-forge-700 transition-colors"
+          >
+            ↑ Scroll to latest
+          </button>
+        )}
       </div>
     </div>
   );
