@@ -18,6 +18,8 @@ interface EntityLinkProps {
   id: string;
   showPreview?: boolean;
   className?: string;
+  /** Override project slug (for pages without slug in URL, e.g. /sessions). */
+  projectSlug?: string;
 }
 
 const ENTITY_MAP: Record<string, { type: string; route: string; color: string }> = {
@@ -106,8 +108,9 @@ async function fetchPreview(slug: string, entityId: string): Promise<EntityPrevi
   }
 }
 
-export function EntityLink({ id, showPreview = true, className }: EntityLinkProps) {
-  const { slug } = useParams() as { slug: string };
+export function EntityLink({ id, showPreview = true, className, projectSlug }: EntityLinkProps) {
+  const params = useParams() as { slug?: string };
+  const slug = projectSlug || params.slug || "";
   const info = parseEntityId(id);
   const [preview, setPreview] = useState<EntityPreviewData | null>(null);
   const [showCard, setShowCard] = useState(false);

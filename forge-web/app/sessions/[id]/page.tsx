@@ -110,7 +110,7 @@ export default function SessionDetailPage() {
             {session.target_entity_id && (
               <div>
                 <span className="text-xs text-gray-500">Target: </span>
-                <EntityLink id={session.target_entity_id} />
+                <EntityLink id={session.target_entity_id} projectSlug={session.project} />
               </div>
             )}
             <div>
@@ -169,7 +169,7 @@ export default function SessionDetailPage() {
             </h3>
             <div className="flex flex-wrap gap-1">
               {entityIds.map((eid) => (
-                <EntityLink key={eid} id={eid} />
+                <EntityLink key={eid} id={eid} projectSlug={session.project} />
               ))}
             </div>
           </section>
