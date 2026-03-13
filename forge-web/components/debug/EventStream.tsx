@@ -171,7 +171,7 @@ export function EventStream({ slug }: { slug: string | null }) {
 
         <div className="space-y-px">
           {filtered.map((event) => (
-            <EventRow key={event.id} event={event} slug={slug!} />
+            <EventRow key={event.id} event={event} slug={slug} />
           ))}
         </div>
       </div>

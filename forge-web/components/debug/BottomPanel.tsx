@@ -42,7 +42,7 @@ export function BottomPanel() {
   const pathname = usePathname();
   const slug = useMemo(() => {
     const match = pathname?.match(/\/projects\/([^/]+)/);
-    return match ? match[1] : null;
+    return match ? decodeURIComponent(match[1]) : null;
   }, [pathname]);
 
   // Keyboard shortcut: Ctrl+` to toggle

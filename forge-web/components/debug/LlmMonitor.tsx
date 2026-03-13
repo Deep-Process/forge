@@ -168,7 +168,7 @@ export function LlmMonitor({ slug }: { slug: string | null }) {
             <SessionRow
               key={session.session_id}
               session={session}
-              slug={slug!}
+              slug={slug}
               expanded={expandedId === session.session_id}
               onToggle={() => setExpandedId(
                 expandedId === session.session_id ? null : session.session_id,
