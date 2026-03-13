@@ -1,8 +1,14 @@
 "use client";
 
-import { useRef, useState, useCallback, type KeyboardEvent, type DragEvent } from "react";
+import { useRef, useState, useCallback, useMemo, useEffect, type KeyboardEvent, type DragEvent } from "react";
 import type { ChatFileAttachment } from "@/lib/types";
 import { llm } from "@/lib/api";
+import { useSkillStore, fetchSkills } from "@/stores/skillStore";
+import SlashCommandDropdown, {
+  getFilteredCommandCount,
+  getFilteredCommand,
+  type SlashCommand,
+} from "./SlashCommandDropdown";
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_FILES_PER_SESSION = 10;
@@ -40,10 +46,39 @@ export default function ChatInput({
   const [attachments, setAttachments] = useState<ChatFileAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
   // Stable pre-session ID for file uploads before a chat session is created
   const preSessionId = useRef(`pre-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  // --- Slash-command autocomplete ---
+  const { items: skills } = useSkillStore();
+  useEffect(() => {
+    if (skills.length === 0) fetchSkills();
+  }, [skills.length]);
+
+  const skillCommands = useMemo<SlashCommand[]>(
+    () =>
+      skills.map((s) => ({
+        name: s.name,
+        label: s.display_name || s.name,
+        description: s.description,
+        source: "skill" as const,
+      })),
+    [skills],
+  );
+
+  // Determine if slash dropdown should show: '/' at position 0 only
+  const slashFilter = slashOpen && value.startsWith("/") ? value.slice(1) : "";
+
+  const handleSlashSelect = useCallback((cmd: SlashCommand) => {
+    setValue(`/${cmd.name} `);
+    setSlashOpen(false);
+    setSlashIndex(0);
+    textareaRef.current?.focus();
+  }, []);
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
@@ -62,12 +97,49 @@ export default function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Slash-command navigation
+      if (slashOpen) {
+        const count = getFilteredCommandCount(slashFilter, skillCommands);
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSlashIndex((prev) => (prev + 1) % Math.max(count, 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSlashIndex((prev) => (prev - 1 + Math.max(count, 1)) % Math.max(count, 1));
+          return;
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+          const cmd = getFilteredCommand(slashFilter, skillCommands, slashIndex);
+          if (cmd) {
+            e.preventDefault();
+            handleSlashSelect(cmd);
+            return;
+          }
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setSlashOpen(false);
+          setSlashIndex(0);
+          return;
+        }
+        if (e.key === "Tab") {
+          const cmd = getFilteredCommand(slashFilter, skillCommands, slashIndex);
+          if (cmd) {
+            e.preventDefault();
+            handleSlashSelect(cmd);
+            return;
+          }
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend, slashOpen, slashFilter, slashIndex, skillCommands, handleSlashSelect],
   );
 
   const handleInput = useCallback(() => {
@@ -248,13 +320,30 @@ export default function ChatInput({
       )}
 
       {/* Input area */}
-      <div className="flex items-end gap-2 p-3">
+      <div className="relative flex items-end gap-2 p-3">
+        {/* Slash-command dropdown — positioned above the textarea */}
+        {slashOpen && (
+          <SlashCommandDropdown
+            filter={slashFilter}
+            skillCommands={skillCommands}
+            selectedIndex={slashIndex}
+            onSelect={handleSlashSelect}
+          />
+        )}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => {
-            setValue(e.target.value);
+            const newVal = e.target.value;
+            setValue(newVal);
             handleInput();
+            // Show slash dropdown when '/' is typed at position 0
+            if (newVal.startsWith("/") && !newVal.includes(" ")) {
+              setSlashOpen(true);
+              setSlashIndex(0);
+            } else {
+              setSlashOpen(false);
+            }
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder ?? "Type a message or drop files..."}
