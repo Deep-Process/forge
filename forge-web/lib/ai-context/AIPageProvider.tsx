@@ -42,6 +42,16 @@ export function AIPageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback((descriptor: AIElementDescriptor) => {
+    const prev = elementsRef.current.get(descriptor.id);
+    // Skip notify if descriptor is unchanged (prevents infinite re-render loops
+    // when useAIElement runs every render with a new-but-equal descriptor object)
+    if (prev && prev.label === descriptor.label
+      && prev.description === descriptor.description
+      && prev.value === descriptor.value
+      && prev.type === descriptor.type) {
+      elementsRef.current.set(descriptor.id, descriptor);
+      return;
+    }
     elementsRef.current.set(descriptor.id, descriptor);
     notify();
   }, [notify]);
