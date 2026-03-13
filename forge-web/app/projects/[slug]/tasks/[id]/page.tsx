@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { tasks as tasksApi, decisions as decisionsApi, changes as changesApi } from "@/lib/api";
+import { tasks as tasksApi, decisions as decisionsApi, changes as changesApi, guidelines as guidelinesApi, knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
-import type { Task, Decision, ChangeRecord, TaskContext, ContextSection } from "@/lib/types";
+import type { Task, Decision, ChangeRecord, TaskContext, ContextSection, Guideline, Knowledge } from "@/lib/types";
 
 type Tab = "overview" | "dependencies" | "decisions" | "changes" | "context";
 
@@ -31,6 +31,8 @@ export default function TaskDetailPage() {
   const [linkedDecisions, setLinkedDecisions] = useState<Decision[]>([]);
   const [taskChanges, setTaskChanges] = useState<ChangeRecord[]>([]);
   const [taskContext, setTaskContext] = useState<TaskContext | null>(null);
+  const [scopedGuidelines, setScopedGuidelines] = useState<{ must: Guideline[]; should: Guideline[]; may: Guideline[] } | null>(null);
+  const [linkedKnowledge, setLinkedKnowledge] = useState<Knowledge[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
 
   const fetchTask = useCallback(async () => {
@@ -57,6 +59,18 @@ export default function TaskDetailPage() {
     const fetchRelated = async () => {
       setRelatedLoading(true);
       try {
+        if (tab === "overview" && !scopedGuidelines) {
+          const scopes = [...task.scopes, "general"].join(",");
+          const glRes = await guidelinesApi.context(slug, scopes);
+          setScopedGuidelines(glRes);
+
+          const kIds = task.knowledge_ids ?? [];
+          if (kIds.length > 0) {
+            const kRes = await knowledgeApi.list(slug);
+            const kSet = new Set(kIds);
+            setLinkedKnowledge(kRes.knowledge.filter((k) => kSet.has(k.id)));
+          }
+        }
         if (tab === "dependencies" && depTasks.length === 0 && task.depends_on.length > 0) {
           const deps = await Promise.all(
             task.depends_on.map((depId) => tasksApi.get(slug, depId).catch(() => null))
@@ -82,7 +96,7 @@ export default function TaskDetailPage() {
       }
     };
     fetchRelated();
-  }, [task, tab, slug, id, depTasks.length, linkedDecisions.length, taskChanges.length, taskContext]);
+  }, [task, tab, slug, id, depTasks.length, linkedDecisions.length, taskChanges.length, taskContext, scopedGuidelines]);
 
   if (loading) return <p className="text-sm text-gray-400">Loading task...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
@@ -140,7 +154,7 @@ export default function TaskDetailPage() {
       {relatedLoading && <p className="text-xs text-gray-400 mb-2">Loading...</p>}
 
       {/* Tab Content */}
-      {tab === "overview" && <OverviewTab task={task} slug={slug} />}
+      {tab === "overview" && <OverviewTab task={task} slug={slug} guidelines={scopedGuidelines} knowledge={linkedKnowledge} />}
       {tab === "dependencies" && <DependenciesTab task={task} depTasks={depTasks} slug={slug} />}
       {tab === "decisions" && <DecisionsTab decisions={linkedDecisions} slug={slug} />}
       {tab === "changes" && <ChangesTab changes={taskChanges} />}
@@ -149,9 +163,23 @@ export default function TaskDetailPage() {
   );
 }
 
-function OverviewTab({ task, slug }: { task: Task; slug: string }) {
+function OverviewTab({ task, slug, guidelines, knowledge }: {
+  task: Task; slug: string;
+  guidelines: { must: Guideline[]; should: Guideline[]; may: Guideline[] } | null;
+  knowledge: Knowledge[];
+}) {
+  const totalGuidelines = guidelines ? guidelines.must.length + guidelines.should.length + guidelines.may.length : 0;
+
   return (
     <div className="space-y-6">
+      {/* Origin */}
+      {task.origin && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Origin</h3>
+          <EntityLink id={task.origin} />
+        </section>
+      )}
+
       {/* Description */}
       <section>
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
@@ -186,6 +214,65 @@ function OverviewTab({ task, slug }: { task: Task; slug: string }) {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Applicable Guidelines */}
+      {totalGuidelines > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Applicable Guidelines ({totalGuidelines})
+          </h3>
+          <div className="space-y-1">
+            {[
+              ...guidelines!.must.map((g) => ({ ...g, _weight: "must" as const })),
+              ...guidelines!.should.map((g) => ({ ...g, _weight: "should" as const })),
+              ...guidelines!.may.map((g) => ({ ...g, _weight: "may" as const })),
+            ].map((g) => (
+              <Link
+                key={g.id}
+                href={`/projects/${slug}/guidelines`}
+                className="flex items-center gap-2 p-2 rounded border bg-white text-xs hover:border-forge-300 transition-colors"
+              >
+                <span className="font-mono text-forge-600">{g.id}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  g._weight === "must" ? "bg-red-100 text-red-700" :
+                  g._weight === "should" ? "bg-yellow-100 text-yellow-700" :
+                  "bg-gray-100 text-gray-600"
+                }`}>{g._weight}</span>
+                <span className="text-gray-500 truncate">[{g.scope}]</span>
+                <span className="text-gray-700 truncate">{g.title || g.content?.slice(0, 50)}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Knowledge */}
+      {knowledge.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">
+            Knowledge ({knowledge.length})
+          </h3>
+          <div className="space-y-2">
+            {knowledge.map((k) => (
+              <Link
+                key={k.id}
+                href={`/projects/${slug}/knowledge/${k.id}`}
+                className="block rounded-lg border bg-white p-3 hover:border-forge-300 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 font-mono">{k.id}</span>
+                  <Badge variant={statusVariant(k.status)}>{k.status}</Badge>
+                  <Badge>{k.category}</Badge>
+                  <span className="text-sm text-gray-700">{k.title}</span>
+                </div>
+                {k.content && (
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{k.content.slice(0, 120)}</p>
+                )}
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 

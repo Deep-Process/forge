@@ -93,6 +93,7 @@ export interface Task {
   failed_reason: string | null;
   agent?: string;
   origin?: string;
+  knowledge_ids?: string[];
 }
 
 export interface TaskCreate {
