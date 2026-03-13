@@ -497,9 +497,9 @@ function DebugTab({
     : null;
 
   return (
-    <div data-debug-panel className={visible ? "" : "hidden"} style={{ backgroundColor: "var(--debug-bg-primary)", color: "var(--debug-text-primary)" }}>
+    <div data-debug-panel className={`flex flex-col flex-1 min-h-0 ${visible ? "" : "hidden"}`} style={{ backgroundColor: "var(--debug-bg-primary)", color: "var(--debug-text-primary)" }}>
       {/* Metadata bar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-gray-50 text-[10px] text-gray-500">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-gray-50 text-[10px] text-gray-500 flex-shrink-0">
         {metadata.model && (
           <span className="font-medium text-gray-600">{metadata.model}</span>
         )}
@@ -518,7 +518,7 @@ function DebugTab({
       </div>
 
       {/* Stream blocks */}
-      <div className="px-2 py-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         <StreamView blocks={blocks} streaming={streaming} />
       </div>
     </div>
