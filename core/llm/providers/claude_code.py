@@ -108,6 +108,13 @@ class ClaudeCodeProvider:
         claude_binary: Name of the Claude Code binary (default: "claude").
         timeout: Subprocess timeout in seconds (default: 120).
         max_concurrent: Maximum concurrent subprocess calls (default: 5).
+
+    Thread safety:
+        The _session_map (OrderedDict) is safe for asyncio single-threaded
+        event loop access (coroutines interleave only at await points, and
+        dict operations are atomic under CPython's GIL). NOT safe for
+        multi-threaded access — do not share a provider instance across
+        ThreadPoolExecutor workers.
     """
 
     def __init__(
@@ -139,6 +146,14 @@ class ClaudeCodeProvider:
         self._session_map.move_to_end(forge_sid)
         while len(self._session_map) > _MAX_SESSION_MAP_SIZE:
             self._session_map.popitem(last=False)
+
+    def clear_session(self, forge_session_id: str) -> None:
+        """Remove a specific Forge→CC session mapping.
+
+        Call this when a Forge session is deleted or expired to free
+        the corresponding Claude Code session reference.
+        """
+        self._session_map.pop(forge_session_id, None)
 
     def _build_env(self) -> dict[str, str]:
         """Build subprocess environment with CLAUDECODE cleared.
@@ -257,7 +272,7 @@ class ClaudeCodeProvider:
             )
         model = self._resolve_model(config.model)
 
-        args = [
+        base_args = [
             self._claude_path,
             "-p", user_prompt,
             "--output-format", "json",
@@ -266,11 +281,16 @@ class ClaudeCodeProvider:
 
         # Session resume via metadata
         forge_session_id = None
+        using_resume = False
         if config.metadata and "forge_session_id" in config.metadata:
             forge_session_id = config.metadata["forge_session_id"]
             cc_session_id = self._session_map.get(forge_session_id)
             if cc_session_id:
-                args.extend(["--resume", cc_session_id])
+                using_resume = True
+
+        args = list(base_args)
+        if using_resume:
+            args.extend(["--resume", cc_session_id])
 
         # System prompt via temp file (avoids 32K CLI length limit)
         tmp_file = None
@@ -287,6 +307,21 @@ class ClaudeCodeProvider:
                 args.extend(["--append-system-prompt-file", tmp_file.name])
 
             stdout, stderr, returncode = await self._run_subprocess(args)
+
+            # Resume fallback: if --resume failed, retry without it
+            if returncode != 0 and using_resume:
+                logger.warning(
+                    "Claude Code --resume failed for session %s (cc=%s), "
+                    "retrying without resume",
+                    forge_session_id, cc_session_id,
+                )
+                self._session_map.pop(forge_session_id, None)
+                retry_args = list(base_args)
+                if tmp_file:
+                    retry_args.extend(["--append-system-prompt-file", tmp_file.name])
+                stdout, stderr, returncode = await self._run_subprocess(retry_args)
+                using_resume = False
+
         finally:
             if tmp_file:
                 try:
@@ -362,7 +397,7 @@ class ClaudeCodeProvider:
             )
         model = self._resolve_model(config.model)
 
-        args = [
+        base_args = [
             self._claude_path,
             "-p", user_prompt,
             "--output-format", "stream-json",
@@ -371,11 +406,16 @@ class ClaudeCodeProvider:
 
         # Session resume via metadata
         forge_session_id = None
+        using_resume = False
         if config.metadata and "forge_session_id" in config.metadata:
             forge_session_id = config.metadata["forge_session_id"]
             cc_session_id = self._session_map.get(forge_session_id)
             if cc_session_id:
-                args.extend(["--resume", cc_session_id])
+                using_resume = True
+
+        args = list(base_args)
+        if using_resume:
+            args.extend(["--resume", cc_session_id])
 
         # System prompt via temp file
         tmp_file = None
@@ -392,6 +432,35 @@ class ClaudeCodeProvider:
 
         proc = None
         try:
+            async for chunk in self._stream_subprocess(
+                args, base_args, tmp_file, forge_session_id, using_resume,
+            ):
+                yield chunk
+
+        except asyncio.CancelledError:
+            raise
+        finally:
+            if tmp_file:
+                try:
+                    os.unlink(tmp_file.name)
+                except OSError:
+                    pass
+
+    async def _stream_subprocess(
+        self,
+        args: list[str],
+        base_args: list[str],
+        tmp_file: Any,
+        forge_session_id: str | None,
+        using_resume: bool,
+    ) -> AsyncIterator[StreamChunk]:
+        """Internal: run streaming subprocess with resume-fallback.
+
+        If --resume fails (process exits with error before producing content),
+        retries without --resume using full conversation history.
+        """
+        proc = None
+        try:
             async with self._semaphore:
                 proc = await asyncio.create_subprocess_exec(
                     *args,
@@ -400,6 +469,7 @@ class ClaudeCodeProvider:
                     env=self._build_env(),
                 )
 
+                yielded_content = False
                 async for raw_line in proc.stdout:
                     line = raw_line.decode("utf-8", errors="replace").strip()
                     if not line:
@@ -417,6 +487,7 @@ class ClaudeCodeProvider:
                         delta = event.get("delta", {})
                         text = delta.get("text", "")
                         if text:
+                            yielded_content = True
                             yield StreamChunk(content=text)
 
                     elif event_type == "message_stop":
@@ -427,14 +498,12 @@ class ClaudeCodeProvider:
                                 input_tokens=usage_data.get("input_tokens", 0),
                                 output_tokens=usage_data.get("output_tokens", 0),
                             )
-                        # Extract session_id from message_stop if available
                         cc_session_id = event.get("session_id")
                         if forge_session_id and cc_session_id:
                             self._update_session_map(forge_session_id, cc_session_id)
                         yield StreamChunk(content="", is_final=True, usage=usage)
 
                     elif event_type == "message_delta":
-                        # message_delta carries usage stats
                         usage_data = event.get("usage", {})
                         if usage_data:
                             usage = TokenUsage(
@@ -444,7 +513,36 @@ class ClaudeCodeProvider:
                             yield StreamChunk(content="", is_final=False, usage=usage)
 
                 await proc.wait()
+
                 if proc.returncode != 0:
+                    # Resume fallback: retry without --resume if no content was yielded
+                    if using_resume and not yielded_content:
+                        logger.warning(
+                            "Claude Code --resume stream failed for session %s, "
+                            "retrying without resume",
+                            forge_session_id,
+                        )
+                        self._session_map.pop(forge_session_id, None)
+                        proc = None  # clear for finally
+
+                        retry_args = list(base_args)
+                        if tmp_file:
+                            retry_args.extend([
+                                "--append-system-prompt-file", tmp_file.name,
+                            ])
+
+                        proc = await asyncio.create_subprocess_exec(
+                            *retry_args,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE,
+                            env=self._build_env(),
+                        )
+                        async for chunk in self._parse_stream_events(
+                            proc, forge_session_id,
+                        ):
+                            yield chunk
+                        return
+
                     stderr_bytes = await proc.stderr.read()
                     stderr = stderr_bytes.decode("utf-8", errors="replace").strip()
                     raise ProviderError(
@@ -456,12 +554,56 @@ class ClaudeCodeProvider:
             if proc and proc.returncode is None:
                 await _kill_process_tree(proc)
             raise
-        finally:
-            if tmp_file:
-                try:
-                    os.unlink(tmp_file.name)
-                except OSError:
-                    pass
+
+    async def _parse_stream_events(
+        self,
+        proc: asyncio.subprocess.Process,
+        forge_session_id: str | None,
+    ) -> AsyncIterator[StreamChunk]:
+        """Parse NDJSON stream events from a subprocess."""
+        async for raw_line in proc.stdout:
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            event_type = event.get("type", "")
+            if event_type == "content_block_delta":
+                text = event.get("delta", {}).get("text", "")
+                if text:
+                    yield StreamChunk(content=text)
+            elif event_type == "message_stop":
+                usage_data = event.get("usage", {})
+                usage = TokenUsage(
+                    input_tokens=usage_data.get("input_tokens", 0),
+                    output_tokens=usage_data.get("output_tokens", 0),
+                ) if usage_data else None
+                cc_sid = event.get("session_id")
+                if forge_session_id and cc_sid:
+                    self._update_session_map(forge_session_id, cc_sid)
+                yield StreamChunk(content="", is_final=True, usage=usage)
+            elif event_type == "message_delta":
+                usage_data = event.get("usage", {})
+                if usage_data:
+                    yield StreamChunk(
+                        content="",
+                        is_final=False,
+                        usage=TokenUsage(
+                            input_tokens=usage_data.get("input_tokens", 0),
+                            output_tokens=usage_data.get("output_tokens", 0),
+                        ),
+                    )
+
+        await proc.wait()
+        if proc.returncode != 0:
+            stderr_bytes = await proc.stderr.read()
+            stderr = stderr_bytes.decode("utf-8", errors="replace").strip()
+            raise ProviderError(
+                f"Claude Code CLI stream exited with code {proc.returncode}: {stderr}"
+            )
 
     def capabilities(self) -> ProviderCapabilities:
         """Return capabilities for Claude Code provider.
