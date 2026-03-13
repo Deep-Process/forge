@@ -32,10 +32,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   decisions: [],
 
   addDecision: (n) => {
-    const id = `notif-${genId()}`;
-    set((state) => ({
-      decisions: [...state.decisions, { ...n, id, createdAt: Date.now() }],
-    }));
+    set((state) => {
+      // Dedup: skip if same decisionId already queued
+      if (state.decisions.some((d) => d.decisionId === n.decisionId)) return state;
+      const id = `notif-${genId()}`;
+      return { decisions: [...state.decisions, { ...n, id, createdAt: Date.now() }] };
+    });
   },
 
   removeDecision: (id) => {
