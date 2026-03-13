@@ -130,11 +130,8 @@ class ContextResolver:
         except Exception:
             parts.append(f"Project: {project}")
 
-        # --- Active scopes ---
-        if scopes:
-            parts.append(f"Active scopes: {', '.join(scopes)}")
-
         # --- Guidelines (global + scoped) ---
+        # Note: "Active scopes" line is now in _build_base_prompt (llm_chat.py)
         try:
             g_data = await asyncio.to_thread(self._storage.load_data, project, "guidelines")
             guidelines = g_data.get("guidelines", [])

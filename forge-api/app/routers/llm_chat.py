@@ -256,10 +256,10 @@ async def chat(
         )
     else:
         # Sync scopes if request scopes differ from session scopes
-        request_scopes = body.scopes or []
-        if request_scopes and sorted(request_scopes) != sorted(session.scopes):
-            await session_manager.update_scopes(session.session_id, request_scopes)
-            session.scopes = request_scopes
+        # body.scopes=None means "not specified" (keep existing), body.scopes=[] means "clear"
+        if body.scopes is not None and sorted(body.scopes) != sorted(session.scopes):
+            await session_manager.update_scopes(session.session_id, body.scopes)
+            session.scopes = body.scopes
 
     # --- Inject uploaded file content into user message ---
     user_content = body.message
@@ -297,7 +297,7 @@ async def chat(
         context_type=body.context_type,
         context_id=body.context_id,
         project=body.project,
-        scopes=body.scopes,
+        scopes=session.scopes if session.scopes else body.scopes,
     )
     entity_context = context_payload.to_system_prompt()
     if entity_context:
