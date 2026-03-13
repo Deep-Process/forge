@@ -158,7 +158,28 @@ class AgentLoop:
             permissions=self._permissions,
             disabled_tools=self._disabled_tools,
         )
-        if tool_defs:
+
+        # Detect text-tool mode: provider doesn't support native tool_use
+        # but tools are available → inject into system prompt instead
+        caps = self._provider.capabilities()
+        text_tool_mode = not caps.supports_tool_use and bool(tool_defs)
+
+        if text_tool_mode:
+            from app.llm.text_tool_adapter import build_text_tool_prompt
+            tool_objects = self._tool_registry.get_tools(
+                context_type=context_types,
+                permissions=self._permissions,
+                disabled_tools=self._disabled_tools,
+            )
+            tool_prompt = build_text_tool_prompt(tool_objects)
+            config = replace(config,
+                system_prompt=(config.system_prompt or "") + "\n\n" + tool_prompt,
+            )
+            logger.info(
+                "Text-tool mode: injected %d tools into system prompt",
+                len(tool_objects),
+            )
+        elif tool_defs:
             config = replace(config, tools=tool_defs)
 
         # Working copy of messages
@@ -184,12 +205,14 @@ class AgentLoop:
 
                 # --- LLM call ---
                 iteration += 1
-                caps = self._provider.capabilities()
 
-                # Use streaming when provider supports it and no tools are active.
-                # This enables real-time token delivery for providers like claude-code
-                # (supports_tool_use=False → config.tools always empty).
-                use_streaming = caps.supports_streaming and not config.tools
+                # Streaming decision:
+                # - Text-tool mode: always use complete() (need full text for parsing)
+                # - Native tool_use: complete() when tools active, stream otherwise
+                if text_tool_mode:
+                    use_streaming = False
+                else:
+                    use_streaming = caps.supports_streaming and not config.tools
 
                 try:
                     if use_streaming:
@@ -220,6 +243,19 @@ class AgentLoop:
                 total_input += result.usage.input_tokens
                 total_output += result.usage.output_tokens
                 model = result.model
+
+                # --- Text-tool parsing: extract <forge_tool> blocks ---
+                if text_tool_mode and result.stop_reason != "tool_use":
+                    from app.llm.text_tool_adapter import parse_text_tool_calls
+                    clean_text, parsed_calls = parse_text_tool_calls(result.content)
+                    if parsed_calls:
+                        result = CompletionResult(
+                            content=clean_text,
+                            model=result.model,
+                            usage=result.usage,
+                            stop_reason="tool_use",
+                            tool_calls=parsed_calls,
+                        )
 
                 # --- Final response (no tool use) ---
                 if result.stop_reason != "tool_use" or not result.tool_calls:
@@ -265,6 +301,7 @@ class AgentLoop:
                     await on_event(StreamEvent("thinking", {"content": result.content}))
 
                 # Execute each tool call
+                text_tool_results: list[dict] = []  # For batching in text-tool mode
                 for tool_call in result.tool_calls:
                     # Validate tool_call structure
                     tool_name = tool_call.get("name", "")
@@ -310,12 +347,17 @@ class AgentLoop:
                                 "result": tool_result,
                             })
 
-                            conversation.append(Message(
-                                role="tool",
-                                content=json.dumps(tool_result, ensure_ascii=False, default=str),
-                                tool_call_id=tool_id,
-                                name=tool_name,
-                            ))
+                            if text_tool_mode:
+                                text_tool_results.append({
+                                    "name": tool_name, "id": tool_id, "result": tool_result,
+                                })
+                            else:
+                                conversation.append(Message(
+                                    role="tool",
+                                    content=json.dumps(tool_result, ensure_ascii=False, default=str),
+                                    tool_call_id=tool_id,
+                                    name=tool_name,
+                                ))
                             continue  # Skip to next tool call
 
                     # Execute tool (with defense-in-depth permission check)
@@ -351,13 +393,20 @@ class AgentLoop:
                     })
 
                     # Add tool result to conversation
-                    # (consecutive tool results are merged by _convert_messages)
-                    conversation.append(Message(
-                        role="tool",
-                        content=result_str,
-                        tool_call_id=tool_id,
-                        name=tool_name,
-                    ))
+                    if text_tool_mode:
+                        # Collect for batching — claude-code skips role="tool"
+                        text_tool_results.append({
+                            "name": tool_name, "id": tool_id, "result": tool_result,
+                        })
+                    else:
+                        # Standard: individual tool role messages
+                        # (consecutive tool results are merged by _convert_messages)
+                        conversation.append(Message(
+                            role="tool",
+                            content=result_str,
+                            tool_call_id=tool_id,
+                            name=tool_name,
+                        ))
 
                     # --- Check for blocking decision ---
                     blocking_id = _extract_blocking_decision(tool_name, tool_result)
@@ -378,6 +427,12 @@ class AgentLoop:
                             stop_reason="blocked_by_decision",
                             blocked_by_decision_id=blocking_id,
                         )
+
+                # --- Batch text-tool results as user message ---
+                if text_tool_mode and text_tool_results:
+                    from app.llm.text_tool_adapter import format_tool_results
+                    formatted = format_tool_results(text_tool_results)
+                    conversation.append(Message(role="user", content=formatted))
 
             # Max iterations exhausted
             return await self._stop(
