@@ -285,6 +285,28 @@ async def chat(
                 mapped.append(ct)
         context_types = mapped if mapped else body.context_type
 
+    # --- Scope negotiation: tell LLM about inactive scopes ---
+    unavailable = tool_registry.get_unavailable_scopes(
+        context_type=context_types,
+        permissions=permissions.permissions,
+    )
+    if unavailable:
+        lines = [
+            "## Scope Negotiation",
+            "The following scopes are NOT currently active but can be enabled by the user:",
+        ]
+        for scope_name, tools in sorted(unavailable.items()):
+            tool_list = ", ".join(tools[:5])
+            if len(tools) > 5:
+                tool_list += f", ... ({len(tools)} total)"
+            lines.append(f"- **{scope_name}**: unlocks {tool_list}")
+        lines.append(
+            "\nIf the user asks about entities from an inactive scope, explain which "
+            "scope is needed and include the marker [suggest-scope:SCOPENAME] in your "
+            "response so the UI can show a clickable button to enable it."
+        )
+        system_prompt += "\n\n" + "\n".join(lines)
+
     # --- Run agent loop ---
     loop = AgentLoop(
         provider=provider,

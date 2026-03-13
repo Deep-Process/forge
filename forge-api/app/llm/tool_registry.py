@@ -61,6 +61,7 @@ class ToolDef:
     required_permission: tuple[str, str] | None = None  # (module, action)
     context_types: list[str] = field(default_factory=lambda: ["global"])
     handler: Callable[..., Awaitable[dict]] | None = None
+    scope: str | None = None  # Frontend scope name (e.g., "tasks", "skills")
 
     def to_llm_definition(self) -> ToolDefinition:
         """Convert to core.llm.provider.ToolDefinition for LLM calls."""
@@ -175,7 +176,14 @@ class ToolRegistry:
                     "Permission denied for tool %s: requires %s.%s",
                     tool_name, module, action,
                 )
-                return {"error": f"Permission denied: {tool_name} requires {module}.{action}"}
+                result = {"error": f"Permission denied: {tool_name} requires {module}.{action}"}
+                if tool.scope:
+                    result["scope_suggestion"] = tool.scope
+                    result["suggestion"] = (
+                        f"The '{tool.scope}' scope needs to be enabled for this action. "
+                        f"Suggest the user enable it with [suggest-scope:{tool.scope}]."
+                    )
+                return result
 
         try:
             return await tool.handler(args=args, storage=storage, context=context or {})
@@ -194,6 +202,36 @@ class ToolRegistry:
             t.to_llm_definition()
             for t in self.get_tools(context_type, permissions, disabled_tools)
         ]
+
+    def get_unavailable_scopes(
+        self,
+        context_type: str | list[str] = "global",
+        permissions: dict[str, dict[str, bool]] | None = None,
+    ) -> dict[str, list[str]]:
+        """Get tools grouped by scope that are NOT available due to missing context type.
+
+        Returns {scope_name: [tool_names]} for scopes that would unlock new tools
+        if added to the active context.
+        """
+        if isinstance(context_type, str):
+            ctx_set = {context_type}
+        else:
+            ctx_set = set(context_type)
+
+        scope_tools: dict[str, list[str]] = {}
+        for tool in self._tools.values():
+            if not tool.scope:
+                continue
+            # Skip if tool IS available (global or matching context)
+            if "global" in tool.context_types or ctx_set.intersection(tool.context_types):
+                continue
+            # Skip if permission would block it anyway
+            if permissions and tool.required_permission:
+                module, action = tool.required_permission
+                if not permissions.get(module, {}).get(action, False):
+                    continue
+            scope_tools.setdefault(tool.scope, []).append(tool.name)
+        return scope_tools
 
 
 # ---------------------------------------------------------------------------
@@ -1600,6 +1638,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "write"),
         handler=_handle_update_skill_content,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1632,6 +1671,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "write"),
         handler=_handle_update_skill_metadata,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1649,6 +1689,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_run_skill_lint,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1667,6 +1708,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_get_other_skill,
+        scope="skills",
     ))
 
     # --- Skill file tools (multi-file support) ---
@@ -1700,6 +1742,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "write"),
         handler=_handle_add_skill_file,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1722,6 +1765,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "delete"),
         handler=_handle_remove_skill_file,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1739,6 +1783,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_list_skill_files,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1761,6 +1806,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_get_skill_file_content,
+        scope="skills",
     ))
 
     # --- Skill AC template + preview tools ---
@@ -1793,6 +1839,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_instantiate_ac_template,
+        scope="skills",
     ))
 
     registry.register(ToolDef(
@@ -1808,6 +1855,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["skill"],
         required_permission=("skills", "read"),
         handler=_handle_preview_skill,
+        scope="skills",
     ))
 
     # --- Task tools (WRITE) ---
@@ -1833,6 +1881,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["task", "global"],
         required_permission=("tasks", "write"),
         handler=_handle_create_task,
+        scope="tasks",
     ))
 
     registry.register(ToolDef(
@@ -1856,6 +1905,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["task"],
         required_permission=("tasks", "write"),
         handler=_handle_update_task,
+        scope="tasks",
     ))
 
     registry.register(ToolDef(
@@ -1873,6 +1923,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["task"],
         required_permission=("tasks", "write"),
         handler=_handle_complete_task,
+        scope="tasks",
     ))
 
     # --- Objective tools (WRITE) ---
@@ -1909,6 +1960,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["objective", "global"],
         required_permission=("objectives", "write"),
         handler=_handle_create_objective,
+        scope="objectives",
     ))
 
     registry.register(ToolDef(
@@ -1941,6 +1993,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["objective"],
         required_permission=("objectives", "write"),
         handler=_handle_update_objective,
+        scope="objectives",
     ))
 
     # --- Idea tools (WRITE) ---
@@ -1972,6 +2025,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["idea", "global"],
         required_permission=("ideas", "write"),
         handler=_handle_create_idea,
+        scope="ideas",
     ))
 
     registry.register(ToolDef(
@@ -2010,6 +2064,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["idea"],
         required_permission=("ideas", "write"),
         handler=_handle_update_idea,
+        scope="ideas",
     ))
 
     # --- Decision tools (WRITE) ---
@@ -2048,6 +2103,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["decision", "global"],
         required_permission=("decisions", "write"),
         handler=_handle_create_decision,
+        scope="decisions",
     ))
 
     registry.register(ToolDef(
@@ -2073,6 +2129,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["decision"],
         required_permission=("decisions", "write"),
         handler=_handle_update_decision,
+        scope="decisions",
     ))
 
     # --- Knowledge tools (WRITE) ---
@@ -2101,6 +2158,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["knowledge", "global"],
         required_permission=("knowledge", "write"),
         handler=_handle_create_knowledge,
+        scope="knowledge",
     ))
 
     registry.register(ToolDef(
@@ -2127,6 +2185,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["knowledge"],
         required_permission=("knowledge", "write"),
         handler=_handle_update_knowledge,
+        scope="knowledge",
     ))
 
     # --- Guideline tools (WRITE) ---
@@ -2150,6 +2209,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["guideline", "global"],
         required_permission=("guidelines", "write"),
         handler=_handle_create_guideline,
+        scope="guidelines",
     ))
 
     registry.register(ToolDef(
@@ -2172,6 +2232,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["guideline"],
         required_permission=("guidelines", "write"),
         handler=_handle_update_guideline,
+        scope="guidelines",
     ))
 
     # --- Lesson tools (WRITE) ---
@@ -2203,6 +2264,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["lesson", "global"],
         required_permission=("lessons", "write"),
         handler=_handle_create_lesson,
+        scope="lessons",
     ))
 
     # --- Change tools (WRITE) ---
@@ -2237,6 +2299,7 @@ def create_default_registry() -> ToolRegistry:
         context_types=["change", "global"],
         required_permission=("changes", "write"),
         handler=_handle_record_change,
+        scope="changes",
     ))
 
     return registry
