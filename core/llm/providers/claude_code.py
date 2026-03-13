@@ -35,6 +35,33 @@ logger = logging.getLogger(__name__)
 _IS_WINDOWS = platform.system() == "Windows"
 _MAX_SESSION_MAP_SIZE = 1000
 
+# Error classification patterns for stderr/stdout parsing
+_AUTH_PATTERNS = ("not logged in", "authentication", "unauthorized", "login required")
+_RATE_LIMIT_PATTERNS = ("rate limit", "too many requests", "overloaded", "429")
+
+
+def _classify_error(stderr: str, stdout: str, returncode: int) -> ProviderError:
+    """Classify subprocess error into specific ProviderError with actionable message."""
+    combined = (stderr + " " + stdout).lower()
+
+    if any(p in combined for p in _AUTH_PATTERNS):
+        return ProviderError(
+            "Claude Code not authenticated. "
+            "Run 'claude' interactively to log in with your Max subscription."
+        )
+
+    if any(p in combined for p in _RATE_LIMIT_PATTERNS):
+        return ProviderError(
+            "Claude Code rate limited. "
+            "Wait a moment before retrying, or reduce max_concurrent."
+        )
+
+    detail = stderr.strip() or stdout.strip()
+    return ProviderError(
+        f"Claude Code CLI exited with code {returncode}: "
+        f"{detail[:500] if detail else 'no output'}"
+    )
+
 
 async def _kill_process_tree(proc: asyncio.subprocess.Process) -> None:
     """Kill subprocess and its entire process tree.
@@ -223,12 +250,18 @@ class ClaudeCodeProvider:
         effective_timeout = timeout or self._timeout
 
         async with self._semaphore:
-            proc = await asyncio.create_subprocess_exec(
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=self._build_env(),
-            )
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=self._build_env(),
+                )
+            except FileNotFoundError:
+                raise ProviderError(
+                    f"Claude Code CLI binary not found at '{args[0]}'. "
+                    "Install it via: npm install -g @anthropic-ai/claude-code"
+                )
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     proc.communicate(),
@@ -330,10 +363,7 @@ class ClaudeCodeProvider:
                     pass
 
         if returncode != 0:
-            raise ProviderError(
-                f"Claude Code CLI exited with code {returncode}: "
-                f"{stderr.strip() or stdout.strip()}"
-            )
+            raise _classify_error(stderr, stdout, returncode)
 
         if stderr.strip():
             logger.debug("Claude Code stderr: %s", stderr.strip())
@@ -462,12 +492,18 @@ class ClaudeCodeProvider:
         proc = None
         try:
             async with self._semaphore:
-                proc = await asyncio.create_subprocess_exec(
-                    *args,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=self._build_env(),
-                )
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        *args,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=self._build_env(),
+                    )
+                except FileNotFoundError:
+                    raise ProviderError(
+                        f"Claude Code CLI binary not found at '{args[0]}'. "
+                        "Install it via: npm install -g @anthropic-ai/claude-code"
+                    )
 
                 yielded_content = False
                 async for raw_line in proc.stdout:
@@ -544,11 +580,8 @@ class ClaudeCodeProvider:
                         return
 
                     stderr_bytes = await proc.stderr.read()
-                    stderr = stderr_bytes.decode("utf-8", errors="replace").strip()
-                    raise ProviderError(
-                        f"Claude Code CLI stream exited with code {proc.returncode}: "
-                        f"{stderr}"
-                    )
+                    stderr = stderr_bytes.decode("utf-8", errors="replace")
+                    raise _classify_error(stderr, "", proc.returncode)
 
         except asyncio.CancelledError:
             if proc and proc.returncode is None:
@@ -600,10 +633,8 @@ class ClaudeCodeProvider:
         await proc.wait()
         if proc.returncode != 0:
             stderr_bytes = await proc.stderr.read()
-            stderr = stderr_bytes.decode("utf-8", errors="replace").strip()
-            raise ProviderError(
-                f"Claude Code CLI stream exited with code {proc.returncode}: {stderr}"
-            )
+            stderr = stderr_bytes.decode("utf-8", errors="replace")
+            raise _classify_error(stderr, "", proc.returncode)
 
     def capabilities(self) -> ProviderCapabilities:
         """Return capabilities for Claude Code provider.
@@ -627,6 +658,10 @@ class ClaudeCodeProvider:
             cost_per_1k_input=0.0,
             cost_per_1k_output=0.0,
         )
+
+    async def close(self) -> None:
+        """Clean up provider resources. Clears all session mappings."""
+        self._session_map.clear()
 
     async def list_models(self) -> list[dict[str, Any]]:
         """Return static list of models accessible via Claude Code CLI."""
