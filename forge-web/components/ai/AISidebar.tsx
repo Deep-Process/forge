@@ -177,6 +177,7 @@ function ScopesTab({
   annotationScopes,
   pageContextText,
   pageElements,
+  projectSlug,
 }: {
   activeScopes: string[];
   onAdd: (scope: string) => void;
@@ -195,10 +196,19 @@ function ScopesTab({
   pageContextText?: string;
   /** Page annotation elements — for deriving extra capabilities not in static registry. */
   pageElements?: AIElementDescriptor[];
+  /** Current project slug for app context preview. */
+  projectSlug?: string | null;
 }) {
   const [contextExpanded, setContextExpanded] = useState(false);
+  const [appContextExpanded, setAppContextExpanded] = useState(false);
   const activeSet = new Set(activeScopes);
   const disabledSet = new Set(disabledCapabilities);
+
+  // Fetch App Context preview (SKILL text) from backend
+  const { data: appContextData } = useSWR(
+    activeScopes.length > 0 ? ["app-context", ...activeScopes, projectSlug ?? ""] : null,
+    () => llm.getAppContext(activeScopes, projectSlug ?? undefined),
+  );
 
   // Fetch capabilities for active scopes from backend (dynamic)
   const { data: fetchedCaps } = useSWR(
@@ -246,6 +256,49 @@ function ScopesTab({
 
   return (
     <div className="px-3 py-2">
+      {/* App Context — SKILL-format system prompt the AI receives */}
+      {appContextData && (
+        <div className="mb-3 rounded-md bg-indigo-50 border border-indigo-200 px-2.5 py-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span className="text-xs font-medium text-indigo-700">App Context</span>
+            <span className="text-[10px] text-indigo-400 ml-auto">{appContextData.length} chars</span>
+          </div>
+          <div className="text-[11px] text-indigo-600">
+            SKILL-format system prompt with modules, tools, workflows
+          </div>
+          <div className="mt-1.5 border-t border-indigo-200 pt-1.5">
+            <button
+              onClick={() => setAppContextExpanded((v) => !v)}
+              className="flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-700"
+            >
+              <svg
+                className={`w-3 h-3 transition-transform ${appContextExpanded ? "rotate-90" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              AI sees (raw)
+            </button>
+            {appContextExpanded && (
+              <div className="mt-1 relative">
+                <button
+                  onClick={() => navigator.clipboard.writeText(appContextData.text)}
+                  className="absolute top-1 right-1 text-[9px] text-gray-400 hover:text-indigo-600 bg-white/80 px-1.5 py-0.5 rounded border"
+                >
+                  Copy
+                </button>
+                <pre className="text-[10px] text-gray-600 bg-white/60 border rounded p-2 max-h-64 overflow-auto whitespace-pre-wrap font-mono leading-relaxed">
+                  {appContextData.text}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Page Context — what AI sees from annotations */}
       {pageTitle && (
         <div className="mb-3 rounded-md bg-forge-50 border border-forge-200 px-2.5 py-2">
@@ -705,6 +758,7 @@ export default function AISidebar() {
             annotationScopes={annotationScopes}
             pageContextText={pageContextText}
             pageElements={pageSnapshot ? Array.from(pageSnapshot.elements.values()) : undefined}
+            projectSlug={projectSlug}
           />
         )}
 

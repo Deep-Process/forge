@@ -185,6 +185,40 @@ async def list_pages(request: Request):
 
 
 # ---------------------------------------------------------------------------
+# App Context preview — shows what the LLM system prompt looks like
+# ---------------------------------------------------------------------------
+
+
+@router.get("/app-context")
+async def get_app_context(
+    request: Request,
+    scopes: str | None = None,
+    project: str | None = None,
+    config=Depends(get_llm_config),
+    tool_registry=Depends(get_tool_registry),
+):
+    """Preview the App Context SKILL that gets injected into the LLM system prompt.
+
+    Used by the frontend Scopes tab to show what the AI actually sees.
+    """
+    from app.llm.app_context_builder import AppContextBuilder
+
+    active_scopes = [s.strip() for s in scopes.split(",") if s.strip()] if scopes else []
+
+    builder = AppContextBuilder(
+        tool_registry=tool_registry,
+        page_registry=request.app.state.page_registry,
+        custom_text=config.custom_app_context if hasattr(config, "custom_app_context") else "",
+    )
+    text = builder.build(
+        active_scopes=active_scopes or None,
+        project_slug=project or None,
+    )
+
+    return {"text": text, "length": len(text), "scopes": active_scopes}
+
+
+# ---------------------------------------------------------------------------
 # Chat endpoint
 # ---------------------------------------------------------------------------
 

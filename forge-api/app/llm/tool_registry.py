@@ -11,7 +11,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Awaitable
+from typing import Any, Callable, Awaitable, ClassVar
 
 from core.llm.provider import ToolDefinition
 
@@ -256,11 +256,47 @@ class ToolRegistry:
             "context_types": tool.context_types,
         }
 
+    # Scope label for generic tool expansion (entity_type → scope)
+    _ENTITY_TYPE_TO_SCOPE: ClassVar[dict[str, str]] = {
+        "task": "tasks",
+        "decision": "decisions",
+        "objective": "objectives",
+        "idea": "ideas",
+        "knowledge": "knowledge",
+        "guideline": "guidelines",
+        "lesson": "lessons",
+        "change": "changes",
+        "ac_template": "ac_templates",
+        "research": "research",
+        "skill": "skills",
+        "project": "projects",
+    }
+
+    # Human labels for entity types
+    _ENTITY_LABELS: ClassVar[dict[str, str]] = {
+        "task": "tasks",
+        "decision": "decisions",
+        "objective": "objectives",
+        "idea": "ideas",
+        "knowledge": "knowledge",
+        "guideline": "guidelines",
+        "lesson": "lessons",
+        "change": "changes",
+        "ac_template": "AC templates",
+        "research": "research",
+        "skill": "skills",
+        "project": "projects",
+    }
+
     def get_contracts(
         self,
         scopes: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Return all tool contracts, optionally filtered by scope.
+
+        Generic tools (searchEntities, listEntities, getEntity) are expanded
+        into per-scope virtual entries so that each scope shows its full
+        list/search/get capabilities alongside create/update/delete.
 
         Args:
             scopes: If provided, only return tools whose scope is in this list
@@ -271,9 +307,26 @@ class ToolRegistry:
         """
         scope_set = set(scopes) if scopes else None
         result: list[dict[str, Any]] = []
+        generic_tools: list[ToolDef] = []
+
+        # Collect all scopes that have at least one scoped tool
+        all_scopes_with_tools: set[str] = set()
+        for tool in self._tools.values():
+            if tool.scope:
+                all_scopes_with_tools.add(tool.scope)
 
         for tool in self._tools.values():
             tool_scope = tool.scope or "global"
+
+            # Collect generic tools for expansion later
+            if tool.name in ("searchEntities", "listEntities", "getEntity"):
+                generic_tools.append(tool)
+                continue
+
+            # Skip meta-tools from contract listing
+            if tool.name in ("listAvailableTools", "getToolContract"):
+                continue
+
             if scope_set is not None and tool_scope != "global" and tool_scope not in scope_set:
                 continue
 
@@ -292,6 +345,34 @@ class ToolRegistry:
                     if tool.required_permission else None
                 ),
             })
+
+        # Expand generic tools into per-scope virtual entries
+        for tool in generic_tools:
+            for entity_type, scope_name in self._ENTITY_TYPE_TO_SCOPE.items():
+                # Only expand into scopes that have at least one scoped tool
+                if scope_name not in all_scopes_with_tools:
+                    continue
+                if scope_set is not None and scope_name not in scope_set:
+                    continue
+
+                label = self._ENTITY_LABELS.get(entity_type, entity_type)
+                if tool.name == "searchEntities":
+                    desc = f"Search {label} by text query"
+                elif tool.name == "listEntities":
+                    desc = f"List all {label} with optional filters"
+                else:  # getEntity
+                    desc = f"Get {entity_type} details by ID"
+
+                result.append({
+                    "name": tool.name,
+                    "description": desc,
+                    "scope": scope_name,
+                    "action": "read",
+                    "parameters": tool.parameters,
+                    "required_permission": None,
+                    "virtual": True,  # Marks this as a virtual per-scope expansion
+                    "entity_type": entity_type,
+                })
 
         return sorted(result, key=lambda c: (c["scope"] or "", c["name"]))
 

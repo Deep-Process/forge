@@ -645,6 +645,16 @@ export const llm = {
     create<{ registered: boolean; id: string }>("/llm/pages/register", page),
   getPages: () =>
     get<{ pages: Array<{ id: string; title: string; description: string; route: string; last_seen: string }>; count: number }>("/llm/pages"),
+  // App Context preview
+  getAppContext: (scopes?: string[], project?: string) => {
+    const params = new URLSearchParams();
+    if (scopes?.length) params.set("scopes", scopes.join(","));
+    if (project) params.set("project", project);
+    const qs = params.toString();
+    return get<{ text: string; length: number; scopes: string[] }>(
+      "/llm/app-context" + (qs ? `?${qs}` : ""),
+    );
+  },
 };
 
 // -- Debug Monitor --
