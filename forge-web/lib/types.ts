@@ -974,6 +974,7 @@ export interface DebugStatus {
 export type ChatRole = "user" | "assistant" | "system" | "tool";
 
 export interface ChatToolCall {
+  id?: string;
   name: string;
   input: Record<string, unknown>;
   result?: Record<string, unknown>;

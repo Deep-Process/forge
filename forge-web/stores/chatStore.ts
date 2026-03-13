@@ -285,6 +285,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       case "chat.tool_call": {
         const p = payload as Record<string, unknown>;
         state.addToolCall(sessionId, {
+          id: p.id as string | undefined,
           name: p.name as string,
           input: p.input as Record<string, unknown>,
         });
@@ -292,7 +293,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       }
       case "chat.tool_result": {
         const p = payload as Record<string, unknown>;
-        // Update the last tool call with its result
+        // Update the matching tool call with its result (prefer id match, fallback to name)
         set((s) => {
           const conv = s.conversations[sessionId];
           if (!conv) return s;
@@ -300,7 +301,10 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
           const lastMsg = messages[messages.length - 1];
           if (lastMsg?.role === "assistant" && lastMsg.toolCalls) {
             const toolCalls = [...lastMsg.toolCalls];
-            const idx = toolCalls.findIndex((tc) => tc.name === p.name);
+            const resultId = p.id as string | undefined;
+            const idx = resultId
+              ? toolCalls.findIndex((tc) => tc.id === resultId)
+              : toolCalls.findIndex((tc) => tc.name === p.name && !tc.result);
             if (idx >= 0) {
               toolCalls[idx] = { ...toolCalls[idx], result: p.result as Record<string, unknown> };
               messages[messages.length - 1] = { ...lastMsg, toolCalls };
