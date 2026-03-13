@@ -87,6 +87,8 @@ export interface ScopeResolverResult {
   projectSlug: string | null;
   /** Scopes mapped to backend context_types. */
   contextTypes: string[];
+  /** Entity ID extracted from detail page routes (e.g., "T-001"), or null. */
+  contextId: string | null;
 }
 
 interface ScopeResolverOptions {
@@ -117,6 +119,7 @@ export function resolveScopes(
 ): ScopeResolverResult {
   let autoScopes: string[] = ["dashboard"];
   let projectSlug: string | null = null;
+  let contextId: string | null = null;
 
   for (const rule of ROUTE_RULES) {
     const match = pathname.match(rule.pattern);
@@ -124,6 +127,10 @@ export function resolveScopes(
       autoScopes = rule.scopes;
       if (rule.hasProject && match[1]) {
         projectSlug = match[1];
+        // Detail pages have entity ID in capture group 2
+        if (match[2]) {
+          contextId = match[2];
+        }
       }
       break;
     }
@@ -148,5 +155,6 @@ export function resolveScopes(
     primaryScope: scopes[0],
     projectSlug,
     contextTypes,
+    contextId,
   };
 }

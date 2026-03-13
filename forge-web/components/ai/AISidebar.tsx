@@ -423,7 +423,7 @@ export default function AISidebar() {
   }, [hydrate]);
 
   // Resolve scopes from URL + overrides
-  const { scopes: urlScopes, projectSlug, contextTypes } = useScopeResolver({
+  const { scopes: urlScopes, projectSlug, contextTypes, contextId: resolvedContextId } = useScopeResolver({
     addedScopes,
     removedScopes,
   });
@@ -480,7 +480,7 @@ export default function AISidebar() {
           <div className="flex flex-col flex-1 min-h-0">
             <LLMChat
               contextType={primaryContextType}
-              contextId=""
+              contextId={resolvedContextId ?? ""}
               slug={projectSlug ?? ""}
               embedded
               scopes={scopes}
