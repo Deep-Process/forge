@@ -11,11 +11,12 @@ import type { AIElementDescriptor } from "./types";
  *   /settings/llm                → "settings"
  */
 export function deriveScopesFromElements(
-  elements: Iterable<AIElementDescriptor>,
+  elements: Iterable<AIElementDescriptor> | AIElementDescriptor[],
 ): string[] {
   const scopes = new Set<string>();
+  const arr = Array.isArray(elements) ? elements : Array.from(elements);
 
-  for (const el of elements) {
+  for (const el of arr) {
     if (!el.actions) continue;
     for (const action of el.actions) {
       if (!action.endpoint) continue;

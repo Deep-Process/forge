@@ -40,7 +40,8 @@ export function serializePageContext(
   // Elements
   if (snapshot.elements.size > 0) {
     lines.push("Elements:");
-    for (const el of snapshot.elements.values()) {
+    const elements = Array.from(snapshot.elements.values());
+    for (const el of elements) {
       lines.push(...serializeElement(el, maxItems));
     }
   }

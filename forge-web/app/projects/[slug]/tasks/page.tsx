@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEntityData } from "@/hooks/useEntityData";
 import { useTaskStore, updateTask as updateTaskAction } from "@/stores/taskStore";
@@ -8,6 +8,7 @@ import { TaskCard } from "@/components/entities/TaskCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { SuggestionPanel } from "@/components/ai/SuggestionPanel";
 import { TaskForm } from "@/components/forms/TaskForm";
+import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Task } from "@/lib/types";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED", "CLAIMING"];
@@ -26,6 +27,107 @@ export default function TasksPage() {
   const filtered = statusFilter
     ? tasks.filter((t) => t.status === statusFilter)
     : tasks;
+
+  // ---------------------------------------------------------------------------
+  // AI Annotations
+  // ---------------------------------------------------------------------------
+
+  useAIPage({
+    id: "tasks",
+    title: `Tasks (${count})`,
+    description: `Task list for project ${slug}`,
+    route: `/projects/${slug}/tasks`,
+  });
+
+  // Status distribution for AI context
+  const statusDist = useMemo(() => {
+    const dist: Record<string, number> = {};
+    for (const t of tasks) {
+      dist[t.status] = (dist[t.status] ?? 0) + 1;
+    }
+    return dist;
+  }, [tasks]);
+
+  useAIElement({
+    id: "status-filter",
+    type: "filter",
+    label: "Status Filter",
+    value: statusFilter || "All",
+    actions: [{ label: "Filter", description: "Filter tasks by status" }],
+  });
+
+  useAIElement({
+    id: "task-list",
+    type: "list",
+    label: "Tasks",
+    description: `${filtered.length} shown of ${count} total`,
+    data: {
+      count,
+      filtered: filtered.length,
+      statuses: statusDist,
+    },
+    actions: [
+      {
+        label: "Start",
+        endpoint: `/projects/{slug}/tasks/{id}`,
+        method: "PATCH",
+        availableWhen: "status = TODO",
+      },
+      {
+        label: "Skip",
+        endpoint: `/projects/{slug}/tasks/{id}`,
+        method: "PATCH",
+        availableWhen: "status = TODO",
+      },
+      {
+        label: "Done",
+        endpoint: `/projects/{slug}/tasks/{id}`,
+        method: "PATCH",
+        availableWhen: "status = IN_PROGRESS",
+      },
+      {
+        label: "Fail",
+        endpoint: `/projects/{slug}/tasks/{id}`,
+        method: "PATCH",
+        availableWhen: "status = IN_PROGRESS",
+      },
+      {
+        label: "Retry",
+        endpoint: `/projects/{slug}/tasks/{id}`,
+        method: "PATCH",
+        availableWhen: "status = FAILED",
+      },
+      {
+        label: "Create",
+        endpoint: `/projects/{slug}/tasks`,
+        method: "POST",
+      },
+    ],
+  });
+
+  useAIElement({
+    id: "task-form",
+    type: "form",
+    label: "Task Form",
+    value: formOpen,
+    description: formOpen ? `open (${editingTask ? `editing ${editingTask.id}` : "creating"})` : "closed",
+    data: {
+      fields: ["name*", "description", "instruction", "type*", "scopes", "skill_id", "acceptance_criteria", "depends_on"],
+    },
+    actions: [
+      {
+        label: editingTask ? "Update" : "Create",
+        endpoint: editingTask
+          ? `/projects/{slug}/tasks/${editingTask.id}`
+          : `/projects/{slug}/tasks`,
+        method: editingTask ? "PATCH" : "POST",
+      },
+    ],
+  });
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleStatusChange = (id: string, status: string) => {
     updateTaskAction(slug, id, { status: status as Task["status"] });
