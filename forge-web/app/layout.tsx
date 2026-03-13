@@ -8,6 +8,7 @@ import { SWRProvider } from "@/lib/swr-config";
 import { ToastContainer } from "@/components/shared/ToastContainer";
 import { DebugInit } from "@/components/debug/DebugInit";
 import { BottomPanel } from "@/components/debug/BottomPanel";
+import { AIPageProvider } from "@/lib/ai-context";
 
 export const metadata: Metadata = {
   title: "Forge Platform",
@@ -24,16 +25,18 @@ export default function RootLayout({
       <body className="flex flex-col h-screen overflow-hidden">
         <SWRProvider>
           <DebugInit />
-          <TopNavBar />
-          <LeftPanelProvider>
-            <div className="flex flex-1 overflow-hidden">
-              <LeftPanel />
-              <main className="flex-1 overflow-y-auto">{children}</main>
-              <AISidebarShell />
-            </div>
-          </LeftPanelProvider>
-          <ToastContainer />
-          <BottomPanel />
+          <AIPageProvider>
+            <TopNavBar />
+            <LeftPanelProvider>
+              <div className="flex flex-1 overflow-hidden">
+                <LeftPanel />
+                <main className="flex-1 overflow-y-auto">{children}</main>
+                <AISidebarShell />
+              </div>
+            </LeftPanelProvider>
+            <ToastContainer />
+            <BottomPanel />
+          </AIPageProvider>
         </SWRProvider>
       </body>
     </html>
