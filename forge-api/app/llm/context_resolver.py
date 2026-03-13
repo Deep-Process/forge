@@ -465,6 +465,7 @@ async def _resolve_global(
             "**Guidelines**: createGuideline, updateGuideline\n"
             "**Lessons**: createLesson\n"
             "**Changes**: recordChange\n"
+            "**Verification**: runGates, getProjectStatus\n"
             "**Skills**: updateSkillContent, updateSkillMetadata, runSkillLint, "
             "addSkillFile, removeSkillFile, listSkillFiles, getSkillFileContent, previewSkill\n\n"
             "## Rules\n"

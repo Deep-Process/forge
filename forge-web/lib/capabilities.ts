@@ -658,6 +658,29 @@ export const CAPABILITY_CONTRACTS: Record<string, CapabilityDef[]> = {
     },
   ],
 
+  // ========== VERIFICATION ==========
+  verification: [
+    {
+      id: "verification-gates", label: "Run gates", description: "Execute configured gates (tests, lint, secrets) for a task",
+      action: "WRITE", scope: "verification", toolName: "runGates", available: true,
+      contract: {
+        params: [
+          { name: "task_id", type: "string", required: false, description: "Task ID to store results on" },
+          P_PROJECT,
+        ],
+        returns: "Gate results: all_passed, required_failed, per-gate pass/fail with output snippets",
+      },
+    },
+    {
+      id: "verification-status", label: "Project status", description: "Full pipeline dashboard with blocked tasks and progress",
+      action: "READ", scope: "verification", toolName: "getProjectStatus", available: true,
+      contract: {
+        params: [P_PROJECT],
+        returns: "Task counts by status, blocked tasks with reasons, project goal, draft plan info",
+      },
+    },
+  ],
+
   // ========== DASHBOARD ==========
   dashboard: [
     {

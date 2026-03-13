@@ -1827,6 +1827,138 @@ async def _handle_get_task_context(
 
 
 # ---------------------------------------------------------------------------
+# Verification tools (gates + status)
+# ---------------------------------------------------------------------------
+
+async def _handle_run_gates(
+    args: dict[str, Any], storage: Any, context: dict[str, Any],
+) -> dict[str, Any]:
+    """Run configured gates (tests, lint, etc.) for a task."""
+    project = args.get("project") or context.get("project")
+    if not project:
+        return {"error": "project is required"}
+    err = _validate_project_slug(project)
+    if err:
+        return {"error": err}
+    task_id = args.get("task_id", "")
+
+    tracker = await asyncio.to_thread(storage.load_data, project, "tracker")
+    gates = tracker.get("gates", [])
+
+    if not gates:
+        return {"message": f"No gates configured for '{project}'", "results": [], "all_passed": True}
+
+    results: list[dict[str, Any]] = []
+    all_passed = True
+    required_failed = False
+
+    for g in gates:
+        name = g.get("name", "")
+        command = g.get("command", "")
+        required = g.get("required", True)
+
+        try:
+            proc = await asyncio.wait_for(
+                asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                ),
+                timeout=5,  # 5s to start
+            )
+            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=120)
+            passed = proc.returncode == 0
+            output = (stderr_b or stdout_b or b"").decode("utf-8", errors="replace")[:500]
+        except asyncio.TimeoutError:
+            passed = False
+            output = "Timed out after 120s"
+        except Exception as e:
+            passed = False
+            output = str(e)[:500]
+
+        if not passed:
+            all_passed = False
+            if required:
+                required_failed = True
+
+        results.append({
+            "name": name,
+            "passed": passed,
+            "required": required,
+            "output": output if not passed else "",
+        })
+
+    # Store results on task
+    if task_id:
+        for task in tracker.get("tasks", []):
+            if task.get("id") == task_id:
+                task["gate_results"] = {
+                    "timestamp": _now_iso(),
+                    "all_passed": all_passed,
+                    "results": [{"name": r["name"], "passed": r["passed"]} for r in results],
+                }
+                break
+        await asyncio.to_thread(storage.save_data, project, "tracker", tracker)
+
+    return {
+        "all_passed": all_passed,
+        "required_failed": required_failed,
+        "results": results,
+    }
+
+
+async def _handle_get_project_status(
+    args: dict[str, Any], storage: Any, context: dict[str, Any],
+) -> dict[str, Any]:
+    """Get full project status: task counts, blocked tasks, progress summary."""
+    project = args.get("project") or context.get("project")
+    if not project:
+        return {"error": "project is required"}
+    err = _validate_project_slug(project)
+    if err:
+        return {"error": err}
+
+    tracker = await asyncio.to_thread(storage.load_data, project, "tracker")
+    tasks = tracker.get("tasks", [])
+
+    # Status counts
+    status_counts: dict[str, int] = {}
+    for t in tasks:
+        status = t.get("status", "UNKNOWN")
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    # Blocked tasks (deps not met or blocked by open decisions)
+    done_ids = {t["id"] for t in tasks if t.get("status") == "DONE"}
+    blocked: list[dict[str, str]] = []
+    for t in tasks:
+        if t.get("status") != "TODO":
+            continue
+        unmet_deps = [d for d in t.get("depends_on", []) if d not in done_ids]
+        open_decisions = t.get("blocked_by_decisions", [])
+        if unmet_deps or open_decisions:
+            reasons = []
+            if unmet_deps:
+                reasons.append(f"deps: {', '.join(unmet_deps)}")
+            if open_decisions:
+                reasons.append(f"decisions: {', '.join(open_decisions)}")
+            blocked.append({"id": t["id"], "name": t.get("name", ""), "reason": "; ".join(reasons)})
+
+    # Draft plan info
+    draft = tracker.get("draft_plan")
+    has_draft = bool(draft and draft.get("tasks"))
+
+    return {
+        "project": project,
+        "goal": tracker.get("goal", ""),
+        "task_count": len(tasks),
+        "status_counts": status_counts,
+        "blocked_tasks": blocked[:20],
+        "has_draft_plan": has_draft,
+        "draft_task_count": len(draft["tasks"]) if has_draft else 0,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Default registry factory
 # ---------------------------------------------------------------------------
 
@@ -2723,6 +2855,44 @@ def create_default_registry() -> ToolRegistry:
         required_permission=("tasks", "write"),
         handler=_handle_approve_plan,
         scope="tasks",
+    ))
+
+    # --- Verification tools ---
+
+    registry.register(ToolDef(
+        name="runGates",
+        description=(
+            "Run configured gates (tests, lint, secret scanning, etc.) for a task. "
+            "Returns pass/fail per gate with error output snippets on failure."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task ID to run gates for (results stored on task)."},
+                "project": {"type": "string", "description": "Project slug."},
+            },
+        },
+        context_types=["task", "global"],
+        required_permission=("tasks", "write"),
+        handler=_handle_run_gates,
+        scope="tasks",
+    ))
+
+    registry.register(ToolDef(
+        name="getProjectStatus",
+        description=(
+            "Get full pipeline status: task counts by status, blocked tasks with reasons, "
+            "project goal, and draft plan info."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "project": {"type": "string", "description": "Project slug."},
+            },
+        },
+        context_types=["global"],
+        required_permission=None,  # read-only
+        handler=_handle_get_project_status,
     ))
 
     return registry
