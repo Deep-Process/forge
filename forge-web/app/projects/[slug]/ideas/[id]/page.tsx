@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ideas as ideasApi, objectives as objectivesApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
+import { useChatStore } from "@/stores/chatStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import type { Idea, Decision, Objective } from "@/lib/types";
 
 const STATUS_TRANSITIONS: Record<string, Array<{ label: string; target: string; className: string }>> = {
@@ -84,6 +86,16 @@ export default function IdeaDetailPage() {
     }
   };
 
+  const launchResearchSession = () => {
+    useChatStore.getState().startConversation("idea", id, slug);
+    useChatStore.getState().setPendingSessionMeta({
+      sessionType: "chat",
+      targetEntityType: "idea",
+      targetEntityId: id,
+    });
+    useSidebarStore.getState().setActiveTab("chat");
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading idea...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!idea) return <p className="text-sm text-gray-400">Idea not found</p>;
@@ -119,20 +131,24 @@ export default function IdeaDetailPage() {
               </Link>
             )}
           </div>
-          {transitions.length > 0 && (
-            <div className="flex gap-2">
-              {transitions.map((t) => (
-                <button
-                  key={t.target}
-                  onClick={() => handleStatusChange(t.target)}
-                  disabled={statusUpdating}
-                  className={`px-3 py-1.5 text-xs text-white rounded-md disabled:opacity-50 ${t.className}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex gap-2">
+            <button
+              onClick={launchResearchSession}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
+            >
+              Research with AI
+            </button>
+            {transitions.map((t) => (
+              <button
+                key={t.target}
+                onClick={() => handleStatusChange(t.target)}
+                disabled={statusUpdating}
+                className={`px-3 py-1.5 text-xs text-white rounded-md disabled:opacity-50 ${t.className}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         {idea.scopes?.length > 0 && (
           <div className="flex gap-1 mt-2">

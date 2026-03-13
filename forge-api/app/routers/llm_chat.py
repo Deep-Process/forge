@@ -108,6 +108,8 @@ class ChatRequest(BaseModel):
     file_ids: list[str] | None = Field(default=None, description="Uploaded file IDs to include as context")
     page_context: str | None = Field(default=None, max_length=8000, description="Serialized UI page context from AI annotations")
     session_type: str | None = Field(default=None, description="Session type: chat, plan, execute, verify, compound")
+    target_entity_type: str | None = Field(default=None, description="Entity type being worked on (objective, task, idea)")
+    target_entity_id: str | None = Field(default=None, description="Target entity ID (e.g., O-001, T-003)")
 
 
 class ChatResponse(BaseModel):
@@ -200,6 +202,8 @@ async def chat(
             project=body.project,
             model=model,
             session_type=body.session_type or "chat",
+            target_entity_type=body.target_entity_type or "",
+            target_entity_id=body.target_entity_id or "",
         )
 
     # --- Inject uploaded file content into user message ---

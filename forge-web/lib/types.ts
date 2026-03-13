@@ -1038,6 +1038,9 @@ export interface ChatSendRequest {
   disabled_capabilities?: string[];
   file_ids?: string[];
   page_context?: string;
+  session_type?: string;
+  target_entity_type?: string;
+  target_entity_id?: string;
 }
 
 export interface ChatSendResponse {

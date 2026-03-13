@@ -6,6 +6,8 @@ import Link from "next/link";
 import { tasks as tasksApi, decisions as decisionsApi, changes as changesApi, guidelines as guidelinesApi, knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
+import { useChatStore } from "@/stores/chatStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import type { Task, Decision, ChangeRecord, TaskContext, ContextSection, Guideline, Knowledge } from "@/lib/types";
 
 type Tab = "overview" | "dependencies" | "decisions" | "changes" | "context";
@@ -98,6 +100,16 @@ export default function TaskDetailPage() {
     fetchRelated();
   }, [task, tab, slug, id, depTasks.length, linkedDecisions.length, taskChanges.length, taskContext, scopedGuidelines]);
 
+  const launchSession = (sessionType: string) => {
+    useChatStore.getState().startConversation("task", id, slug);
+    useChatStore.getState().setPendingSessionMeta({
+      sessionType,
+      targetEntityType: "task",
+      targetEntityId: id,
+    });
+    useSidebarStore.getState().setActiveTab("chat");
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading task...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!task) return <p className="text-sm text-gray-400">Task not found</p>;
@@ -119,10 +131,26 @@ export default function TaskDetailPage() {
             </div>
             <h1 className="text-xl font-bold">{task.name}</h1>
           </div>
-          <div className="text-xs text-gray-400 text-right">
-            {task.started_at && <div>Started: {new Date(task.started_at).toLocaleDateString()}</div>}
-            {task.completed_at && <div>Completed: {new Date(task.completed_at).toLocaleDateString()}</div>}
-            {task.agent && <div>Agent: {task.agent}</div>}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => launchSession("execute")}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+              >
+                Execute with AI
+              </button>
+              <button
+                onClick={() => launchSession("verify")}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700"
+              >
+                Verify with AI
+              </button>
+            </div>
+            <div className="text-xs text-gray-400 text-right">
+              {task.started_at && <div>Started: {new Date(task.started_at).toLocaleDateString()}</div>}
+              {task.completed_at && <div>Completed: {new Date(task.completed_at).toLocaleDateString()}</div>}
+              {task.agent && <div>Agent: {task.agent}</div>}
+            </div>
           </div>
         </div>
         {task.scopes.length > 0 && (

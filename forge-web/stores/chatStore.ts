@@ -49,6 +49,13 @@ export interface ChatSessionSummary {
   snippet?: string;
 }
 
+/** Metadata for the next session to be created (consumed on first sendMessage). */
+export interface PendingSessionMeta {
+  sessionType: string;
+  targetEntityType?: string;
+  targetEntityId?: string;
+}
+
 interface ChatState {
   /** All active conversations keyed by session ID. */
   conversations: Record<string, ChatConversation>;
@@ -62,6 +69,8 @@ interface ChatState {
   sessionList: ChatSessionSummary[];
   /** True while loading session list. */
   sessionsLoading: boolean;
+  /** Metadata for next new session (consumed on first sendMessage). */
+  pendingSessionMeta: PendingSessionMeta | null;
 }
 
 interface ChatActions {
@@ -76,6 +85,9 @@ interface ChatActions {
     disabledCapabilities?: string[],
     fileIds?: string[],
     pageContext?: string,
+    sessionType?: string,
+    targetEntityType?: string,
+    targetEntityId?: string,
   ) => Promise<ChatSendResponse | null>;
   /** Start a new conversation (clears active session). */
   startConversation: (contextType: string, contextId: string, project?: string) => void;
@@ -103,6 +115,8 @@ interface ChatActions {
   deleteSession: (sessionId: string) => Promise<void>;
   /** Search sessions by query string. */
   searchSessions: (query: string) => Promise<void>;
+  /** Set metadata for the next new session (consumed on first sendMessage). */
+  setPendingSessionMeta: (meta: PendingSessionMeta | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,10 +160,20 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   error: null,
   sessionList: [],
   sessionsLoading: false,
+  pendingSessionMeta: null,
 
-  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null, scopes, disabledCapabilities, fileIds, pageContext) => {
+  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId) => {
     const state = get();
     const sessionId = state.activeSessionId;
+
+    // Auto-consume pending session meta for new sessions
+    const meta = state.pendingSessionMeta;
+    if (!sessionId && meta) {
+      if (!sessionType) sessionType = meta.sessionType;
+      if (!targetEntityType) targetEntityType = meta.targetEntityType;
+      if (!targetEntityId) targetEntityId = meta.targetEntityId;
+      set({ pendingSessionMeta: null });
+    }
 
     // Add user message to UI immediately (optimistic)
     const userMsg: ChatMessage = {
@@ -197,6 +221,9 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
         disabled_capabilities: disabledCapabilities,
         file_ids: fileIds,
         page_context: pageContext,
+        session_type: sessionType,
+        target_entity_type: targetEntityType,
+        target_entity_id: targetEntityId,
       });
 
       // Update conversation with real session ID and response
@@ -486,5 +513,9 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     } catch (e) {
       set({ sessionsLoading: false, error: e instanceof Error ? e.message : "Search failed" });
     }
+  },
+
+  setPendingSessionMeta: (meta) => {
+    set({ pendingSessionMeta: meta });
   },
 }));

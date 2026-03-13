@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { objectives as objectivesApi, ideas as ideasApi, guidelines as guidelinesApi, knowledge as knowledgeApi, tasks as tasksApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { useChatStore } from "@/stores/chatStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import type { Objective, Idea, Guideline, Task, KeyResult, ObjectiveRelation, ObjectiveStatus } from "@/lib/types";
 
 const KR_STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "ACHIEVED"] as const;
@@ -226,6 +228,16 @@ export default function ObjectiveDetailPage() {
     }
   };
 
+  const launchPlanSession = () => {
+    useChatStore.getState().startConversation("objective", id, slug);
+    useChatStore.getState().setPendingSessionMeta({
+      sessionType: "plan",
+      targetEntityType: "objective",
+      targetEntityId: id,
+    });
+    useSidebarStore.getState().setActiveTab("chat");
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading objective...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!objective) return <p className="text-sm text-gray-400">Objective not found</p>;
@@ -283,6 +295,15 @@ export default function ObjectiveDetailPage() {
             <Badge variant="info">{objective.scope}</Badge>
           </div>
 
+          <div className="flex items-center gap-2">
+          {/* AI session launch */}
+          <button
+            onClick={launchPlanSession}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            Plan with AI
+          </button>
+
           {/* Actions dropdown */}
           <div className="relative" ref={menuRef}>
             <button
@@ -309,6 +330,7 @@ export default function ObjectiveDetailPage() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </div>
         <h1 className="text-xl font-bold">{objective.title}</h1>
