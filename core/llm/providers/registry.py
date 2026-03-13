@@ -86,7 +86,7 @@ def _create_provider(name: str, config: dict[str, Any], ui_keys: dict[str, str] 
             )
         return AnthropicProvider(
             api_key=api_key,
-            model=config.get("model", "claude-sonnet-4-20250514"),
+            model=config.get("model", "claude-sonnet-4-6"),
             base_url=config.get("base_url"),
         )
 

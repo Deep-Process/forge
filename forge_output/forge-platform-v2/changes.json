@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T00:10:24Z",
+  "updated": "2026-03-13T00:19:09Z",
   "changes": [
     {
       "id": "C-143",
@@ -6564,6 +6564,405 @@
       "group_id": "T-173",
       "guidelines_checked": [],
       "timestamp": "2026-03-13T00:10:24Z"
+    },
+    {
+      "id": "C-345",
+      "task_id": "T-174",
+      "file": "config/providers.toml",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-346",
+      "task_id": "T-174",
+      "file": "core/llm/providers/anthropic.py",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 47,
+      "lines_removed": 12,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-347",
+      "task_id": "T-174",
+      "file": "core/llm/providers/registry.py",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-348",
+      "task_id": "T-174",
+      "file": "forge-api/pyproject.toml",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-349",
+      "task_id": "T-174",
+      "file": "forge-web/lib/manifest/index.ts",
+      "action": "delete",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 2,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-350",
+      "task_id": "T-174",
+      "file": "forge-web/lib/manifest/pages/task-list.manifest.ts",
+      "action": "delete",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 341,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-351",
+      "task_id": "T-174",
+      "file": "forge-web/lib/manifest/serializer.ts",
+      "action": "delete",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 498,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-352",
+      "task_id": "T-174",
+      "file": "forge-web/lib/manifest/types.ts",
+      "action": "delete",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 0,
+      "lines_removed": 693,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-353",
+      "task_id": "T-174",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-354",
+      "task_id": "T-174",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1730,
+      "lines_removed": 1,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-355",
+      "task_id": "T-174",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Deleted old manifest system (lib/manifest/ with types, serializer, task-list manifest, barrel). components/manifest/ was untracked, already removed. No external imports existed — all references were self-contained. TypeScript compiles clean, all 42 ai-context tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 321,
+      "lines_removed": 272,
+      "group_id": "T-174",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:14:01Z"
+    },
+    {
+      "id": "C-356",
+      "task_id": "T-175",
+      "file": "config/providers.toml",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-357",
+      "task_id": "T-175",
+      "file": "core/llm/providers/anthropic.py",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 47,
+      "lines_removed": 12,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-358",
+      "task_id": "T-175",
+      "file": "core/llm/providers/registry.py",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-359",
+      "task_id": "T-175",
+      "file": "forge-api/pyproject.toml",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-360",
+      "task_id": "T-175",
+      "file": "forge-web/app/projects/[slug]/decisions/page.tsx",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 66,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-361",
+      "task_id": "T-175",
+      "file": "forge-web/app/projects/[slug]/ideas/page.tsx",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 65,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-362",
+      "task_id": "T-175",
+      "file": "forge-web/app/projects/[slug]/objectives/page.tsx",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 66,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-363",
+      "task_id": "T-175",
+      "file": "forge-web/tsconfig.tsbuildinfo",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-364",
+      "task_id": "T-175",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 210,
+      "lines_removed": 1,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
+    },
+    {
+      "id": "C-365",
+      "task_id": "T-175",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Annotated Ideas, Decisions, Objectives pages with useAIPage + useAIElement hooks. Each page gets: page metadata, status filter element, list summary with count/filtered/statusDist/actions, form element with dynamic state. Follows exact TasksPage pattern. Zero visual changes, TS clean, 42 tests pass."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 8,
+      "lines_removed": 6,
+      "group_id": "T-175",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-13T00:19:09Z"
     }
   ]
 }

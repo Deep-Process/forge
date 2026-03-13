@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T07:48:11Z",
+  "updated": "2026-03-13T08:18:38Z",
   "objectives": [
     {
       "id": "O-001",
@@ -1386,12 +1386,19 @@
         "api"
       ],
       "derived_guidelines": [],
-      "knowledge_ids": [],
+      "knowledge_ids": [
+        "K-001",
+        "K-002",
+        "K-003",
+        "K-004",
+        "K-005",
+        "K-006"
+      ],
       "guideline_ids": [],
       "relations": [],
       "status": "ACTIVE",
       "created": "2026-03-13T07:41:54Z",
-      "updated": "2026-03-13T07:41:54Z"
+      "updated": "2026-03-13T08:18:38Z"
     }
   ]
 }

@@ -98,6 +98,8 @@ class CompletionConfig:
         tools: Optional list of tool definitions the LLM may invoke.
         system_prompt: System-level instruction prepended to messages.
         stop_sequences: Optional list of sequences that stop generation.
+        metadata: Provider-specific metadata (e.g., forge_session_id for
+            session resume). Optional, backward-compatible.
     """
 
     model: str = ""
@@ -107,6 +109,7 @@ class CompletionConfig:
     tools: list[ToolDefinition] | None = None
     system_prompt: str = ""
     stop_sequences: list[str] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass

@@ -21,7 +21,50 @@ from core.llm.provider import (
 )
 
 # Model capability map — updated as new models release
+# Latest: Opus 4.6, Sonnet 4.6, Haiku 4.5 (March 2026)
 _MODEL_CAPS: dict[str, dict[str, Any]] = {
+    # --- Current generation ---
+    "claude-opus-4-6": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 128_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.005,
+        "cost_output": 0.025,
+    },
+    "claude-sonnet-4-6": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 64_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.003,
+        "cost_output": 0.015,
+    },
+    "claude-haiku-4-5-20251001": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 64_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.001,
+        "cost_output": 0.005,
+    },
+    # --- Legacy (still available) ---
+    "claude-sonnet-4-5-20250929": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 64_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.003,
+        "cost_output": 0.015,
+    },
+    "claude-opus-4-5-20251101": {
+        "max_context_window": 200_000,
+        "max_output_tokens": 64_000,
+        "supports_vision": True,
+        "supports_thinking": True,
+        "cost_input": 0.005,
+        "cost_output": 0.025,
+    },
     "claude-opus-4-20250514": {
         "max_context_window": 200_000,
         "max_output_tokens": 32_000,
@@ -32,27 +75,19 @@ _MODEL_CAPS: dict[str, dict[str, Any]] = {
     },
     "claude-sonnet-4-20250514": {
         "max_context_window": 200_000,
-        "max_output_tokens": 16_000,
+        "max_output_tokens": 64_000,
         "supports_vision": True,
         "supports_thinking": True,
         "cost_input": 0.003,
         "cost_output": 0.015,
     },
-    "claude-haiku-3-5-20241022": {
-        "max_context_window": 200_000,
-        "max_output_tokens": 8_192,
-        "supports_vision": True,
-        "supports_thinking": False,
-        "cost_input": 0.0008,
-        "cost_output": 0.004,
-    },
 }
 
 _DEFAULT_CAPS = {
     "max_context_window": 200_000,
-    "max_output_tokens": 8_192,
+    "max_output_tokens": 64_000,
     "supports_vision": True,
-    "supports_thinking": False,
+    "supports_thinking": True,
     "cost_input": 0.003,
     "cost_output": 0.015,
 }
@@ -143,7 +178,7 @@ class AnthropicProvider:
     def __init__(
         self,
         api_key: str,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-sonnet-4-6",
         base_url: str | None = None,
     ) -> None:
         try:

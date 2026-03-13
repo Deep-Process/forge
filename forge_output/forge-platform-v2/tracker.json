@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-13T00:10:37Z",
+  "updated": "2026-03-13T08:27:37Z",
   "config": {},
   "tasks": [
     {
@@ -5404,9 +5404,9 @@
       ],
       "origin": "O-017",
       "knowledge_ids": [],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-13T00:10:37Z",
-      "completed_at": null,
+      "completed_at": "2026-03-13T00:14:01Z",
       "failed_reason": null,
       "agent": "default",
       "started_at_commit": "7b21a8ff291b6c53f403a3f48b17a9e769eef0ef"
@@ -5436,10 +5436,272 @@
       ],
       "origin": "O-017",
       "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-13T00:17:12Z",
+      "completed_at": "2026-03-13T00:19:09Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "7eefd95dd43bfe9248875df7565940491c1bde76"
+    },
+    {
+      "id": "T-176",
+      "name": "claude-code-provider-core",
+      "description": "Create ClaudeCodeProvider class implementing LLMProvider protocol via Claude Code CLI subprocess. Covers complete(), stream(), capabilities(), list_models(), and message serialization. Includes Windows-specific fixes: binary path resolution via shutil.which(), CLAUDECODE env var clearing, system prompt via temp file, CRLF handling.",
+      "depends_on": [],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create core/llm/providers/claude_code.py\n2. Define _MODEL_CAPS for models accessible via Claude Code (sonnet, opus, haiku - same context windows as Anthropic API models)\n3. Add metadata field to CompletionConfig in core/llm/provider.py:\n   metadata: dict[str, Any] | None = None  # Provider-specific metadata (backward-compatible)\n4. Constructor __init__(self, model='sonnet', claude_binary='claude', timeout=120, max_concurrent=5):\n   - Resolve binary path: self._claude_path = shutil.which(claude_binary) — raises ProviderError if None\n   - Store config\n   - Create self._semaphore = asyncio.Semaphore(max_concurrent)\n   - Create self._session_map: dict[str, str] = {} for Forge->CC session mapping\n5. Implement _build_env() -> dict:\n   - Copy os.environ\n   - Set CLAUDECODE='' (MANDATORY — prevents nested session rejection)\n   - Return env dict\n6. Implement _serialize_messages(messages, config) -> tuple[str, str|None]:\n   - Returns (user_prompt, system_prompt_text)\n   - Extract system messages + config.system_prompt -> system_prompt_text\n   - Serialize user/assistant messages as conversation:\n     'User: {content}\\n\\nAssistant: {content}\\n\\nUser: {content}'\n   - Filter out role='tool' messages (log debug warning if present)\n   - Last message content becomes the -p prompt argument\n   - If only one user message, use it directly as prompt\n7. Implement async _run_subprocess(args, stdin_data=None, timeout=None) -> tuple[str, str, int]:\n   - async with self._semaphore:\n   - proc = await asyncio.create_subprocess_exec(*args, stdout=PIPE, stderr=PIPE, env=self._build_env())\n   - try: stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)\n   - except asyncio.TimeoutError: proc.kill(); await proc.wait(); raise ProviderError\n   - except asyncio.CancelledError: proc.kill(); await proc.wait(); raise\n   - Return (stdout.decode('utf-8'), stderr.decode('utf-8'), proc.returncode)\n8. Implement complete():\n   - user_prompt, system_prompt = self._serialize_messages(messages, config)\n   - Build args: [self._claude_path, '-p', user_prompt, '--output-format', 'json', '--model', config.model or self._model]\n   - If system_prompt: write to tempfile, add --append-system-prompt-file {path}, delete after\n   - If config.metadata and 'forge_session_id' in config.metadata:\n     cc_sid = self._session_map.get(forge_sid)\n     if cc_sid: add --resume {cc_sid} to args\n   - Run subprocess via _run_subprocess\n   - Parse JSON: result -> content, usage.input_tokens/output_tokens -> TokenUsage, session_id\n   - Update _session_map if forge_session_id present\n   - Ignore config.tools entirely (never pass to CLI)\n   - Return CompletionResult(content, model, usage, stop_reason='end_turn', tool_calls=[])\n   - cost_per_1k: set to 0 (Max subscription = flat rate)\n9. Implement stream():\n   - Same args but --output-format stream-json\n   - Use asyncio.create_subprocess_exec with stdout=PIPE\n   - async for raw_line in proc.stdout:\n     line = raw_line.decode('utf-8', errors='replace').strip()  # CRLF safe\n     if not line: continue\n     event = json.loads(line)\n     Parse: content_block_delta + text_delta -> yield StreamChunk(content=delta.text)\n     On message_stop -> yield StreamChunk(is_final=True, usage=...)\n   - Wrap in try/finally with proc.kill() on cancellation\n10. Implement capabilities(): provider_name='claude-code', supports_tool_use=False, supports_streaming=True, supports_json_mode=False, supports_vision=True, supports_thinking=True, cost_per_1k_input=0, cost_per_1k_output=0\n11. Implement list_models(): return static list from _MODEL_CAPS",
+      "acceptance_criteria": [
+        "core/llm/providers/claude_code.py exists with ClaudeCodeProvider class",
+        "CompletionConfig in provider.py has new optional metadata field (backward-compatible)",
+        "Class satisfies LLMProvider protocol (runtime_checkable passes)",
+        "Binary path resolved via shutil.which() at init — raises ProviderError if not found",
+        "CLAUDECODE env var cleared in subprocess environment (mandatory, not just edge case)",
+        "System prompt passed via --append-system-prompt-file (temp file) to avoid 32K CLI length limit",
+        "complete() parses JSON response into CompletionResult with stop_reason='end_turn' and tool_calls=[]",
+        "complete() ignores config.tools entirely (debug log if tools were provided)",
+        "stream() parses NDJSON with .strip() for CRLF safety on Windows",
+        "Subprocess wrapped in asyncio.Semaphore for concurrency limiting",
+        "CancelledError and TimeoutError kill subprocess and clean up",
+        "cost_per_1k_input/output = 0 (Max subscription = flat rate)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-001",
+        "K-002",
+        "K-004"
+      ],
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-13T08:27:37Z",
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "6c4ba1bea160288f8804c1d3f523571d3129a685"
+    },
+    {
+      "id": "T-177",
+      "name": "claude-code-registry-config",
+      "description": "Register claude-code provider type in ProviderRegistry, add configuration to providers.toml, update _static_model_list fallback, and fix list_providers has_api_key logic for keyless providers.",
+      "depends_on": [
+        "T-176"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In core/llm/providers/registry.py, add elif branch in _create_provider():\n   elif provider_type == 'claude-code':\n       from core.llm.providers.claude_code import ClaudeCodeProvider\n       return ClaudeCodeProvider(\n           model=config.get('model', 'sonnet'),\n           claude_binary=config.get('claude_binary', 'claude'),\n           timeout=config.get('timeout', 120),\n           max_concurrent=config.get('max_concurrent', 5),\n       )\n   Note: NO api_key required\n2. In config/providers.toml, add section:\n   [claude-code]\n   provider = 'claude-code'\n   model = 'sonnet'\n   # claude_binary = 'claude'\n   # timeout = 120\n   # max_concurrent = 5\n3. In forge-api/app/routers/llm_chat.py:\n   a. Update _static_model_list():\n      elif provider_type == 'claude-code':\n          from core.llm.providers.claude_code import _MODEL_CAPS\n          return [same pattern as anthropic]\n   b. Update list_providers() — add claude-code to keyless providers check (like Ollama at ~line 387):\n      elif pconfig.get('provider', name) in ('ollama', 'claude-code'):\n          has_key = True\n          key_source = 'login'\n4. In forge-api/app/routers/llm_chat.py, add metadata to CompletionConfig in chat endpoint:\n   config = CompletionConfig(..., metadata={'forge_session_id': session.session_id})",
+      "acceptance_criteria": [
+        "registry._create_provider handles provider_type='claude-code' without API key",
+        "providers.toml contains [claude-code] section with model, claude_binary, timeout, max_concurrent options",
+        "_static_model_list returns models for claude-code provider type",
+        "list_providers shows has_api_key=True and api_key_source='login' for claude-code (no missing-key warning in UI)",
+        "Chat endpoint passes forge_session_id in CompletionConfig.metadata"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm",
+        "api"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-004",
+        "K-006"
+      ],
       "status": "TODO",
       "started_at": null,
       "completed_at": null,
-      "failed_reason": null
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-178",
+      "name": "claude-code-session-resume",
+      "description": "Implement multi-turn conversation support using Claude Code session_id and --resume flag. Uses CompletionConfig.metadata for Forge session_id propagation.",
+      "depends_on": [
+        "T-176",
+        "T-177"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In ClaudeCodeProvider.complete():\n   - After successful subprocess call, extract session_id from JSON response\n   - If config.metadata has 'forge_session_id':\n     self._session_map[forge_session_id] = cc_session_id\n2. On subsequent calls with same forge_session_id:\n   - Lookup CC session_id from _session_map\n   - Add --resume {cc_session_id} to subprocess args\n   - If --resume fails (subprocess returns error), retry WITHOUT --resume:\n     a. Remove stale mapping from _session_map\n     b. Resend full conversation history as prompt\n     c. Log warning about session mismatch\n3. Session cleanup:\n   - Add max_sessions limit (default 100) to prevent unbounded growth\n   - When limit exceeded, evict oldest entries (LRU-style via OrderedDict)\n   - Add clear_session(forge_session_id) method for explicit cleanup\n4. In stream(): same --resume logic as complete()\n5. Thread safety: _session_map is a plain dict, safe for single-worker asyncio. Document limitation.",
+      "acceptance_criteria": [
+        "First call stores CC session_id mapped to forge_session_id",
+        "Subsequent calls with same forge_session_id use --resume for efficiency",
+        "Resume failure falls back to full history resend with warning log",
+        "Stale session mapping removed on resume failure",
+        "Session map has max_sessions limit (100) with LRU eviction via OrderedDict",
+        "clear_session() method removes specific mapping"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-001",
+        "K-003"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-179",
+      "name": "claude-code-error-handling",
+      "description": "Comprehensive error handling for Claude Code subprocess: auth failure, rate limits, timeout, binary not found, process tree cleanup on Windows.",
+      "depends_on": [
+        "T-176"
+      ],
+      "parallel": false,
+      "conflicts_with": [
+        "T-178"
+      ],
+      "skill": null,
+      "instruction": "1. Authentication failure:\n   - Parse stderr for auth-related messages (e.g., 'not logged in', 'authentication', 'unauthorized')\n   - Raise ProviderError: 'Claude Code not authenticated. Run claude interactively to log in with your Max subscription.'\n2. Rate limiting:\n   - Parse stderr/JSON for rate limit indicators (e.g., 'rate limit', 'too many requests', 'overloaded')\n   - Raise ProviderError with retry-after hint if available\n3. Binary not found (defense in depth — already checked at init):\n   - In _run_subprocess, catch FileNotFoundError\n   - Raise ProviderError with install instructions\n4. Subprocess timeout:\n   - Already handled in _run_subprocess via asyncio.wait_for\n   - Process tree cleanup on Windows: use taskkill /T /F /PID on Windows, process.kill() on Unix:\n     import platform\n     if platform.system() == 'Windows':\n         subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)], capture_output=True)\n     else:\n         proc.kill()\n5. General subprocess errors:\n   - Check returncode != 0\n   - Parse stderr for error classification\n   - Raise ProviderError with formatted message including stderr excerpt\n6. JSON parse errors:\n   - Catch json.JSONDecodeError in complete()\n   - Include raw output excerpt in error message for debugging\n7. Malformed stream events:\n   - In stream(), wrap json.loads in try/except per line\n   - Skip malformed lines with warning log, don't crash the stream\n8. Process cleanup:\n   - All subprocess paths use try/finally with kill+wait\n   - Register cleanup in provider's optional async close() method",
+      "acceptance_criteria": [
+        "Auth failure raises ProviderError with login instructions",
+        "Rate limit errors include retry guidance",
+        "Missing binary raises ProviderError with install instructions",
+        "Subprocess timeout kills process tree (taskkill /T on Windows)",
+        "All error paths clean up subprocess resources (no zombie processes)",
+        "JSON parse errors include raw output excerpt for debugging",
+        "Malformed stream-json lines are skipped with warning, not crash"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-002"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-180",
+      "name": "claude-code-provider-tests",
+      "description": "Unit tests for ClaudeCodeProvider covering message serialization, JSON parsing, stream-json parsing, error handling, session management, capabilities, and Windows-specific concerns.",
+      "depends_on": [
+        "T-176",
+        "T-177",
+        "T-178",
+        "T-179"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create test file: tests/test_claude_code_provider.py (follow existing test patterns)\n2. Test binary path resolution:\n   - Mock shutil.which returning path -> provider initializes\n   - Mock shutil.which returning None -> ProviderError raised\n3. Test message serialization:\n   - System message extracted correctly\n   - Multi-turn user/assistant messages serialized as conversation\n   - Tool messages filtered out with debug log\n   - Single user message used directly as prompt\n4. Test complete() JSON output parsing:\n   - Mock subprocess returning valid JSON with result, usage, session_id\n   - Verify CompletionResult fields mapped correctly\n   - Verify config.tools ignored (debug log emitted)\n   - Verify stop_reason always 'end_turn'\n   - Test malformed JSON -> ProviderError\n5. Test stream() NDJSON event parsing:\n   - Mock subprocess outputting NDJSON lines (with CRLF endings)\n   - Verify StreamChunk objects for content_block_delta events\n   - Verify final StreamChunk with is_final=True on message_stop\n   - Test malformed line -> skipped with warning\n6. Test error scenarios:\n   - CLAUDECODE env var cleared in subprocess env\n   - FileNotFoundError -> ProviderError\n   - Non-zero exit code -> ProviderError with stderr\n   - Subprocess timeout -> ProviderError, process killed\n   - Auth failure stderr -> ProviderError with login instructions\n   - Rate limit stderr -> ProviderError with retry hint\n7. Test session management:\n   - First call stores session_id in _session_map\n   - Second call with same forge_session_id uses --resume\n   - Resume failure -> fallback to full history, stale mapping removed\n   - max_sessions eviction works\n8. Test capabilities:\n   - supports_tool_use=False\n   - supports_streaming=True\n   - cost_per_1k = 0\n9. Test concurrency semaphore:\n   - Verify semaphore limits concurrent subprocess calls\n10. Use unittest.mock.patch for asyncio.create_subprocess_exec mocking",
+      "acceptance_criteria": [
+        "All unit tests pass",
+        "Binary path resolution tested (found and not found)",
+        "Message serialization covers system, user, assistant, tool messages",
+        "JSON output parsing tested with valid and malformed responses",
+        "Stream-json parsing tested with CRLF NDJSON lines",
+        "Error scenarios tested: missing binary, timeout, auth failure, rate limit",
+        "Session resume tested: store, resume, fallback, eviction",
+        "Capabilities values verified (tool_use=False, cost=0)",
+        "Concurrency semaphore tested",
+        "CLAUDECODE env var clearing verified in subprocess env",
+        "No real Claude Code subprocess calls (fully mocked)"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-001",
+        "K-002"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-181",
+      "name": "agent-loop-streaming-support",
+      "description": "Modify AgentLoop to use provider.stream() for real-time token delivery when provider has supports_tool_use=False. This enables WebSocket streaming for Claude Code provider instead of waiting for full response.",
+      "depends_on": [
+        "T-176"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-api/app/llm/agent_loop.py, modify the LLM call section (~line 154-160):\n   - Before the call, check provider capabilities:\n     caps = self._provider.capabilities()\n   - If caps.supports_streaming and not config.tools (no tools to process):\n     Use stream() path — emit tokens in real-time:\n     content = ''\n     usage = TokenUsage()\n     async for chunk in self._provider.stream(messages=conversation, config=config):\n         if chunk.content:\n             content += chunk.content\n             if on_event:\n                 await on_event(StreamEvent('token', {'content': chunk.content}))\n         if chunk.is_final and chunk.usage:\n             usage = chunk.usage\n     result = CompletionResult(content=content, model=caps.model_id, usage=usage, stop_reason='end_turn')\n   - Else: use existing complete() path (unchanged behavior for Anthropic/OpenAI with tools)\n2. Import TokenUsage and CompletionResult at the top of agent_loop.py\n3. Ensure the streaming path:\n   - Still counts tokens (total_input, total_output) from final chunk usage\n   - Still appends assistant message to conversation\n   - Still emits 'complete' event at the end\n   - Handles ProviderError the same way as complete() path\n4. Safety: if stream() raises exception mid-stream, fall back to emitting accumulated content\n5. Note: This benefits ALL providers with supports_streaming=True when no tools are active, not just claude-code.\n   For Anthropic/OpenAI: tools are usually active (scopes inject them), so complete() path is used.\n   For Claude Code: supports_tool_use=False means config.tools is empty -> always streams.",
+      "acceptance_criteria": [
+        "AgentLoop uses stream() when provider.capabilities().supports_streaming=True AND config.tools is empty",
+        "Real-time StreamEvent('token') emitted for each chunk during streaming",
+        "Complete event emitted with accumulated content after stream finishes",
+        "Token usage tracked from final StreamChunk",
+        "Existing complete() path unchanged for providers with tool_use support",
+        "ProviderError during stream handled with same error flow as complete()",
+        "No behavior change for Anthropic/OpenAI providers (they have tools active)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "llm",
+        "api"
+      ],
+      "origin": "O-018",
+      "knowledge_ids": [
+        "K-003",
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
     }
   ]
 }
