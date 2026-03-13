@@ -19,9 +19,11 @@ from typing import Any, Awaitable, Callable
 
 from core.llm.provider import (
     CompletionConfig,
+    CompletionResult,
     LLMProvider,
     Message,
     ProviderError,
+    TokenUsage,
 )
 
 logger = logging.getLogger(__name__)
@@ -153,11 +155,23 @@ class AgentLoop:
 
                 # --- LLM call ---
                 iteration += 1
+                caps = self._provider.capabilities()
+
+                # Use streaming when provider supports it and no tools are active.
+                # This enables real-time token delivery for providers like claude-code
+                # (supports_tool_use=False → config.tools always empty).
+                use_streaming = caps.supports_streaming and not config.tools
+
                 try:
-                    result = await self._provider.complete(
-                        messages=conversation,
-                        config=config,
-                    )
+                    if use_streaming:
+                        result = await self._stream_call(
+                            conversation, config, caps, on_event,
+                        )
+                    else:
+                        result = await self._provider.complete(
+                            messages=conversation,
+                            config=config,
+                        )
                 except ProviderError as e:
                     logger.error("Provider error on iteration %d: %s", iteration, e)
                     return await self._stop(
@@ -179,7 +193,10 @@ class AgentLoop:
                     ))
 
                     if on_event:
-                        await on_event(StreamEvent("token", {"content": result.content}))
+                        # For streaming path, tokens were already emitted chunk-by-chunk.
+                        # For complete() path, emit the full response as single token event.
+                        if not use_streaming:
+                            await on_event(StreamEvent("token", {"content": result.content}))
                         await on_event(StreamEvent("complete", {
                             "content": result.content,
                             "iterations": iteration,
@@ -306,6 +323,43 @@ class AgentLoop:
                     model=model,
                     stop_reason="error",
                 )
+
+    async def _stream_call(
+        self,
+        conversation: list[Message],
+        config: CompletionConfig,
+        caps: Any,
+        on_event: Callable[[StreamEvent], Awaitable[None]] | None,
+    ) -> CompletionResult:
+        """Call provider.stream() and accumulate into CompletionResult.
+
+        Emits real-time StreamEvent('token') for each content chunk,
+        enabling WebSocket streaming to the frontend.
+        """
+        content = ""
+        usage = TokenUsage()
+
+        async for chunk in self._provider.stream(
+            messages=conversation,
+            config=config,
+        ):
+            if chunk.content:
+                content += chunk.content
+                if on_event:
+                    await on_event(StreamEvent("token", {"content": chunk.content}))
+            if chunk.is_final and chunk.usage:
+                usage = chunk.usage
+            elif chunk.usage and not chunk.is_final:
+                # Some providers send usage in message_delta before message_stop
+                usage = chunk.usage
+
+        return CompletionResult(
+            content=content,
+            model=caps.model_id,
+            usage=usage,
+            stop_reason="end_turn",
+            tool_calls=[],
+        )
 
     @staticmethod
     async def _stop(
