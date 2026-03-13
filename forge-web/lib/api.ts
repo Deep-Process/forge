@@ -18,15 +18,27 @@ export function getToken(): string | null {
   return _token;
 }
 
-/** API error with status code and structured detail. */
+/** API error with status code, endpoint info, and structured detail. */
 export class ApiError extends Error {
+  /** HTTP method (GET, POST, etc.) — empty when not available. */
+  public method: string;
+  /** Request URL path — empty when not available. */
+  public url: string;
+  /** First 500 chars of the response body for diagnostics. */
+  public responseExcerpt: string;
+
   constructor(
     public status: number,
     public detail: unknown,
+    opts?: { method?: string; url?: string },
   ) {
     const msg = typeof detail === "string" ? detail : JSON.stringify(detail);
     super(msg || `API error ${status}`);
     this.name = "ApiError";
+    this.method = opts?.method ?? "";
+    this.url = opts?.url ?? "";
+    const raw = typeof detail === "string" ? detail : JSON.stringify(detail);
+    this.responseExcerpt = raw.slice(0, 500);
   }
 }
 
@@ -96,7 +108,7 @@ async function request<T>(
         timestamp: startTime, requestBody: truncateBody(requestBody), responseBody: truncateBody(body),
         error: typeof body === "string" ? body : JSON.stringify(body),
       });
-      throw new ApiError(res.status, body);
+      throw new ApiError(res.status, body, { method, url: path });
     }
 
     if (res.status === 204) {
