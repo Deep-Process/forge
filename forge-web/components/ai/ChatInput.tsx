@@ -401,7 +401,13 @@ export default function ChatInput({
       )}
 
       {/* Skill chips (above file attachments) */}
+      {/* Skill chips (above file attachments) */}
       <SkillChipArea skills={attachedSkills} onRemove={detachSkill} />
+      {attachedSkills.length > 0 && (
+        <div className="px-3 text-[10px] text-gray-400">
+          {attachedSkills.length} skill{attachedSkills.length > 1 ? "s" : ""} attached
+        </div>
+      )}
 
       {/* File attachment chips */}
       {attachments.length > 0 && (

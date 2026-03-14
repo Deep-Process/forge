@@ -373,43 +373,53 @@ async def chat(
 
     # 4. Skill context injection (SKILL.md content for @-mentioned skills)
     if body.skill_names is not None and len(body.skill_names) > 0:
-        skill_sections: list[str] = []
-        total_chars = 0
-        names_to_load = body.skill_names[:SKILL_MAX_COUNT]
-        logger.debug("Injecting skills: %s", names_to_load)
+        from app.dependencies import _load_skills_config
+        skills_cfg = _load_skills_config(request)
+        injection_enabled = skills_cfg.get("skill_injection_enabled", True)
+        max_count = skills_cfg.get("max_skill_count", SKILL_MAX_COUNT)
+        per_limit = skills_cfg.get("per_skill_char_limit", SKILL_PER_CHAR_LIMIT)
+        total_budget = skills_cfg.get("total_skill_char_budget", SKILL_TOTAL_CHAR_BUDGET)
 
-        for skill_name in names_to_load:
-            if not SKILL_NAME_REGEX.match(skill_name):
-                logger.warning("Skipping invalid skill name: %r", skill_name)
-                continue
-            try:
-                skill_data = await skill_storage.get_skill(skill_name)
-            except FileNotFoundError:
-                logger.warning("Skill not found, skipping: %s", skill_name)
-                continue
+        if not injection_enabled:
+            logger.debug("Skill injection disabled via config, skipping %d skills", len(body.skill_names))
+        else:
+            skill_sections: list[str] = []
+            total_chars = 0
+            names_to_load = body.skill_names[:max_count]
+            logger.debug("Injecting skills: %s", names_to_load)
 
-            content = skill_data.get("skill_md_content") or ""
-            display_name = skill_data.get("display_name") or skill_name
+            for skill_name in names_to_load:
+                if not SKILL_NAME_REGEX.match(skill_name):
+                    logger.warning("Skipping invalid skill name: %r", skill_name)
+                    continue
+                try:
+                    skill_data = await skill_storage.get_skill(skill_name)
+                except FileNotFoundError:
+                    logger.warning("Skill not found, skipping: %s", skill_name)
+                    continue
 
-            if len(content) > SKILL_PER_CHAR_LIMIT:
-                content = content[:SKILL_PER_CHAR_LIMIT] + "\n\n[...truncated — skill content exceeds per-skill limit]"
-                logger.warning("Skill %s content truncated (%d -> %d chars)", skill_name, len(skill_data.get("skill_md_content", "")), SKILL_PER_CHAR_LIMIT)
+                content = skill_data.get("skill_md_content") or ""
+                display_name = skill_data.get("display_name") or skill_name
 
-            if total_chars + len(content) > SKILL_TOTAL_CHAR_BUDGET:
-                logger.warning("Skill budget exhausted (%d/%d chars), skipping remaining skills", total_chars, SKILL_TOTAL_CHAR_BUDGET)
-                break
+                if len(content) > per_limit:
+                    content = content[:per_limit] + "\n\n[...truncated — skill content exceeds per-skill limit]"
+                    logger.warning("Skill %s content truncated (%d -> %d chars)", skill_name, len(skill_data.get("skill_md_content", "")), per_limit)
 
-            total_chars += len(content)
-            skill_sections.append(f"### Skill: {display_name}\n\n{content}")
+                if total_chars + len(content) > total_budget:
+                    logger.warning("Skill budget exhausted (%d/%d chars), skipping remaining skills", total_chars, total_budget)
+                    break
 
-        if skill_sections:
-            preamble = (
-                "## Skill Context\n\n"
-                "The following skill instructions are supplementary guidance. "
-                "If they conflict with the Rules section above, follow the Rules. "
-                "Otherwise, follow skill instructions fully.\n"
-            )
-            system_prompt += "\n\n" + preamble + "\n" + "\n\n".join(skill_sections)
+                total_chars += len(content)
+                skill_sections.append(f"### Skill: {display_name}\n\n{content}")
+
+            if skill_sections:
+                preamble = (
+                    "## Skill Context\n\n"
+                    "The following skill instructions are supplementary guidance. "
+                    "If they conflict with the Rules section above, follow the Rules. "
+                    "Otherwise, follow skill instructions fully.\n"
+                )
+                system_prompt += "\n\n" + preamble + "\n" + "\n\n".join(skill_sections)
 
     # --- Build permissions ---
     permissions = PermissionEngine.load_permissions(config)

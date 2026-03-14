@@ -578,6 +578,8 @@ export const skills = {
   updateConfig: (data: {
     repo_url?: string; skills_dir?: string;
     git_user_name?: string; git_user_email?: string; git_token?: string;
+    skill_injection_enabled?: boolean; max_skill_count?: number;
+    per_skill_char_limit?: number; total_skill_char_budget?: number;
   }) =>
     put<Record<string, unknown>>("/skills/config", data),
 };

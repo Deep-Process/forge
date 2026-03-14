@@ -76,6 +76,7 @@ export default function LLMSettingsPage() {
       <CapabilitiesSection />
       <CustomAppContextSection />
       <LimitsSection />
+      <SkillInjectionSection />
       <DebugConsoleSection />
     </div>
   );
@@ -934,6 +935,111 @@ function LimitsSection() {
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Limits"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Skill Injection
+// ---------------------------------------------------------------------------
+
+function SkillInjectionSection() {
+  const { addToast } = useToastStore();
+  const { data: config, mutate } = useSWR<Record<string, unknown>>("/skills/config");
+  const [saving, setSaving] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+  const [maxSkills, setMaxSkills] = useState("5");
+  const [perSkillLimit, setPerSkillLimit] = useState("16000");
+  const [totalBudget, setTotalBudget] = useState("30000");
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (config && !initialized) {
+      setEnabled(config.skill_injection_enabled !== false);
+      setMaxSkills(String(config.max_skill_count ?? 5));
+      setPerSkillLimit(String(config.per_skill_char_limit ?? 16000));
+      setTotalBudget(String(config.total_skill_char_budget ?? 30000));
+      setInitialized(true);
+    }
+  }, [config, initialized]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const result = await skillsApi.updateConfig({
+        skill_injection_enabled: enabled,
+        max_skill_count: Number(maxSkills) || 5,
+        per_skill_char_limit: Number(perSkillLimit) || 16000,
+        total_skill_char_budget: Number(totalBudget) || 30000,
+      });
+      mutate(result, { revalidate: false });
+      addToast({ message: "Skill injection settings saved", action: "updated" });
+    } catch (e) {
+      addToast({ message: (e as Error).message, action: "failed" });
+    } finally {
+      setSaving(false);
+    }
+  }, [enabled, maxSkills, perSkillLimit, totalBudget, mutate, addToast]);
+
+  return (
+    <section className="border rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-gray-700 mb-1">Skill Injection</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Configure how @-mentioned skill content is injected into LLM context.
+      </p>
+
+      <div className="space-y-3 max-w-md">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="rounded"
+          />
+          Enable skill injection
+        </label>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Max Skills per Message</label>
+          <input
+            type="number"
+            value={maxSkills}
+            onChange={(e) => setMaxSkills(e.target.value)}
+            min={1}
+            max={10}
+            className="w-full text-sm border rounded-md px-3 py-1.5"
+            disabled={!enabled}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Per-Skill Character Limit</label>
+          <input
+            type="number"
+            value={perSkillLimit}
+            onChange={(e) => setPerSkillLimit(e.target.value)}
+            min={1000}
+            max={50000}
+            step={1000}
+            className="w-full text-sm border rounded-md px-3 py-1.5"
+            disabled={!enabled}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Total Character Budget</label>
+          <input
+            type="number"
+            value={totalBudget}
+            onChange={(e) => setTotalBudget(e.target.value)}
+            min={5000}
+            max={100000}
+            step={5000}
+            className="w-full text-sm border rounded-md px-3 py-1.5"
+            disabled={!enabled}
+          />
+        </div>
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save Skill Settings"}
         </Button>
       </div>
     </section>

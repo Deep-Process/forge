@@ -130,6 +130,11 @@ class SkillsConfigUpdate(BaseModel):
     git_user_name: str | None = None
     git_user_email: str | None = None
     git_token: str | None = None
+    # Skill injection settings (for chat context)
+    skill_injection_enabled: bool | None = None
+    max_skill_count: int | None = None
+    per_skill_char_limit: int | None = None
+    total_skill_char_budget: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -650,6 +655,14 @@ async def update_skills_config(
             existing["git_token"] = body.git_token
         elif not body.git_token:
             existing.pop("git_token", None)
+    if body.skill_injection_enabled is not None:
+        existing["skill_injection_enabled"] = body.skill_injection_enabled
+    if body.max_skill_count is not None:
+        existing["max_skill_count"] = body.max_skill_count
+    if body.per_skill_char_limit is not None:
+        existing["per_skill_char_limit"] = body.per_skill_char_limit
+    if body.total_skill_char_budget is not None:
+        existing["total_skill_char_budget"] = body.total_skill_char_budget
 
     config_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
