@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T11:19:20Z",
+  "updated": "2026-03-14T11:20:57Z",
   "changes": [
     {
       "id": "C-143",
@@ -16482,6 +16482,101 @@
       "group_id": "T-230",
       "guidelines_checked": [],
       "timestamp": "2026-03-14T11:19:20Z"
+    },
+    {
+      "id": "C-867",
+      "task_id": "T-231",
+      "file": "forge-web/components/ai/MentionDropdown.tsx",
+      "action": "create",
+      "summary": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 87,
+      "lines_removed": 0,
+      "group_id": "T-231",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:20:56Z"
+    },
+    {
+      "id": "C-868",
+      "task_id": "T-231",
+      "file": "forge-web/lib/utils/__tests__/mentionUtils.test.ts",
+      "action": "create",
+      "summary": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 110,
+      "lines_removed": 0,
+      "group_id": "T-231",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:20:56Z"
+    },
+    {
+      "id": "C-869",
+      "task_id": "T-231",
+      "file": "forge-web/lib/utils/mentionUtils.ts",
+      "action": "create",
+      "summary": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 98,
+      "lines_removed": 0,
+      "group_id": "T-231",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:20:56Z"
+    },
+    {
+      "id": "C-870",
+      "task_id": "T-231",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 172,
+      "lines_removed": 1,
+      "group_id": "T-231",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:20:56Z"
+    },
+    {
+      "id": "C-871",
+      "task_id": "T-231",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created MentionDropdown component (~90 LOC) with filtered skill list, arrow key scroll, purple badge. Created extractMentionAtCursor parser with D-093 rules (whitespace-preceded @, [a-z0-9-] filter). Created getCaretCoordinates mirror element utility. 19 unit tests all passing covering: position 0, mid-text, newline, tab, email, URL, code, uppercase, special chars, hyphens, numbers, multiple @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 10,
+      "lines_removed": 7,
+      "group_id": "T-231",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:20:56Z"
     }
   ]
 }

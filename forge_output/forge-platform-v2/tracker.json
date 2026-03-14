@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-14T11:19:24Z",
+  "updated": "2026-03-14T11:21:01Z",
   "config": {},
   "tasks": [
     {
@@ -7379,9 +7379,9 @@
       ],
       "origin": "O-025",
       "knowledge_ids": [],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-14T11:19:24Z",
-      "completed_at": null,
+      "completed_at": "2026-03-14T11:20:57Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
@@ -7389,7 +7389,8 @@
         "e2e": false
       },
       "agent": "default",
-      "started_at_commit": "ca6bc182f286a5375d6db12b99f71fcbecc6da65"
+      "started_at_commit": "ca6bc182f286a5375d6db12b99f71fcbecc6da65",
+      "ac_reasoning": "AC verification: 1. MentionDropdown renders filtered list at position: met. 2. Arrow keys/Enter/Tab/Escape: component supports selectedIndex + onSelect props (keyboard handling in ChatInput T-233). 3. getCaretCoordinates returns {top, left}: met (mirror element technique). 4. extractMentionAtCursor identifies @-mention after whitespace or pos 0: met (19 tests). 5. Does NOT trigger on email/URL/mid-word: met (tests confirm null for user@example.com, foo@bar, decorator(@param). 6. Unit tests cover all edge cases: met (19 passing tests)."
     },
     {
       "id": "T-232",
@@ -7420,15 +7421,17 @@
       "knowledge_ids": [
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-14T11:21:01Z",
       "completed_at": null,
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": true,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "b0600f65930982abf7430b38330fe0a93df6b9db"
     },
     {
       "id": "T-233",
