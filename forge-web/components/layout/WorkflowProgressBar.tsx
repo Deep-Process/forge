@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useEntityData } from "@/hooks/useEntityData";
+import { useAIElement } from "@/lib/ai-context";
 import type { Task, Objective, Idea, Research } from "@/lib/types";
 
 interface WorkflowProgressBarProps {
@@ -95,6 +97,23 @@ export function WorkflowProgressBar({ slug }: WorkflowProgressBarProps) {
       count: 0, // Would need lessonStore; keep it lightweight
     },
   ];
+
+  const stagesSummary = useMemo(() => {
+    const active = stages.filter((s) => s.status === "active").map((s) => s.label);
+    const done = stages.filter((s) => s.status === "done").length;
+    return { active, done, total: stages.length };
+  }, [stages]);
+
+  useAIElement({
+    id: "workflow-progress",
+    type: "section",
+    label: "Workflow Progress",
+    description: `${stagesSummary.done}/${stagesSummary.total} stages done${stagesSummary.active.length > 0 ? `, active: ${stagesSummary.active.join(", ")}` : ""}`,
+    data: {
+      stages: stages.map((s) => ({ key: s.key, status: s.status, count: s.count })),
+    },
+    actions: [],
+  });
 
   return (
     <div className="flex items-center gap-1 px-6 py-1.5 bg-gray-50 border-b overflow-x-auto">
