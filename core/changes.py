@@ -29,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -115,7 +115,7 @@ CONTRACTS = {
 def cmd_record(args):
     """Record change entries."""
     try:
-        new_changes = json.loads(args.data)
+        new_changes = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)

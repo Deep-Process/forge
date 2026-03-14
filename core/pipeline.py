@@ -41,7 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso
 
 CLAIM_WAIT_SECONDS = 1.5
 
@@ -414,7 +414,7 @@ def cmd_add_tasks(args):
     tracker = load_tracker(args.project)
 
     try:
-        new_tasks = json.loads(args.data)
+        new_tasks = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
@@ -1068,7 +1068,7 @@ def cmd_update_task(args):
     tracker = load_tracker(args.project)
 
     try:
-        updates = json.loads(args.data)
+        updates = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
@@ -1209,7 +1209,7 @@ def cmd_register_subtasks(args):
         return
 
     try:
-        raw = json.loads(args.data)
+        raw = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
@@ -1913,7 +1913,7 @@ def cmd_config(args):
 
     if args.data:
         try:
-            config = json.loads(args.data)
+            config = load_json_data(args.data)
         except json.JSONDecodeError as e:
             print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
             sys.exit(1)
@@ -1956,7 +1956,7 @@ def cmd_draft_plan(args):
     tracker = load_tracker(args.project)
 
     try:
-        draft_tasks = json.loads(args.data)
+        draft_tasks = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)

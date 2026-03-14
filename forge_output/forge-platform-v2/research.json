@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T10:59:29Z",
+  "updated": "2026-03-14T11:09:40Z",
   "research": [
     {
       "id": "R-001",
@@ -409,6 +409,45 @@
       ],
       "created_at": "2026-03-14T10:58:16Z",
       "updated_at": "2026-03-14T10:59:29Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-011",
+      "title": "Gap Analysis: Forge Core vs Forge Web Workflow",
+      "topic": "Mapping missing workflow processes between Forge Core CLI and Forge Web Platform",
+      "status": "DRAFT",
+      "category": "technical",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-026",
+      "linked_idea_id": null,
+      "skill": "deep-explore",
+      "file_path": "research/deep-explore-gap-analysis-forge-core-vs-forge-web-workflow.md",
+      "summary": "Forge Web has full CRUD infrastructure for all entity types and 37 AI tools, but lacks the orchestration workflows that give Forge Core its value: /discover (no research router), task execution flow (claim-context-verify-complete), /compound (lesson extraction), and draft-plan/approve-plan. 10 critical gaps identified across 3 tiers.",
+      "key_findings": [
+        "TIER 1 CRITICAL: Research router (R-NNN) completely absent - /discover cannot work without it",
+        "TIER 1 CRITICAL: Task execution flow broken - API has /tasks/next but no UI for claim>context>verify>complete cycle",
+        "TIER 1 CRITICAL: Draft-plan/approve-plan workflow missing from REST API - AI tools call core Python directly but no REST endpoints",
+        "TIER 1 CRITICAL: Context view exists as endpoint but not displayed during task execution in UI",
+        "TIER 2: Changes auto-detection (git diff) is placeholder-only in API",
+        "TIER 2: Gates management UI completely absent - cant configure or run validation gates from UI",
+        "TIER 2: Lessons creation form missing from UI despite API support",
+        "TIER 2: AC template instantiation UI missing - API supports but no button in task forms",
+        "AI sidebar has 37 tools including draftPlan/approvePlan but lacks /discover, /next+/run, /compound, /review equivalents",
+        "Web has unique capabilities Core lacks: real-time WebSocket, drag-drop, DAG viz, AI page context - these should be leveraged"
+      ],
+      "decision_ids": [],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "tags": [
+        "gap-analysis",
+        "process-parity",
+        "workflow"
+      ],
+      "created_at": "2026-03-14T11:09:40Z",
+      "updated_at": "2026-03-14T11:09:40Z",
       "created_by": "claude"
     }
   ]

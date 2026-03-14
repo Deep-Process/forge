@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -199,7 +199,7 @@ def _validate_params_definition(parameters: list, placeholders: set) -> list[str
 def cmd_add(args):
     """Create AC templates."""
     try:
-        new_items = json.loads(args.data)
+        new_items = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
@@ -383,7 +383,7 @@ def cmd_show(args):
 def cmd_update(args):
     """Update AC templates."""
     try:
-        updates = json.loads(args.data)
+        updates = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)

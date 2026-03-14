@@ -469,7 +469,13 @@ No special skills or entity types needed — existing primitives cover the full 
 - **When unsure, create an OPEN decision** — let the human decide.
 - **Tests before completion** — run tests/lint before marking a task DONE.
 - **Use --force on complete** only for tasks that genuinely have no code changes (e.g., investigation, planning).
-- **Clean up temporary files** — if `--data` fails due to bash quoting (nested quotes, regexes, markdown), using `$(cat file)` is fine, but **always delete the tmp file after use**. If unsure about `--data` format, run the `contract` command first.
+- **Use `--data -` with heredoc for complex JSON** — all `--data` parameters support stdin via `--data -`. Use with heredoc to avoid bash quoting issues:
+  ```bash
+  python -m core.decisions add {project} --data - <<'EOF'
+  [{"issue": "it's a test with 'quotes' and $vars"}]
+  EOF
+  ```
+  `<<'EOF'` passes content literally — no escaping needed. Fallback: `--data @file.json` reads from file. If unsure about format, run `contract` first.
 
 ## Multi-Agent Support
 

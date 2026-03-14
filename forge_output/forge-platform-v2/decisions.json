@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T10:59:23Z",
+  "updated": "2026-03-14T11:07:33Z",
   "decisions": [
     {
       "id": "D-001",
@@ -2947,7 +2947,7 @@
         "Hybrid: textarea shows @skill-name as text, chips rendered as overlay — visual mismatch"
       ],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "CLOSED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-explore",
@@ -3008,7 +3008,9 @@
         "textarea",
         "contentEditable",
         "ux"
-      ]
+      ],
+      "resolution_notes": "Accepted: chip area above textarea. Proven pattern from file attachments.",
+      "updated": "2026-03-14T11:05:34Z"
     },
     {
       "id": "D-088",
@@ -3022,7 +3024,7 @@
         "Dynamic tool getSkillContent(name) called by LLM — lazy loading but adds round-trip latency"
       ],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "CLOSED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-explore",
@@ -3082,7 +3084,9 @@
         "system-prompt",
         "backend",
         "context"
-      ]
+      ],
+      "resolution_notes": "Accepted: backend loads SKILL.md on chat request. Secure, centralized, efficient.",
+      "updated": "2026-03-14T11:05:34Z"
     },
     {
       "id": "D-089",
@@ -3096,7 +3100,7 @@
         "chatStore extension — wrong lifecycle (per-session, not cross-message)"
       ],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "CLOSED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-architect",
@@ -3152,7 +3156,9 @@
         "zustand",
         "state-management",
         "sidebarStore"
-      ]
+      ],
+      "resolution_notes": "Accepted: extend sidebarStore with attachedSkills. Same lifecycle as addedScopes.",
+      "updated": "2026-03-14T11:05:34Z"
     },
     {
       "id": "D-090",
@@ -3163,7 +3169,7 @@
       "reasoning": "SKILL.md files range 4K-25K chars. Injecting 3 large skills (onboard 21K + plan 17K + discover 16K = 54K) exceeds 30K budget. Combined with 2K base prompt + entity/page context, total system prompt could hit 70K+ tokens. Context exhaustion degrades reasoning quality silently.",
       "alternatives": [],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "ACCEPTED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-risk",
@@ -3173,13 +3179,14 @@
       "linked_entity_type": "objective",
       "linked_entity_id": "O-025",
       "mitigation_plan": "1. Backend enforces 30K char total for skill_names content. 2. Per-skill cap at 16K chars (truncate with notice). 3. Frontend shows real-time budget consumption in chip area. 4. Max 5 skills hard limit.",
-      "resolution_notes": "",
+      "resolution_notes": "Risk accepted with mitigation: 30K char budget, 16K per-skill cap, max 5 skills, frontend budget display. All values CONFIGURABLE in Settings page.",
       "tags": [
         "context-window",
         "tokens",
         "budget",
         "system-prompt"
-      ]
+      ],
+      "updated": "2026-03-14T11:07:33Z"
     },
     {
       "id": "D-091",
@@ -3190,7 +3197,7 @@
       "reasoning": "SKILL.md files authored independently for CLI. Two skills may give conflicting workflow sequences. LLM has no mechanism to resolve priority. Contradictions manifest as subtle non-deterministic behavior across skill combinations.",
       "alternatives": [],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "ACCEPTED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-risk",
@@ -3200,12 +3207,13 @@
       "linked_entity_type": "objective",
       "linked_entity_id": "O-025",
       "mitigation_plan": "1. Inject skills in clearly delimited ## Skill Context section with priority ordering. 2. Preamble: 'If skill instructions directly contradict Rules section above, follow Rules. Otherwise follow skill instructions fully.' 3. Document skill compatibility during creation.",
-      "resolution_notes": "",
+      "resolution_notes": "Risk accepted with mitigation: priority preamble in ## Skill Context — base system rules take precedence over skill instructions.",
       "tags": [
         "skill-conflict",
         "prompt-priority",
         "instructions"
-      ]
+      ],
+      "updated": "2026-03-14T11:07:33Z"
     },
     {
       "id": "D-092",
@@ -3216,7 +3224,7 @@
       "reasoning": "Current slash-command code uses component-level state (slashOpen, slashIndex) assuming single dropdown. Adding second dropdown with same keyboard handlers (ArrowUp/Down, Enter, Tab, Escape) creates interaction conflicts. MentionDropdown needs caret-relative positioning vs SlashCommandDropdown uses bottom-full.",
       "alternatives": [],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "ACCEPTED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-risk",
@@ -3226,13 +3234,14 @@
       "linked_entity_type": "objective",
       "linked_entity_id": "O-025",
       "mitigation_plan": "1. Single autocomplete state machine: activeMode controls which dropdown renders. 2. Opening @ closes / and vice versa. 3. Shared keyboard handler dispatches to active mode. 4. Integration tests for edge cases: @skill /command, rapid switching.",
-      "resolution_notes": "",
+      "resolution_notes": "Risk accepted with mitigation: unified autocomplete controller with activeMode = none|slash|mention, mutually exclusive.",
       "tags": [
         "autocomplete",
         "collision",
         "keyboard",
         "dropdown"
-      ]
+      ],
+      "updated": "2026-03-14T11:07:33Z"
     },
     {
       "id": "D-093",
@@ -3243,7 +3252,7 @@
       "reasoning": "Regex mention parsing is a well-documented source of edge-case bugs. Pattern /@([\\w-]*)$/ matches end of text before caret, reducing false positives. But pasted text with @ mid-string could trigger if caret lands after it.",
       "alternatives": [],
       "confidence": "HIGH",
-      "status": "OPEN",
+      "status": "ACCEPTED",
       "decided_by": "claude",
       "file": "",
       "scope": "deep-risk",
@@ -3253,14 +3262,15 @@
       "linked_entity_type": "objective",
       "linked_entity_id": "O-025",
       "mitigation_plan": "1. Trigger rule: @ must be preceded by whitespace or be at start. 2. Partial matches [a-z0-9-] only (skill names are slugified). 3. Dedicated regex function with comprehensive unit tests. 4. Only scan word at cursor position, not entire text.",
-      "resolution_notes": "",
+      "resolution_notes": "Risk accepted with mitigation: dedicated regex function with unit tests. @ preceded by whitespace or at position 0, partial [a-z0-9-] only.",
       "tags": [
         "regex",
         "mention",
         "edge-cases",
         "parsing"
-      ]
+      ],
+      "updated": "2026-03-14T11:07:33Z"
     }
   ],
-  "open_count": 38
+  "open_count": 31
 }

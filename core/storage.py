@@ -32,6 +32,23 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def load_json_data(value: str):
+    """Parse JSON from string, stdin, or @file reference.
+
+    - '-'  → read JSON from stdin (use with heredoc: --data - <<'EOF')
+    - '@path' → read JSON from file
+    - otherwise → parse value as JSON string
+    """
+    if value == "-":
+        import sys
+        return json.load(sys.stdin)
+    if value.startswith("@"):
+        file_path = value[1:]
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return json.loads(value)
+
+
 def atomic_write_json(path: Path, data: dict) -> None:
     """Write JSON atomically: temp file + os.replace().
 

@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -82,7 +82,7 @@ def cmd_config(args):
     tracker = load_tracker(args.project)
 
     try:
-        gates = json.loads(args.data)
+        gates = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)

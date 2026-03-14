@@ -30,7 +30,7 @@ from pathlib import Path
 # Import contracts from sibling module
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -130,7 +130,7 @@ CONTRACTS = {
 def cmd_add(args):
     """Add guidelines to the registry."""
     try:
-        new_guidelines = json.loads(args.data)
+        new_guidelines = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
@@ -269,7 +269,7 @@ def cmd_read(args):
 def cmd_update(args):
     """Update guideline fields."""
     try:
-        updates = json.loads(args.data)
+        updates = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
