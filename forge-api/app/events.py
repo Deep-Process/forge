@@ -36,6 +36,10 @@ EVENT_TYPES = {
     "chat.error",
     "research.created",
     "research.updated",
+    # Notification events (O-002)
+    "notification.created",
+    "notification.updated",
+    "notification.resolved",
     # Workflow execution events (O-001)
     "workflow.started",
     "workflow.step_started",

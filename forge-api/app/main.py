@@ -29,6 +29,7 @@ from app.routers import (
     lessons,
     llm_chat,
     maintenance,
+    notifications,
     objectives,
     projects,
     research,
@@ -263,6 +264,7 @@ app.include_router(execution.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(debug.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ai.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(llm_chat.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(notifications.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(skills.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(workflows.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ws.router)
