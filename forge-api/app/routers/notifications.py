@@ -8,6 +8,8 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+import asyncio
+
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
@@ -286,3 +288,28 @@ async def remove_notification(
         _recount_unread(data)
         await save_entity(storage, slug, ENTITY, data)
     return {"removed": notification_id}
+
+
+# ---------------------------------------------------------------------------
+# Global router — cross-project notification count (D-015)
+# ---------------------------------------------------------------------------
+
+global_router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@global_router.get("/global-count")
+async def global_unread_count(storage=Depends(get_storage)):
+    """Return unread notification counts across all projects."""
+    projects = await asyncio.to_thread(storage.list_projects)
+    results = []
+    total = 0
+    for slug in projects:
+        exists = await asyncio.to_thread(storage.exists, slug, ENTITY)
+        if not exists:
+            continue
+        data = await load_entity(storage, slug, ENTITY)
+        count = data.get("unread_count", 0)
+        if count > 0:
+            results.append({"slug": slug, "unread_count": count})
+            total += count
+    return {"projects": results, "total": total}

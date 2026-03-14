@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
+import useSWR from "swr";
 import { useEntityData } from "@/hooks/useEntityData";
 import { notifications as notificationsApi } from "@/lib/api";
 import { markAsRead, dismissNotification, markAllRead } from "@/stores/notificationEntityStore";
@@ -56,21 +57,34 @@ export function NotificationCenter() {
   const panelRef = useRef<HTMLDivElement>(null);
   const params = useParams();
   const slug = params?.slug as string | undefined;
+  const inProject = !!slug;
 
-  // SWR-based reactive data (auto-revalidates on WS events via wsDispatcher)
-  const { items: rawItems, isLoading } = useEntityData<Notification>(
+  // --- In-project mode: SWR-based reactive data ---
+  const { items: projectItems, isLoading: projectLoading } = useEntityData<Notification>(
     slug ?? null,
     "notifications",
   );
-
-  // Also fetch unread count from API for accurate badge
-  const { items: unreadItems } = useEntityData<Notification>(
+  const { items: projectUnread } = useEntityData<Notification>(
     slug ?? null,
     "notifications",
     { status: "UNREAD" },
   );
 
-  const unreadCount = unreadItems.length;
+  // --- Cross-project mode: poll global count every 60s (D-015) ---
+  const { data: globalData } = useSWR(
+    !inProject ? "/notifications/global-count" : null,
+    () => notificationsApi.globalCount(),
+    { refreshInterval: 60_000 },
+  );
+
+  // Determine unread count based on mode
+  const unreadCount = inProject
+    ? projectUnread.length
+    : (globalData?.total ?? 0);
+
+  // Get items to display
+  const rawItems = inProject ? projectItems : [];
+  const globalProjects = !inProject ? (globalData?.projects ?? []) : [];
 
   // Sort: priority (critical first) then newest first
   const sortedItems = [...rawItems]
@@ -81,6 +95,8 @@ export function NotificationCenter() {
       if (pa !== pb) return pa - pb;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+
+  const isLoading = inProject ? projectLoading : false;
 
   // Close on outside click
   useEffect(() => {
@@ -148,7 +164,7 @@ export function NotificationCenter() {
             <span className="text-xs font-semibold text-gray-600">
               Notifications {unreadCount > 0 && `(${unreadCount} unread)`}
             </span>
-            {unreadCount > 0 && (
+            {inProject && unreadCount > 0 && (
               <button
                 onClick={handleDismissAll}
                 className="text-[10px] text-gray-400 hover:text-gray-600"
@@ -158,87 +174,112 @@ export function NotificationCenter() {
             )}
           </div>
 
-          {/* Items */}
-          {isLoading && sortedItems.length === 0 && (
-            <p className="p-3 text-xs text-gray-400">Loading...</p>
+          {/* Cross-project summary (when outside project context) */}
+          {!inProject && (
+            <>
+              {globalProjects.length === 0 && (
+                <p className="p-3 text-xs text-gray-400">No unread notifications across projects</p>
+              )}
+              {globalProjects.map((p) => (
+                <a
+                  key={p.slug}
+                  href={`/projects/${p.slug}`}
+                  className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                >
+                  <span className="text-xs text-gray-700 font-medium">{p.slug}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+                    {p.unread_count} unread
+                  </span>
+                </a>
+              ))}
+            </>
           )}
 
-          {!isLoading && sortedItems.length === 0 && (
-            <p className="p-3 text-xs text-gray-400">No pending notifications</p>
-          )}
+          {/* In-project notification list */}
+          {inProject && (
+            <>
+              {isLoading && sortedItems.length === 0 && (
+                <p className="p-3 text-xs text-gray-400">Loading...</p>
+              )}
 
-          {sortedItems.map((n) => {
-            const typeConf = TYPE_CONFIG[n.notification_type] ?? TYPE_CONFIG.alert;
-            const prioStyle = PRIORITY_STYLES[n.priority] ?? PRIORITY_STYLES.normal;
-            const unread = n.status === "UNREAD";
+              {!isLoading && sortedItems.length === 0 && (
+                <p className="p-3 text-xs text-gray-400">No pending notifications</p>
+              )}
 
-            return (
-              <div
-                key={n.id}
-                onClick={() => handleMarkRead(n)}
-                className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                  unread ? "bg-blue-50/40 hover:bg-blue-50" : "hover:bg-gray-50"
-                }`}
-              >
-                {/* Unread dot */}
-                <div className="w-2 flex-shrink-0 pt-2">
-                  {unread && (
-                    <span className={`inline-block w-2 h-2 rounded-full ${prioStyle.dot}`} />
-                  )}
-                </div>
+              {sortedItems.map((n) => {
+                const typeConf = TYPE_CONFIG[n.notification_type] ?? TYPE_CONFIG.alert;
+                const prioStyle = PRIORITY_STYLES[n.priority] ?? PRIORITY_STYLES.normal;
+                const unread = n.status === "UNREAD";
 
-                {/* Type icon */}
-                <span className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${typeConf.style}`}>
-                  {typeConf.icon}
-                </span>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs line-clamp-2 ${unread ? "text-gray-900 font-medium" : "text-gray-600"}`}>
-                    {n.title}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    {/* Type badge */}
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeConf.style}`}>
-                      {typeConf.label}
-                    </span>
-                    {/* Priority badge */}
-                    {n.priority !== "normal" && (
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${prioStyle.badge}`}>
-                        {n.priority}
-                      </span>
-                    )}
-                    {/* Workflow ID */}
-                    {n.workflow_id && (
-                      <span className="text-[9px] text-gray-400">{n.workflow_id}</span>
-                    )}
-                    {/* Timestamp */}
-                    <span className="text-[9px] text-gray-400">{relativeTime(n.created_at)}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-col gap-1 flex-shrink-0">
-                  {isBlocking(n) && n.status !== "RESOLVED" && (
-                    <button
-                      onClick={(e) => handleRespond(n, e)}
-                      className="text-[10px] px-2 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600"
-                      title="Respond"
-                    >
-                      Respond
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => handleDismiss(n, e)}
-                    className="text-gray-300 hover:text-gray-500 text-xs"
-                    title="Dismiss"
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleMarkRead(n)}
+                    className={`flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                      unread ? "bg-blue-50/40 hover:bg-blue-50" : "hover:bg-gray-50"
+                    }`}
                   >
-                    x
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    {/* Unread dot */}
+                    <div className="w-2 flex-shrink-0 pt-2">
+                      {unread && (
+                        <span className={`inline-block w-2 h-2 rounded-full ${prioStyle.dot}`} />
+                      )}
+                    </div>
+
+                    {/* Type icon */}
+                    <span className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${typeConf.style}`}>
+                      {typeConf.icon}
+                    </span>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs line-clamp-2 ${unread ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+                        {n.title}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {/* Type badge */}
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeConf.style}`}>
+                          {typeConf.label}
+                        </span>
+                        {/* Priority badge */}
+                        {n.priority !== "normal" && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${prioStyle.badge}`}>
+                            {n.priority}
+                          </span>
+                        )}
+                        {/* Workflow ID */}
+                        {n.workflow_id && (
+                          <span className="text-[9px] text-gray-400">{n.workflow_id}</span>
+                        )}
+                        {/* Timestamp */}
+                        <span className="text-[9px] text-gray-400">{relativeTime(n.created_at)}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      {isBlocking(n) && n.status !== "RESOLVED" && (
+                        <button
+                          onClick={(e) => handleRespond(n, e)}
+                          className="text-[10px] px-2 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+                          title="Respond"
+                        >
+                          Respond
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => handleDismiss(n, e)}
+                        className="text-gray-300 hover:text-gray-500 text-xs"
+                        title="Dismiss"
+                      >
+                        x
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </div>

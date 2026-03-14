@@ -761,6 +761,9 @@ export const notifications = {
     get<{ unread_count: number }>(projectPath(slug, "notifications") + "/unread-count"),
   remove: (slug: string, id: string) =>
     remove<{ removed: string }>(projectPath(slug, "notifications", id)),
+  globalCount: () =>
+    get<{ projects: Array<{ slug: string; unread_count: number }>; total: number }>(
+      "/notifications/global-count"),
 };
 
 // -- Workflows (O-001) --
