@@ -371,6 +371,12 @@ async def chat(
         disabled_tools=disabled,
     )
 
+    # 1b. Session-type-specific guidance (plan, execute, compound, verify)
+    from app.llm.app_context_builder import build_session_guidance
+    session_guidance = build_session_guidance(session.session_type)
+    if session_guidance:
+        system_prompt += "\n\n" + session_guidance
+
     # 2. Entity context (supplementary — what user is working on)
     resolver = ContextResolver(storage)
     context_payload = await resolver.resolve(

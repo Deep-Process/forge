@@ -239,3 +239,75 @@ class AppContextBuilder:
         if not text:
             return ""
         return f"## Custom Instructions\n\n{text}"
+
+
+# ---------------------------------------------------------------------------
+# Session-type-specific guidance (injected by llm_chat.py)
+# ---------------------------------------------------------------------------
+
+_SESSION_GUIDANCE: dict[str, str] = {
+    "plan": (
+        "## Active Session: Planning\n\n"
+        "You are in a PLANNING session. Your goal is to decompose a goal into a task graph.\n\n"
+        "**Expected workflow:**\n"
+        "1. Understand the goal — ask clarifying questions if needed\n"
+        "2. `draftPlan(tasks=[...])` — create a draft task graph with dependencies\n"
+        "3. `showDraft()` — present the draft for review\n"
+        "4. `approvePlan()` — materialize tasks into the pipeline\n\n"
+        "**Key tools:** draftPlan, showDraft, approvePlan, getProjectStatus, searchEntities\n\n"
+        "**Tips:**\n"
+        "- Each task should have clear acceptance criteria\n"
+        "- Set depends_on for tasks that require prior work\n"
+        "- Use scopes to connect tasks to relevant guidelines\n"
+        "- Include origin (I-NNN or O-NNN) for traceability"
+    ),
+    "execute": (
+        "## Active Session: Task Execution\n\n"
+        "You are in an EXECUTION session. Your goal is to complete a specific task.\n\n"
+        "**Expected workflow:**\n"
+        "1. `getTaskContext(task_id)` — load full execution context (guidelines, deps, risks)\n"
+        "2. Implement — use create/update tools as needed\n"
+        "3. `runGates(task_id)` — validate with configured gates\n"
+        "4. `completeTask(task_id, reasoning='...')` — mark done\n\n"
+        "**Key tools:** getTaskContext, createDecision, recordChange, runGates, completeTask\n\n"
+        "**Tips:**\n"
+        "- Record decisions for non-trivial choices\n"
+        "- Follow guidelines loaded from task context\n"
+        "- Run gates before completing"
+    ),
+    "compound": (
+        "## Active Session: Compound Learning\n\n"
+        "You are in a COMPOUND LEARNING session. Extract lessons from completed work.\n\n"
+        "**Expected workflow:**\n"
+        "1. `getProjectStatus()` + `listEntities(entity_type='tasks', filters={status: 'DONE'})` — review done tasks\n"
+        "2. `listEntities(entity_type='decisions')` — review decisions made\n"
+        "3. `createLesson(category, title, detail, severity)` — for each pattern/insight\n"
+        "4. `promoteLesson(id, target='guideline'|'knowledge')` — promote important ones\n\n"
+        "**Key tools:** listEntities, searchEntities, createLesson, promoteLesson\n\n"
+        "**Categories:** pattern-discovered, mistake-avoided, decision-validated, "
+        "decision-reversed, tool-insight, architecture-lesson, process-improvement, market-insight\n"
+        "**Severity:** critical→must, important→should, minor→may (maps to guideline weight)"
+    ),
+    "verify": (
+        "## Active Session: Verification\n\n"
+        "You are in a VERIFICATION session. Review an entity and record findings.\n\n"
+        "**Expected workflow:**\n"
+        "1. `getEntity(entity_type, entity_id)` — load entity for review\n"
+        "2. `searchEntities(query)` + `listEntities(entity_type)` — analyze related entities\n"
+        "3. `createDecision(type, issue, recommendation)` — record findings\n"
+        "4. `recordChange(task_id, file, action, summary)` — log any changes\n\n"
+        "**Key tools:** getEntity, getTaskContext, searchEntities, createDecision, recordChange\n\n"
+        "**Tips:**\n"
+        "- Check acceptance criteria if verifying a task\n"
+        "- Record risks as type='risk' decisions\n"
+        "- Be thorough — review dependencies and related entities"
+    ),
+}
+
+
+def build_session_guidance(session_type: str) -> str:
+    """Return session-type-specific system prompt guidance.
+
+    Returns empty string for 'chat' or unknown types.
+    """
+    return _SESSION_GUIDANCE.get(session_type, "")
