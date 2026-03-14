@@ -6,6 +6,7 @@ import { useEntityStore } from "@/stores/entityStore";
 import { ObjectiveCard } from "@/components/entities/ObjectiveCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { ObjectiveForm } from "@/components/forms/ObjectiveForm";
+import { CoverageDashboard } from "@/components/objectives/CoverageDashboard";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Objective } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export default function ObjectivesPage() {
   const { slices, fetchEntities } = useEntityStore();
   const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [showCoverage, setShowCoverage] = useState(false);
   const [editingObj, setEditingObj] = useState<Objective | undefined>();
 
   useEffect(() => {
@@ -104,6 +106,12 @@ export default function ObjectivesPage() {
         <div className="flex items-center gap-3">
           <StatusFilter options={STATUSES} value={statusFilter} onChange={setStatusFilter} />
           <button
+            onClick={() => setShowCoverage((v) => !v)}
+            className={`px-3 py-1.5 text-sm rounded-md border ${showCoverage ? "bg-forge-50 border-forge-300 text-forge-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+          >
+            Coverage
+          </button>
+          <button
             onClick={() => { setEditingObj(undefined); setFormOpen(true); }}
             className="px-3 py-1.5 text-sm text-white bg-forge-600 rounded-md hover:bg-forge-700"
           >
@@ -111,6 +119,11 @@ export default function ObjectivesPage() {
           </button>
         </div>
       </div>
+      {showCoverage && (
+        <div className="mb-4">
+          <CoverageDashboard slug={slug} />
+        </div>
+      )}
       {slices.objectives.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.objectives.error && <p className="text-sm text-red-600 mb-2">{slices.objectives.error}</p>}
       <div className="space-y-3">
