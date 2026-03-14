@@ -14,9 +14,12 @@ Architecture reference: docs/FORGE-PLATFORM-V2.md Section 7.1
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -67,6 +70,54 @@ def atomic_write_json(path: Path, data: dict) -> None:
         except OSError:
             pass
         raise
+
+
+@contextlib.contextmanager
+def tracker_lock(project: str, base_dir: str = "forge_output", timeout: float = 30.0):
+    """Exclusive lock on project tracker for atomic read-modify-write.
+
+    Uses OS-level file locking (msvcrt on Windows, fcntl on Unix).
+    Lock is automatically released on process exit or crash.
+    """
+    lock_path = Path(base_dir) / project / ".tracker.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure lock file has content (required for msvcrt byte-range locking)
+    if not lock_path.exists():
+        lock_path.write_bytes(b"\x00")
+
+    f = open(lock_path, "r+b")
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except (IOError, OSError):
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            f"Could not acquire tracker lock for '{project}' "
+                            f"within {timeout}s"
+                        )
+                    time.sleep(0.05)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        if sys.platform == "win32":
+            import msvcrt
+            try:
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            except (IOError, OSError):
+                pass
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        f.close()
 
 
 # ---------------------------------------------------------------------------

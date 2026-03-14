@@ -283,13 +283,13 @@ Phase 4 — Quality:     Tests, validation, documentation
 ```
 
 For each task, specify:
-- `id`: T-001, T-002, etc.
+- `id`: Use temporary IDs: `_1`, `_2`, `_3`, etc. These are auto-remapped to real `T-NNN` IDs when the plan is approved (`approve-plan`) or tasks are added (`add-tasks`). This prevents ID collisions between concurrent planning processes. Use temp IDs in `depends_on` and `conflicts_with` too — they will be remapped together.
 - `name`: kebab-case, descriptive (e.g., "setup-database-schema")
 - `description`: WHAT needs to be done (concrete, not vague)
 - `instruction`: HOW to do it (step-by-step, mention specific files)
-- `depends_on`: list of prerequisite task IDs
+- `depends_on`: list of prerequisite task IDs (use temp IDs `_1`, `_2` for tasks in the same batch, or real `T-NNN` IDs for existing tasks)
 - `parallel`: true if this task can run alongside siblings
-- `conflicts_with`: list of task IDs modifying same files
+- `conflicts_with`: list of task IDs modifying same files (supports temp IDs within the same batch)
 - `scopes`: list of guideline scopes this task relates to (e.g., `["backend", "database"]`). **Only use scopes that exist in the project** (loaded via R10 in Step 2). Inherit from idea/objective scopes but narrow per task — a backend-only task should NOT get frontend scopes. `general` is always included automatically during execution.
 - `knowledge_ids`: list of Knowledge IDs (K-001, etc.) that provide context for this task. **Only assign knowledge relevant to the task** — if K-001 is about API patterns and the task is pure CSS, don't assign K-001. Inherit from source idea/objective but distribute selectively. Loaded by `pipeline context` for LLM assembly.
 - `test_requirements`: dict with boolean keys `unit`, `integration`, `e2e` indicating which test types this task needs.

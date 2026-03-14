@@ -41,7 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from contracts import render_contract, validate_contract
-from storage import JSONFileStorage, load_json_data, now_iso
+from storage import JSONFileStorage, load_json_data, now_iso, tracker_lock
 
 CLAIM_WAIT_SECONDS = 1.5
 
@@ -88,6 +88,53 @@ def find_task(tracker: dict, task_id: str) -> dict:
             return task
     print(f"ERROR: Task '{task_id}' not found.", file=sys.stderr)
     sys.exit(1)
+
+
+def _max_task_num(tasks: list) -> int:
+    """Find highest T-NNN number in existing tasks."""
+    max_num = 0
+    for t in tasks:
+        tid = t["id"]
+        if tid.startswith("T-") and tid[2:].isdigit():
+            max_num = max(max_num, int(tid[2:]))
+    return max_num
+
+
+def _remap_temp_ids(new_tasks: list, existing_tasks: list,
+                    update_tasks: list = None) -> dict:
+    """Remap temporary IDs (_1, _2, ...) to real T-NNN IDs.
+
+    Returns mapping {temp_id: real_id}.
+    Remaps in-place: id, depends_on, conflicts_with in both new_tasks
+    and update_tasks. IDs not starting with '_' are left as-is.
+    """
+    counter = _max_task_num(existing_tasks)
+    mapping = {}
+
+    # Assign real IDs to temp IDs
+    for t in new_tasks:
+        if t["id"].startswith("_"):
+            counter += 1
+            real_id = f"T-{counter:03d}"
+            mapping[t["id"]] = real_id
+            t["id"] = real_id
+
+    # Remap references in new_tasks
+    for t in new_tasks:
+        if "depends_on" in t:
+            t["depends_on"] = [mapping.get(d, d) for d in t["depends_on"]]
+        if "conflicts_with" in t:
+            t["conflicts_with"] = [mapping.get(c, c) for c in t["conflicts_with"]]
+
+    # Remap references in update_tasks
+    if update_tasks:
+        for u in update_tasks:
+            if "depends_on" in u:
+                u["depends_on"] = [mapping.get(d, d) for d in u["depends_on"]]
+            if "conflicts_with" in u:
+                u["conflicts_with"] = [mapping.get(c, c) for c in u["conflicts_with"]]
+
+    return mapping
 
 
 def validate_dag(tasks: list) -> list:
@@ -155,13 +202,13 @@ CONTRACTS = {
             "test_requirements": dict,
         },
         "invariant_texts": [
-            "id: unique task identifier (e.g., T-001)",
+            "id: task identifier — use temporary IDs (_1, _2, ...) for auto-assignment, or explicit T-NNN. Temp IDs are remapped to T-NNN at materialize time.",
             "name: kebab-case descriptive name (e.g., setup-database-schema)",
             "description: WHAT needs to be done (concrete, not vague)",
             "instruction: HOW to do it (step-by-step, mention specific files)",
-            "depends_on: list of prerequisite task IDs (must exist)",
+            "depends_on: list of prerequisite task IDs — can use temp IDs (_1, _2) within the same batch",
             "parallel: true if this task can run alongside others",
-            "conflicts_with: list of task IDs that modify same files",
+            "conflicts_with: list of task IDs that modify same files — can use temp IDs within the same batch",
             "acceptance_criteria: list of conditions for DONE — supports plain strings or structured: {text, from_template, params}",
             "type: task category — feature (default), bug, chore, or investigation",
             "blocked_by_decisions: list of decision IDs (D-001, etc.) that must be CLOSED before this task can start",
@@ -169,10 +216,11 @@ CONTRACTS = {
             "origin: source of this task — idea ID (I-001) or free text tracing where this task came from",
             "knowledge_ids: list of Knowledge IDs (K-001, etc.) linked to this task for context assembly",
             "test_requirements: {unit: bool, integration: bool, e2e: bool, description: str} — what testing is needed",
+            "Batch format: --data '{\"new_tasks\": [...], \"update_tasks\": [...]}' — atomically adds new tasks and updates existing tasks. update_tasks can reference temp IDs from new_tasks in depends_on/conflicts_with.",
         ],
         "example": [
             {
-                "id": "T-001",
+                "id": "_1",
                 "name": "setup-database-schema",
                 "description": "Create the database schema for user authentication",
                 "instruction": "Create migrations/001_auth.sql with users and sessions tables. Follow existing migration patterns.",
@@ -186,13 +234,13 @@ CONTRACTS = {
                 ],
             },
             {
-                "id": "T-002",
+                "id": "_2",
                 "name": "implement-auth-middleware",
                 "description": "JWT validation middleware",
                 "instruction": "Create src/middleware/auth.ts with RS256 JWT validation. Use jsonwebtoken library.",
-                "depends_on": ["T-001"],
+                "depends_on": ["_1"],
                 "parallel": False,
-                "conflicts_with": ["T-003"],
+                "conflicts_with": ["_3"],
                 "blocked_by_decisions": ["D-001"],
                 "type": "feature",
                 "acceptance_criteria": [
@@ -410,50 +458,112 @@ def _build_task_entry(t: dict, source_idea_id: str = None, source_objective_id: 
 
 
 def cmd_add_tasks(args):
-    """Add tasks to the project graph."""
-    tracker = load_tracker(args.project)
+    """Add tasks to the project graph.
 
+    Accepts two formats:
+    - Array: [{id: "_1", name: ...}, ...]  (backward compatible, also supports T-NNN)
+    - Batch: {new_tasks: [...], update_tasks: [...]}  (atomic add + update)
+
+    Temporary IDs (starting with '_') are auto-remapped to T-NNN.
+    """
     try:
-        new_tasks = load_json_data(args.data)
+        raw_data = load_json_data(args.data)
     except json.JSONDecodeError as e:
         print(f"ERROR: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if not isinstance(new_tasks, list):
-        print("ERROR: --data must be a JSON array", file=sys.stderr)
+    # Detect format
+    if isinstance(raw_data, dict) and "new_tasks" in raw_data:
+        new_tasks = raw_data["new_tasks"]
+        update_tasks = raw_data.get("update_tasks", [])
+        if not isinstance(new_tasks, list):
+            print("ERROR: new_tasks must be a JSON array", file=sys.stderr)
+            sys.exit(1)
+        if not isinstance(update_tasks, list):
+            print("ERROR: update_tasks must be a JSON array", file=sys.stderr)
+            sys.exit(1)
+    elif isinstance(raw_data, list):
+        new_tasks = raw_data
+        update_tasks = []
+    else:
+        print("ERROR: --data must be a JSON array or {new_tasks: [...], update_tasks: [...]}",
+              file=sys.stderr)
         sys.exit(1)
 
-    # Contract validation
+    # Contract validation on new_tasks
     errors = validate_contract(CONTRACTS["add-tasks"], new_tasks)
     if errors:
-        print(f"ERROR: {len(errors)} validation issues:", file=sys.stderr)
+        print(f"ERROR: {len(errors)} validation issues in new_tasks:", file=sys.stderr)
         for e in errors[:10]:
             print(f"  {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Check for duplicate IDs
-    existing_ids = {t["id"] for t in tracker["tasks"]}
-    for t in new_tasks:
-        if t["id"] in existing_ids:
-            print(f"ERROR: Duplicate task ID '{t['id']}'", file=sys.stderr)
+    # Validate update_tasks against update-task contract
+    if update_tasks:
+        for upd in update_tasks:
+            errs = validate_contract(CONTRACTS["update-task"], [upd])
+            if errs:
+                print(f"ERROR: Validation issues in update_tasks for '{upd.get('id', '?')}':",
+                      file=sys.stderr)
+                for e in errs[:5]:
+                    print(f"  {e}", file=sys.stderr)
+                sys.exit(1)
+
+    # Atomic section: lock → load → remap → validate → save
+    with tracker_lock(args.project):
+        tracker = load_tracker(args.project)
+
+        # Remap temporary IDs
+        mapping = _remap_temp_ids(new_tasks, tracker["tasks"], update_tasks)
+
+        # Check for duplicate IDs (after remap)
+        existing_ids = {t["id"] for t in tracker["tasks"]}
+        for t in new_tasks:
+            if t["id"] in existing_ids:
+                print(f"ERROR: Duplicate task ID '{t['id']}'", file=sys.stderr)
+                sys.exit(1)
+
+        # Build task entries
+        entries = [_build_task_entry(t) for t in new_tasks]
+
+        # Apply updates to existing tasks
+        updatable = ["name", "description", "instruction", "depends_on",
+                     "conflicts_with", "skill", "acceptance_criteria",
+                     "type", "blocked_by_decisions", "scopes", "origin",
+                     "knowledge_ids", "test_requirements"]
+        updated_ids = []
+        for upd in update_tasks:
+            task = find_task(tracker, upd["id"])
+            if task["status"] in ("IN_PROGRESS", "DONE"):
+                print(f"ERROR: Cannot update task {upd['id']} — status is {task['status']}.",
+                      file=sys.stderr)
+                sys.exit(1)
+            for field in updatable:
+                if field in upd:
+                    task[field] = upd[field]
+            updated_ids.append(upd["id"])
+
+        # Validate DAG with all tasks (existing + new)
+        all_tasks = tracker["tasks"] + entries
+        dag_errors = validate_dag(all_tasks)
+        if dag_errors:
+            print(f"ERROR: Task graph validation failed:", file=sys.stderr)
+            for e in dag_errors:
+                print(f"  {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Build task entries
-    entries = [_build_task_entry(t) for t in new_tasks]
+        tracker["tasks"].extend(entries)
+        save_tracker(args.project, tracker)
 
-    # Validate DAG with all tasks (existing + new)
-    all_tasks = tracker["tasks"] + entries
-    dag_errors = validate_dag(all_tasks)
-    if dag_errors:
-        print(f"ERROR: Task graph validation failed:", file=sys.stderr)
-        for e in dag_errors:
-            print(f"  {e}", file=sys.stderr)
-        sys.exit(1)
-
-    tracker["tasks"].extend(entries)
-    save_tracker(args.project, tracker)
+    # Print ID mapping
+    if mapping:
+        print("ID mapping:")
+        for temp, real in sorted(mapping.items()):
+            print(f"  {temp} -> {real}")
 
     print(f"Added {len(entries)} tasks to '{args.project}'")
+    if updated_ids:
+        print(f"Updated {len(updated_ids)} existing tasks: {', '.join(updated_ids)}")
     print_task_list(tracker)
     print(f"\nRun `next {args.project}` to start.")
 
@@ -1065,8 +1175,6 @@ def cmd_reset(args):
 
 def cmd_update_task(args):
     """Update fields of an existing task."""
-    tracker = load_tracker(args.project)
-
     try:
         updates = load_json_data(args.data)
     except json.JSONDecodeError as e:
@@ -1084,40 +1192,43 @@ def cmd_update_task(args):
             print(f"  {e}", file=sys.stderr)
         sys.exit(1)
 
-    task = find_task(tracker, updates["id"])
+    # Atomic section: lock → load → update → validate → save
+    with tracker_lock(args.project):
+        tracker = load_tracker(args.project)
+        task = find_task(tracker, updates["id"])
 
-    if task["status"] in ("IN_PROGRESS", "DONE"):
-        print(f"ERROR: Cannot update task {updates['id']} — status is {task['status']}. "
-              f"Reset it first.", file=sys.stderr)
-        sys.exit(1)
-
-    # Apply updates (only provided fields)
-    updatable = ["name", "description", "instruction", "depends_on",
-                 "conflicts_with", "skill", "acceptance_criteria",
-                 "type", "blocked_by_decisions", "scopes", "origin",
-                 "knowledge_ids", "test_requirements"]
-    changed = []
-    for field in updatable:
-        if field in updates:
-            old = task.get(field)
-            task[field] = updates[field]
-            if old != updates[field]:
-                changed.append(field)
-
-    if not changed:
-        print(f"No changes to task {updates['id']}.")
-        return
-
-    # Re-validate DAG if dependencies changed
-    if "depends_on" in updates:
-        dag_errors = validate_dag(tracker["tasks"])
-        if dag_errors:
-            print(f"ERROR: Updated dependencies create invalid graph:", file=sys.stderr)
-            for e in dag_errors:
-                print(f"  {e}", file=sys.stderr)
+        if task["status"] in ("IN_PROGRESS", "DONE"):
+            print(f"ERROR: Cannot update task {updates['id']} — status is {task['status']}. "
+                  f"Reset it first.", file=sys.stderr)
             sys.exit(1)
 
-    save_tracker(args.project, tracker)
+        # Apply updates (only provided fields)
+        updatable = ["name", "description", "instruction", "depends_on",
+                     "conflicts_with", "skill", "acceptance_criteria",
+                     "type", "blocked_by_decisions", "scopes", "origin",
+                     "knowledge_ids", "test_requirements"]
+        changed = []
+        for field in updatable:
+            if field in updates:
+                old = task.get(field)
+                task[field] = updates[field]
+                if old != updates[field]:
+                    changed.append(field)
+
+        if not changed:
+            print(f"No changes to task {updates['id']}.")
+            return
+
+        # Re-validate DAG if dependencies changed
+        if "depends_on" in updates:
+            dag_errors = validate_dag(tracker["tasks"])
+            if dag_errors:
+                print(f"ERROR: Updated dependencies create invalid graph:", file=sys.stderr)
+                for e in dag_errors:
+                    print(f"  {e}", file=sys.stderr)
+                sys.exit(1)
+
+        save_tracker(args.project, tracker)
     print(f"Updated task {updates['id']}: {', '.join(changed)}")
     print_task_detail(task)
 
@@ -2028,50 +2139,64 @@ def cmd_show_draft(args):
 
 def cmd_approve_plan(args):
     """Approve draft plan: materialize tasks into pipeline and mark idea COMMITTED."""
-    tracker = load_tracker(args.project)
-    draft = tracker.get("draft_plan")
+    mapping = {}
+    entries = []
 
-    if not draft or not draft.get("tasks"):
-        print(f"ERROR: No draft plan for '{args.project}'.", file=sys.stderr)
-        sys.exit(1)
+    # Atomic section: lock → load → remap → validate → save
+    with tracker_lock(args.project):
+        tracker = load_tracker(args.project)
+        draft = tracker.get("draft_plan")
 
-    draft_tasks = draft["tasks"]
-    source_idea_id = draft.get("source_idea_id")
-    source_objective_id = draft.get("source_objective_id")
-
-    # Check for duplicate IDs against existing tasks
-    existing_ids = {t["id"] for t in tracker["tasks"]}
-    for t in draft_tasks:
-        if t["id"] in existing_ids:
-            print(f"ERROR: Duplicate task ID '{t['id']}' — already exists in pipeline.",
-                  file=sys.stderr)
+        if not draft or not draft.get("tasks"):
+            print(f"ERROR: No draft plan for '{args.project}'.", file=sys.stderr)
             sys.exit(1)
 
-    # Build task entries (same logic as cmd_add_tasks)
-    entries = []
-    for t in draft_tasks:
-        entry = _build_task_entry(t, source_idea_id=source_idea_id,
-                                  source_objective_id=source_objective_id)
-        entries.append(entry)
+        draft_tasks = draft["tasks"]
+        source_idea_id = draft.get("source_idea_id")
+        source_objective_id = draft.get("source_objective_id")
 
-    # Validate DAG
-    all_tasks = tracker["tasks"] + entries
-    dag_errors = validate_dag(all_tasks)
-    if dag_errors:
-        print(f"ERROR: Task graph validation failed:", file=sys.stderr)
-        for e in dag_errors:
-            print(f"  {e}", file=sys.stderr)
-        sys.exit(1)
+        # Remap temporary IDs
+        mapping = _remap_temp_ids(draft_tasks, tracker["tasks"])
 
-    # Materialize
-    tracker["tasks"].extend(entries)
+        # Check for duplicate IDs against existing tasks (after remap)
+        existing_ids = {t["id"] for t in tracker["tasks"]}
+        for t in draft_tasks:
+            if t["id"] in existing_ids:
+                print(f"ERROR: Duplicate task ID '{t['id']}' — already exists in pipeline.",
+                      file=sys.stderr)
+                sys.exit(1)
 
-    # Clear draft
-    tracker.pop("draft_plan", None)
+        # Build task entries (same logic as cmd_add_tasks)
+        entries = []
+        for t in draft_tasks:
+            entry = _build_task_entry(t, source_idea_id=source_idea_id,
+                                      source_objective_id=source_objective_id)
+            entries.append(entry)
 
-    save_tracker(args.project, tracker)
+        # Validate DAG
+        all_tasks = tracker["tasks"] + entries
+        dag_errors = validate_dag(all_tasks)
+        if dag_errors:
+            print(f"ERROR: Task graph validation failed:", file=sys.stderr)
+            for e in dag_errors:
+                print(f"  {e}", file=sys.stderr)
+            sys.exit(1)
 
-    # Mark source idea as COMMITTED
+        # Materialize
+        tracker["tasks"].extend(entries)
+
+        # Clear draft
+        tracker.pop("draft_plan", None)
+
+        save_tracker(args.project, tracker)
+
+    # Print ID mapping (outside lock)
+    if mapping:
+        print("ID mapping:")
+        for temp, real in sorted(mapping.items()):
+            print(f"  {temp} -> {real}")
+
+    # Mark source idea as COMMITTED (outside lock — separate entity)
     if source_idea_id:
         _s = _get_storage()
         if _s.exists(args.project, 'ideas'):

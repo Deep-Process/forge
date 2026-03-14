@@ -2,7 +2,7 @@
   "project": "forge-web",
   "goal": "Forge Web — Next.js frontend for the Forge orchestration platform",
   "created": "2026-03-14T18:12:31Z",
-  "updated": "2026-03-14T19:10:39Z",
+  "updated": "2026-03-14T19:14:25Z",
   "tasks": [
     {
       "id": "T-060",
@@ -308,12 +308,13 @@
       ],
       "origin": "O-001",
       "knowledge_ids": [],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-14T19:06:35Z",
-      "completed_at": null,
+      "completed_at": "2026-03-14T19:14:20Z",
       "failed_reason": null,
       "agent": "default",
-      "started_at_commit": "de445bfe78e0fd3234636df510fde9873f09f418"
+      "started_at_commit": "de445bfe78e0fd3234636df510fde9873f09f418",
+      "ac_reasoning": "AC1: workflowStore.ts has executions Record, activeExtId, loading, error state. AC2: workflows namespace in api.ts with list/get/start/resume/cancel matching REST endpoints. AC3: handleWsEvent in workflowStore merges step_started/step_completed/paused/failed/cancelled events into execution state. AC4: WorkflowStatus.tsx renders step indicators with animated running dot, completed checkmark, pending circle; pause banner with resume button; cancel button."
     },
     {
       "id": "T-069",
@@ -346,15 +347,17 @@
       ],
       "origin": "O-001",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-14T19:14:25Z",
       "completed_at": null,
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
         "integration": true,
         "e2e": true
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "e93bf4fc2017b6777d63829b3e88a57a17635919"
     },
     {
       "id": "T-020",

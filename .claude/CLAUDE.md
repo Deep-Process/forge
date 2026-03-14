@@ -95,7 +95,7 @@ Outcome:    KR current vs target      →  "KR-1: 61%, KR-2: 89%"
 ### Pipeline (task graph)
 ```
 python -m core.pipeline init {project} --goal "..."      Create project
-python -m core.pipeline add-tasks {project} --data '...' Add tasks (direct, bypasses draft)
+python -m core.pipeline add-tasks {project} --data '...' Add tasks (array or batch format with update_tasks)
 python -m core.pipeline draft-plan {project} --data '...' [--idea I-NNN] [--objective O-NNN]  Store draft plan for review
 python -m core.pipeline show-draft {project}             Show current draft plan
 python -m core.pipeline approve-plan {project}           Approve draft → materialize tasks
@@ -348,6 +348,22 @@ When adding tasks, each task supports:
 - `origin` — where this task came from (idea ID like `I-001`, or free text)
 - `knowledge_ids` — list of Knowledge IDs (K-001, etc.) that provide context for this task. Loaded by `pipeline context`.
 - `test_requirements` — dict with `unit`, `integration`, `e2e` booleans indicating required test types.
+
+### Temporary IDs (concurrent-safe planning)
+
+Tasks use temporary IDs (`_1`, `_2`, `_3`, ...) during planning. These are auto-remapped
+to real `T-NNN` IDs at materialize time (`approve-plan` or `add-tasks`), under a file lock
+that prevents race conditions between concurrent planning processes.
+
+- `depends_on` and `conflicts_with` can reference temp IDs within the same batch — they are remapped together.
+- Explicit `T-NNN` IDs are still supported (backward compatible) — they are used as-is.
+- The ID mapping is printed to stdout after materialization.
+
+**Batch format** for atomic add + update (inserts new tasks AND modifies existing tasks' dependencies in one operation):
+```json
+{"new_tasks": [{"id": "_1", "name": "new-task", ...}], "update_tasks": [{"id": "T-003", "depends_on": ["_1"]}]}
+```
+`update_tasks` follows the same contract as `update-task` and can reference temp IDs from `new_tasks`.
 
 Tasks can be modified after creation with `update-task` (only TODO/FAILED tasks).
 Tasks can be removed with `remove-task` (only TODO, and only if no other tasks depend on them).

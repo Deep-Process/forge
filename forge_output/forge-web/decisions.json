@@ -1,6 +1,6 @@
 {
   "project": "forge-web",
-  "updated": "2026-03-14T18:32:53Z",
+  "updated": "2026-03-14T19:13:04Z",
   "decisions": [
     {
       "id": "D-001",
@@ -1277,6 +1277,22 @@
       ],
       "action": "accept",
       "updated": "2026-03-14T18:29:05Z"
+    },
+    {
+      "id": "D-029",
+      "task_id": "T-068",
+      "type": "implementation",
+      "issue": "Workflow store pattern: Zustand with direct state vs entity factory",
+      "recommendation": "Use direct Zustand create() like executionStore, not the entity factory. Workflows are not a standard CRUD entity - they have unique lifecycle (start/pause/resume/cancel) and real-time WS event updates.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "CLOSED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-14T19:13:04Z",
+      "tags": []
     }
   ],
   "open_count": 0
