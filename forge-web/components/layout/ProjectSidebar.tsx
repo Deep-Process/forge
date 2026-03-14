@@ -12,6 +12,7 @@ import { useGuidelineStore } from "@/stores/guidelineStore";
 import { useKnowledgeStore } from "@/stores/knowledgeStore";
 import { useLessonStore } from "@/stores/lessonStore";
 import { useACTemplateStore } from "@/stores/acTemplateStore";
+import { useResearchStore } from "@/stores/researchStore";
 
 // ---------------------------------------------------------------------------
 // Navigation structure
@@ -63,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Knowledge",
     items: [
       { label: "Knowledge", segment: "knowledge", icon: "\uD83D\uDCDA", countKey: "knowledge" },
+      { label: "Research", segment: "research", icon: "\uD83D\uDD2C", countKey: "research" },
       { label: "Lessons", segment: "lessons", icon: "\uD83C\uDF93", countKey: "lessons" },
       { label: "Changes", segment: "changes", icon: "\u0394", countKey: "changes" },
     ],
@@ -114,6 +116,7 @@ export function ProjectSidebar({ slug }: { slug: string }) {
     knowledge: useKnowledgeStore((s) => s.count),
     lessons: useLessonStore((s) => s.count),
     acTemplates: useACTemplateStore((s) => s.count),
+    research: useResearchStore((s) => s.count),
   };
 
   return (

@@ -32,6 +32,9 @@ export type LessonCategory =
 export type LessonSeverity = "critical" | "important" | "minor";
 export type ChangeAction = "create" | "edit" | "delete" | "rename" | "move" | "verify";
 export type ObjectiveStatus = "ACTIVE" | "ACHIEVED" | "ABANDONED" | "PAUSED";
+export type ResearchStatus = "DRAFT" | "ACTIVE" | "SUPERSEDED" | "ARCHIVED";
+export type ResearchCategory =
+  | "architecture" | "business" | "domain" | "feasibility" | "risk" | "technical";
 export type ACTemplateCategory =
   | "performance" | "security" | "quality" | "functionality"
   | "accessibility" | "reliability" | "data-integrity" | "ux";
@@ -474,6 +477,62 @@ export interface KnowledgeLink {
   entity_type: KnowledgeLinkEntityType;
   entity_id: string;
   relation: KnowledgeLinkRelation;
+}
+
+// ---------------------------------------------------------------------------
+// Research
+// ---------------------------------------------------------------------------
+
+export interface Research {
+  id: string;
+  title: string;
+  topic: string;
+  category: ResearchCategory;
+  summary: string;
+  status: ResearchStatus;
+  linked_entity_type?: string | null;
+  linked_entity_id?: string | null;
+  linked_idea_id?: string | null;
+  skill?: string | null;
+  file_path?: string | null;
+  content?: string | null;
+  key_findings: string[];
+  decision_ids: string[];
+  scopes: string[];
+  tags: string[];
+  created_by: string;
+}
+
+export interface ResearchCreate {
+  title: string;
+  topic: string;
+  category: ResearchCategory;
+  summary: string;
+  linked_entity_type?: string;
+  linked_entity_id?: string;
+  linked_idea_id?: string;
+  skill?: string;
+  file_path?: string;
+  content?: string;
+  key_findings?: string[];
+  decision_ids?: string[];
+  scopes?: string[];
+  tags?: string[];
+  created_by?: string;
+}
+
+export interface ResearchUpdate {
+  title?: string;
+  topic?: string;
+  status?: ResearchStatus;
+  category?: ResearchCategory;
+  summary?: string;
+  key_findings?: string[];
+  decision_ids?: string[];
+  file_path?: string;
+  linked_idea_id?: string;
+  scopes?: string[];
+  tags?: string[];
 }
 
 // ---------------------------------------------------------------------------

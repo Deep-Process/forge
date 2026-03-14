@@ -254,6 +254,7 @@ import type {
   ChangeRecord, ChangeCreate,
   Guideline, GuidelineCreate, GuidelineUpdate,
   Knowledge, KnowledgeCreate, KnowledgeUpdate, KnowledgeLink,
+  Research, ResearchCreate, ResearchUpdate,
   Lesson, LessonCreate, LessonPromote,
   ACTemplate, ACTemplateCreate, ACTemplateUpdate,
   Gate, GateCreate,
@@ -414,6 +415,21 @@ export const knowledgeMaintenance = {
     return list<StaleReport>(
       projectPath(slug, "knowledge") + "/maintenance/stale", params);
   },
+};
+
+// -- Research --
+export const research = {
+  list: (slug: string, params?: Record<string, string>) =>
+    list<{ research: Research[]; count: number }>(projectPath(slug, "research"), params),
+  create: (slug: string, data: ResearchCreate[]) =>
+    create<{ added: string[]; total: number }>(projectPath(slug, "research"), data),
+  get: (slug: string, id: string) =>
+    get<Research>(projectPath(slug, "research", id)),
+  update: (slug: string, id: string, data: ResearchUpdate) =>
+    update<Research>(projectPath(slug, "research", id), data),
+  context: (slug: string, entity: string) =>
+    get<{ research: Research[]; count: number; entity: string }>(
+      projectPath(slug, "research") + `/context?entity=${entity}`),
 };
 
 // -- Lessons --

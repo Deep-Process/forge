@@ -15,6 +15,7 @@ import { useKnowledgeStore } from "./knowledgeStore";
 import { useLessonStore } from "./lessonStore";
 import { useACTemplateStore } from "./acTemplateStore";
 import { useGateStore } from "./gateStore";
+import { useResearchStore } from "./researchStore";
 import { useSkillStore } from "./skillStore";
 import { useChatStore } from "./chatStore";
 import { isRecentMutation } from "@/lib/mutationTracker";
@@ -35,6 +36,7 @@ const stores = [
   useLessonStore,
   useACTemplateStore,
   useGateStore,
+  useResearchStore,
   useSkillStore,
 ] as const;
 
@@ -50,6 +52,7 @@ const EVENT_TO_ENTITY: Record<string, string> = {
   lesson: "lessons",
   ac_template: "ac-templates",
   gate: "gates",
+  research: "research",
   skill: "skills",
 };
 
