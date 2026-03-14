@@ -6,7 +6,7 @@ import { LeftPanel } from "@/components/layout/LeftPanel";
 import { AISidebarShell } from "@/components/ai/AISidebarShell";
 import { SWRProvider } from "@/lib/swr-config";
 import { ToastContainer } from "@/components/shared/ToastContainer";
-import { DecisionNotificationPopup } from "@/components/shared/DecisionNotificationPopup";
+import { NotificationPopupManager } from "@/components/notifications/NotificationPopupManager";
 import { DebugInit } from "@/components/debug/DebugInit";
 import { BottomPanel } from "@/components/debug/BottomPanel";
 import { AIPageProvider } from "@/lib/ai-context";
@@ -36,7 +36,7 @@ export default function RootLayout({
               </div>
             </LeftPanelProvider>
             <ToastContainer />
-            <DecisionNotificationPopup />
+            <NotificationPopupManager />
             <BottomPanel />
           </AIPageProvider>
         </SWRProvider>
