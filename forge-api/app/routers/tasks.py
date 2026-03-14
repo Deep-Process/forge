@@ -1,8 +1,9 @@
-"""Tasks router — CRUD + next (claim) + complete + context assembly."""
+"""Tasks router — CRUD + next (claim) + complete + context + draft-plan workflow."""
 
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -52,6 +53,30 @@ class TaskUpdate(BaseModel):
 
 class TaskComplete(BaseModel):
     reasoning: str = ""
+
+
+class DraftTaskItem(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    instruction: str = ""
+    type: str = "feature"
+    depends_on: list[str] = []
+    parallel: bool = False
+    conflicts_with: list[str] = []
+    acceptance_criteria: list = []
+    scopes: list[str] = []
+    origin: str | None = None
+    knowledge_ids: list[str] = []
+    test_requirements: dict | None = None
+    blocked_by_decisions: list[str] = []
+    skill: str | None = None
+
+
+class DraftPlanRequest(BaseModel):
+    tasks: list[DraftTaskItem]
+    idea_id: str | None = None
+    objective_id: str | None = None
 
 
 @router.get("")
@@ -172,6 +197,200 @@ async def remove_task(slug: str, task_id: str, storage=Depends(get_storage)):
             await save_global_entity(storage, "skills", skills_data)
 
     return {"removed": task_id}
+
+
+# ---------------------------------------------------------------------------
+# Draft-plan workflow
+# ---------------------------------------------------------------------------
+
+
+def _validate_dag(tasks: list[dict]) -> list[str]:
+    """Validate the task dependency graph. Returns list of error strings."""
+    errors = []
+    ids = {t["id"] for t in tasks}
+    for t in tasks:
+        for dep in t.get("depends_on", []):
+            if dep not in ids:
+                errors.append(f"Task {t['id']} depends on unknown task {dep}")
+    # Cycle detection via topological sort
+    in_degree: dict[str, int] = {t["id"]: 0 for t in tasks}
+    adj: dict[str, list[str]] = {t["id"]: [] for t in tasks}
+    for t in tasks:
+        for dep in t.get("depends_on", []):
+            if dep in adj:
+                adj[dep].append(t["id"])
+                in_degree[t["id"]] += 1
+    queue = [tid for tid, deg in in_degree.items() if deg == 0]
+    visited = 0
+    while queue:
+        node = queue.pop(0)
+        visited += 1
+        for neighbor in adj.get(node, []):
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+    if visited < len(tasks):
+        errors.append("Cycle detected in task dependencies")
+    return errors
+
+
+@router.post("/draft-plan", status_code=201)
+async def create_draft_plan(
+    request: Request,
+    slug: str,
+    body: DraftPlanRequest,
+    storage=Depends(get_storage),
+):
+    """Store a draft plan for review before materializing into pipeline."""
+    await check_project_exists(storage, slug)
+
+    # Validate DAG within draft tasks
+    draft_dicts = [t.model_dump() for t in body.tasks]
+    dag_errors = _validate_dag(draft_dicts)
+    if dag_errors:
+        raise HTTPException(422, f"DAG validation failed: {'; '.join(dag_errors)}")
+
+    async with _get_lock(slug, "tracker"):
+        tracker = await load_entity(storage, slug, "tracker")
+
+        # Check for duplicate IDs against existing tasks
+        existing_ids = {t["id"] for t in tracker.get("tasks", [])}
+        dupes = [t.id for t in body.tasks if t.id in existing_ids]
+        if dupes:
+            raise HTTPException(422, f"Duplicate task IDs already in pipeline: {', '.join(dupes)}")
+
+        tracker["draft_plan"] = {
+            "source_idea_id": body.idea_id,
+            "source_objective_id": body.objective_id,
+            "created": datetime.now(timezone.utc).isoformat(),
+            "tasks": draft_dicts,
+        }
+        await save_entity(storage, slug, "tracker", tracker)
+
+    await emit_event(request, slug, "task.status_changed", {
+        "task_id": "draft-plan",
+        "old_status": "none",
+        "new_status": "drafted",
+    })
+
+    return {
+        "status": "drafted",
+        "task_count": len(body.tasks),
+        "idea_id": body.idea_id,
+        "objective_id": body.objective_id,
+        "tasks": draft_dicts,
+    }
+
+
+@router.get("/draft")
+async def get_draft_plan(slug: str, storage=Depends(get_storage)):
+    """Return the current draft plan or 404 if none exists."""
+    await check_project_exists(storage, slug)
+    tracker = await load_entity(storage, slug, "tracker")
+    draft = tracker.get("draft_plan")
+    if not draft or not draft.get("tasks"):
+        raise HTTPException(404, "No draft plan exists")
+    return draft
+
+
+@router.post("/approve-plan")
+async def approve_draft_plan(
+    request: Request,
+    slug: str,
+    storage=Depends(get_storage),
+):
+    """Approve draft plan: materialize tasks into pipeline."""
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "tracker"):
+        tracker = await load_entity(storage, slug, "tracker")
+        draft = tracker.get("draft_plan")
+        if not draft or not draft.get("tasks"):
+            raise HTTPException(404, "No draft plan to approve")
+
+        draft_tasks = draft["tasks"]
+        source_idea_id = draft.get("source_idea_id")
+        source_objective_id = draft.get("source_objective_id")
+
+        # Check for duplicate IDs
+        existing_ids = {t["id"] for t in tracker.get("tasks", [])}
+        dupes = [t["id"] for t in draft_tasks if t["id"] in existing_ids]
+        if dupes:
+            raise HTTPException(422, f"Duplicate task IDs: {', '.join(dupes)}")
+
+        # Build task entries
+        entries = []
+        for t in draft_tasks:
+            entry = {
+                "id": t["id"],
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "instruction": t.get("instruction", ""),
+                "type": t.get("type", "feature"),
+                "status": "TODO",
+                "depends_on": t.get("depends_on", []),
+                "parallel": t.get("parallel", False),
+                "conflicts_with": t.get("conflicts_with", []),
+                "acceptance_criteria": t.get("acceptance_criteria", []),
+                "scopes": t.get("scopes", []),
+                "origin": t.get("origin") or source_objective_id or source_idea_id or "",
+                "knowledge_ids": t.get("knowledge_ids", []),
+                "test_requirements": t.get("test_requirements"),
+                "blocked_by_decisions": t.get("blocked_by_decisions", []),
+                "skill": t.get("skill"),
+            }
+            if source_idea_id:
+                entry["origin_idea_id"] = source_idea_id
+            entries.append(entry)
+
+        # Validate combined DAG
+        all_tasks = tracker.get("tasks", []) + entries
+        dag_errors = _validate_dag(all_tasks)
+        if dag_errors:
+            raise HTTPException(422, f"DAG validation failed: {'; '.join(dag_errors)}")
+
+        # Materialize
+        tracker["tasks"] = tracker.get("tasks", []) + entries
+        tracker.pop("draft_plan", None)
+        await save_entity(storage, slug, "tracker", tracker)
+
+    await emit_event(request, slug, "task.status_changed", {
+        "task_id": "draft-plan",
+        "old_status": "drafted",
+        "new_status": "approved",
+    })
+
+    return {
+        "status": "approved",
+        "materialized_count": len(entries),
+        "total_tasks": len(tracker.get("tasks", [])),
+        "tasks": entries,
+    }
+
+
+@router.delete("/draft")
+async def discard_draft_plan(
+    request: Request,
+    slug: str,
+    storage=Depends(get_storage),
+):
+    """Discard the current draft plan."""
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "tracker"):
+        tracker = await load_entity(storage, slug, "tracker")
+        draft = tracker.get("draft_plan")
+        if not draft or not draft.get("tasks"):
+            raise HTTPException(404, "No draft plan to discard")
+        task_count = len(draft.get("tasks", []))
+        tracker.pop("draft_plan", None)
+        await save_entity(storage, slug, "tracker", tracker)
+
+    await emit_event(request, slug, "task.status_changed", {
+        "task_id": "draft-plan",
+        "old_status": "drafted",
+        "new_status": "discarded",
+    })
+
+    return {"status": "discarded", "removed_tasks": task_count}
 
 
 @router.post("/next")
