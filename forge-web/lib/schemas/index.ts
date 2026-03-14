@@ -30,3 +30,6 @@ export type { GateCreateForm } from "./gate";
 
 export { skillCreateSchema, skillUpdateSchema } from "./skill";
 export type { SkillCreateForm, SkillUpdateForm } from "./skill";
+
+export { researchCreateSchema, researchUpdateSchema } from "./research";
+export type { ResearchCreateForm, ResearchUpdateForm } from "./research";

@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T11:20:57Z",
+  "updated": "2026-03-14T11:38:18Z",
   "changes": [
     {
       "id": "C-143",
@@ -16577,6 +16577,690 @@
       "group_id": "T-231",
       "guidelines_checked": [],
       "timestamp": "2026-03-14T11:20:56Z"
+    },
+    {
+      "id": "C-872",
+      "task_id": "T-232",
+      "file": "forge-api/app/routers/llm_chat.py",
+      "action": "edit",
+      "summary": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 50,
+      "lines_removed": 0,
+      "group_id": "T-232",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:22:36Z"
+    },
+    {
+      "id": "C-873",
+      "task_id": "T-232",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 96,
+      "lines_removed": 1,
+      "group_id": "T-232",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:22:36Z"
+    },
+    {
+      "id": "C-874",
+      "task_id": "T-232",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill_names field to ChatRequest, slug regex validation (no path traversal), SkillStorageService.get_skill() loading, per-skill 16K and total 30K char budget enforcement with truncation notices, priority preamble per D-091, DEBUG logging of injected skills, WARNING on missing/truncated/invalid. Uses is-not-None check per L-026."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 10,
+      "lines_removed": 7,
+      "group_id": "T-232",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:22:36Z"
+    },
+    {
+      "id": "C-875",
+      "task_id": "T-233",
+      "file": "forge-web/components/ai/ChatInput.tsx",
+      "action": "edit",
+      "summary": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 160,
+      "lines_removed": 35,
+      "group_id": "T-233",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:24:17Z"
+    },
+    {
+      "id": "C-876",
+      "task_id": "T-233",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 58,
+      "lines_removed": 1,
+      "group_id": "T-233",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:24:17Z"
+    },
+    {
+      "id": "C-877",
+      "task_id": "T-233",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Rewrote ChatInput with unified autocomplete controller (AutocompleteMode type replacing slashOpen). Integrated SkillChipArea above textarea, MentionDropdown with caret positioning, @-mention detection via extractMentionAtCursor, Backspace chip removal, keyboard dispatch for both dropdowns, and AI annotation per G-017. Placeholder updated to hint at both / and @."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 655,
+      "lines_removed": 8,
+      "group_id": "T-233",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:24:17Z"
+    },
+    {
+      "id": "C-878",
+      "task_id": "T-234",
+      "file": "forge-web/components/ai/LLMChat.tsx",
+      "action": "edit",
+      "summary": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 9,
+      "lines_removed": 2,
+      "group_id": "T-234",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:26:02Z"
+    },
+    {
+      "id": "C-879",
+      "task_id": "T-234",
+      "file": "forge-web/lib/types.ts",
+      "action": "edit",
+      "summary": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 1,
+      "lines_removed": 0,
+      "group_id": "T-234",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:26:02Z"
+    },
+    {
+      "id": "C-880",
+      "task_id": "T-234",
+      "file": "forge-web/stores/chatStore.ts",
+      "action": "edit",
+      "summary": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 3,
+      "lines_removed": 1,
+      "group_id": "T-234",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:26:02Z"
+    },
+    {
+      "id": "C-881",
+      "task_id": "T-234",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 115,
+      "lines_removed": 1,
+      "group_id": "T-234",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:26:02Z"
+    },
+    {
+      "id": "C-882",
+      "task_id": "T-234",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Wired skill_names through the full send flow: ChatSendRequest type, chatStore.sendMessage parameter, llm.send payload, LLMChat extracts names from sidebarStore.attachedSkills, passes to sendMessage, clears skills after send. ToolsTabEnhanced already handles attach+tab-switch via sidebarStore."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 662,
+      "lines_removed": 12,
+      "group_id": "T-234",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:26:02Z"
+    },
+    {
+      "id": "C-883",
+      "task_id": "T-235",
+      "file": "forge-api/app/routers/llm_chat.py",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 47,
+      "lines_removed": 37,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-884",
+      "task_id": "T-235",
+      "file": "forge-api/app/routers/skills.py",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 13,
+      "lines_removed": 0,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-885",
+      "task_id": "T-235",
+      "file": "forge-web/app/settings/llm/page.tsx",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 106,
+      "lines_removed": 0,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-886",
+      "task_id": "T-235",
+      "file": "forge-web/components/ai/ChatInput.tsx",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 6,
+      "lines_removed": 0,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-887",
+      "task_id": "T-235",
+      "file": "forge-web/lib/api.ts",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-888",
+      "task_id": "T-235",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 210,
+      "lines_removed": 1,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-889",
+      "task_id": "T-235",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 2,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-890",
+      "task_id": "T-235",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated.",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Added skill injection config to SkillsConfigUpdate model (skill_injection_enabled, max_skill_count, per_skill_char_limit, total_skill_char_budget) with persistence via skills_config.json. Backend chat handler reads config via _load_skills_config instead of hardcoded constants. Frontend Settings page has SkillInjectionSection with toggle, number inputs, and save button. ChatInput shows '1 skill attached' indicator. API client types updated."
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 743,
+      "lines_removed": 13,
+      "group_id": "T-235",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:28:41Z"
+    },
+    {
+      "id": "C-891",
+      "task_id": "T-251",
+      "file": "forge-api/app/events.py",
+      "action": "edit",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-892",
+      "task_id": "T-251",
+      "file": "forge-api/app/main.py",
+      "action": "edit",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 2,
+      "lines_removed": 0,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-893",
+      "task_id": "T-251",
+      "file": "forge-api/app/routers/research.py",
+      "action": "create",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 265,
+      "lines_removed": 0,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-894",
+      "task_id": "T-251",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 362,
+      "lines_removed": 1,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-895",
+      "task_id": "T-251",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 5,
+      "lines_removed": 5,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-896",
+      "task_id": "T-251",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created research.py router with 5 endpoints (list, create, get, update, context), added research.created/research.updated event types, registered in main.py"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 746,
+      "lines_removed": 13,
+      "group_id": "T-251",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:33:00Z"
+    },
+    {
+      "id": "C-897",
+      "task_id": "T-252",
+      "file": "forge-web/app/projects/[slug]/research/[id]/page.tsx",
+      "action": "create",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 245,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-898",
+      "task_id": "T-252",
+      "file": "forge-web/app/projects/[slug]/research/page.tsx",
+      "action": "create",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 147,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-899",
+      "task_id": "T-252",
+      "file": "forge-web/components/entities/ResearchCard.tsx",
+      "action": "create",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 84,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-900",
+      "task_id": "T-252",
+      "file": "forge-web/components/layout/ProjectSidebar.tsx",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 3,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-901",
+      "task_id": "T-252",
+      "file": "forge-web/lib/api.ts",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 16,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-902",
+      "task_id": "T-252",
+      "file": "forge-web/lib/types.ts",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 59,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-903",
+      "task_id": "T-252",
+      "file": "forge-web/stores/researchStore.ts",
+      "action": "create",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 21,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-904",
+      "task_id": "T-252",
+      "file": "forge-web/stores/wsDispatcher.ts",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 3,
+      "lines_removed": 0,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-905",
+      "task_id": "T-252",
+      "file": "forge_output/forge-platform-v2/changes.json",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 476,
+      "lines_removed": 1,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-906",
+      "task_id": "T-252",
+      "file": "forge_output/forge-platform-v2/objectives.json",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 5,
+      "lines_removed": 5,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
+    },
+    {
+      "id": "C-907",
+      "task_id": "T-252",
+      "file": "forge_output/forge-platform-v2/tracker.json",
+      "action": "edit",
+      "summary": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration",
+      "reasoning_trace": [
+        {
+          "step": "auto-complete",
+          "detail": "Created Research list and detail pages with Zustand store, API client, card component, sidebar nav, and WS event integration"
+        }
+      ],
+      "decision_ids": [],
+      "lines_added": 749,
+      "lines_removed": 13,
+      "group_id": "T-252",
+      "guidelines_checked": [],
+      "timestamp": "2026-03-14T11:38:18Z"
     }
   ]
 }

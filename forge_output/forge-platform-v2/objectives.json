@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T10:55:16Z",
+  "updated": "2026-03-14T11:29:05Z",
   "objectives": [
     {
       "id": "O-001",
@@ -1926,7 +1926,7 @@
           "metric": "Gap analysis Core vs Web (dokument)",
           "baseline": 0,
           "target": 1,
-          "current": 0,
+          "current": 1,
           "description": "Lista co Core robi, czego Web nie ma, co wymaga adaptacji vs co można pominąć. Mapa brakujących procesów z priorytetami."
         },
         {
@@ -1934,7 +1934,7 @@
           "metric": "Workflow design dla Web (projekt UX/flow)",
           "baseline": 0,
           "target": 1,
-          "current": 0,
+          "current": 1,
           "description": "Jak objective→idea→discover→plan→next→complete→compound wygląda w UI. Sekwencja ekranów, interakcji, stanow."
         },
         {
@@ -1942,7 +1942,7 @@
           "metric": "Plan implementacji (zatwierdzony /plan)",
           "baseline": 0,
           "target": 1,
-          "current": 0,
+          "current": 1,
           "description": "Task graph z zależnościami, gotowy do /run. Wynikający z gap analysis i workflow design."
         }
       ],
@@ -1971,7 +1971,7 @@
       "relations": [],
       "status": "ACTIVE",
       "created": "2026-03-14T10:55:16Z",
-      "updated": "2026-03-14T10:55:16Z"
+      "updated": "2026-03-14T11:29:05Z"
     }
   ]
 }

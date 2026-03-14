@@ -6,6 +6,8 @@ import { research as researchApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Research } from "@/lib/types";
 
 const STATUS_TRANSITIONS: Record<
@@ -202,8 +204,8 @@ export default function ResearchDetailPage() {
       {item.content && (
         <div className="rounded-lg border bg-white p-4">
           <h2 className="text-sm font-semibold mb-2">Full Analysis</h2>
-          <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-            {item.content}
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
           </div>
         </div>
       )}

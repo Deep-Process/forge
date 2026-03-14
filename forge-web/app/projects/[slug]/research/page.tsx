@@ -5,17 +5,13 @@ import { useParams } from "next/navigation";
 import { useResearchStore } from "@/stores/researchStore";
 import { ResearchCard } from "@/components/entities/ResearchCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
+import { ResearchForm } from "@/components/forms/ResearchForm";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Research } from "@/lib/types";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPERSEDED", "ARCHIVED"];
 const CATEGORIES = [
-  "architecture",
-  "domain",
-  "feasibility",
-  "risk",
-  "business",
-  "technical",
+  "architecture", "domain", "feasibility", "risk", "business", "technical",
 ];
 
 export default function ResearchPage() {
@@ -24,6 +20,8 @@ export default function ResearchPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingResearch, setEditingResearch] = useState<Research | undefined>();
 
   useEffect(() => {
     fetchAll(slug);
@@ -52,13 +50,15 @@ export default function ResearchPage() {
     return result;
   }, [research, statusFilter, categoryFilter, search]);
 
-  const statusDist = useMemo(() => {
+  const categoryDist = useMemo(() => {
     const dist: Record<string, number> = {};
-    for (const r of research) {
-      dist[r.status] = (dist[r.status] ?? 0) + 1;
-    }
+    for (const r of research) dist[r.category] = (dist[r.category] ?? 0) + 1;
     return dist;
   }, [research]);
+
+  const handleFormSuccess = () => {
+    fetchAll(slug);
+  };
 
   // --- AI Annotations ---
   useAIPage({
@@ -73,9 +73,7 @@ export default function ResearchPage() {
     type: "filter",
     label: "Status Filter",
     value: statusFilter || "All",
-    actions: [
-      { label: "Filter", description: "Filter research by status" },
-    ],
+    actions: [{ label: "Filter", description: "Filter research by status" }],
   });
 
   useAIElement({
@@ -83,52 +81,65 @@ export default function ResearchPage() {
     type: "list",
     label: "Research Objects",
     description: `${filtered.length} shown of ${count} total`,
-    data: { count, filtered: filtered.length, statuses: statusDist },
+    data: { count, filtered: filtered.length, categories: categoryDist },
     actions: [
       {
-        label: "View research",
-        toolName: "viewResearch",
-        toolParams: ["research_id*"],
+        label: "Create research",
+        toolName: "createResearch",
+        toolParams: ["title*", "topic*", "category*", "summary*"],
+      },
+      {
+        label: "Update research",
+        toolName: "updateResearch",
+        toolParams: ["research_id*", "title", "status", "key_findings"],
+      },
+    ],
+  });
+
+  useAIElement({
+    id: "research-form",
+    type: "form",
+    label: "Research Form",
+    value: formOpen,
+    description: formOpen ? `open (${editingResearch ? `editing ${editingResearch.id}` : "creating"})` : "closed",
+    data: { fields: ["title*", "topic*", "category*", "summary*", "key_findings", "decision_ids"] },
+    actions: [
+      {
+        label: editingResearch ? "Update" : "Create",
+        toolName: editingResearch ? "updateResearch" : "createResearch",
+        toolParams: editingResearch
+          ? ["research_id*", "title", "status"]
+          : ["title*", "topic*", "category*", "summary*"],
       },
     ],
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Research ({count})</h1>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Research ({count})</h2>
+        <div className="flex gap-3 items-center">
+          <StatusFilter options={STATUSES} value={statusFilter} onChange={setStatusFilter} />
+          <StatusFilter options={CATEGORIES} value={categoryFilter} onChange={setCategoryFilter} label="Category" />
+          <button
+            onClick={() => { setEditingResearch(undefined); setFormOpen(true); }}
+            className="px-3 py-1.5 text-sm text-white bg-forge-600 rounded-md hover:bg-forge-700"
+          >
+            + New Research
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <StatusFilter
-          statuses={STATUSES}
-          value={statusFilter}
-          onChange={setStatusFilter}
-          counts={statusDist}
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="text-xs border rounded px-2 py-1"
-        >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+      <div className="mb-4">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search title, topic, tags..."
-          className="text-xs border rounded px-2 py-1 w-48"
+          placeholder="Search title, topic, summary, or tags..."
+          className="w-full rounded-md border px-3 py-2 text-sm focus:border-forge-500 focus:ring-1 focus:ring-forge-500"
         />
       </div>
 
-      {/* List */}
       {filtered.length === 0 ? (
         <p className="text-sm text-gray-400">
           {count === 0
@@ -136,12 +147,25 @@ export default function ResearchPage() {
             : "No matching research objects."}
         </p>
       ) : (
-        <div className="grid gap-3">
+        <div className="space-y-3">
           {filtered.map((r) => (
-            <ResearchCard key={r.id} research={r} slug={slug} />
+            <ResearchCard
+              key={r.id}
+              research={r}
+              slug={slug}
+              onEdit={(research) => { setEditingResearch(research); setFormOpen(true); }}
+            />
           ))}
         </div>
       )}
+
+      <ResearchForm
+        slug={slug}
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditingResearch(undefined); }}
+        research={editingResearch}
+        onSuccess={handleFormSuccess}
+      />
     </div>
   );
 }

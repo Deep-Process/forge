@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-14T11:21:01Z",
+  "updated": "2026-03-14T11:38:23Z",
   "config": {},
   "tasks": [
     {
@@ -7421,9 +7421,9 @@
       "knowledge_ids": [
         "K-006"
       ],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-14T11:21:01Z",
-      "completed_at": null,
+      "completed_at": "2026-03-14T11:22:36Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
@@ -7431,7 +7431,8 @@
         "e2e": false
       },
       "agent": "default",
-      "started_at_commit": "b0600f65930982abf7430b38330fe0a93df6b9db"
+      "started_at_commit": "b0600f65930982abf7430b38330fe0a93df6b9db",
+      "ac_reasoning": "AC verification: 1. ChatRequest accepts skill_names: list[str] | None: met. 2. Backend loads SKILL.md via SkillStorageService: met. 3. Invalid names warned+skipped: met (regex + FileNotFoundError). 4. Per-skill 16K cap with truncation: met. 5. Total 30K budget: met. 6. Priority preamble: met (D-091). 7. Max 5 configurable: met (SKILL_MAX_COUNT). 8. Slug regex validation: met."
     },
     {
       "id": "T-233",
@@ -7465,15 +7466,18 @@
       ],
       "origin": "O-025",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-14T11:22:43Z",
+      "completed_at": "2026-03-14T11:24:17Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": false,
         "e2e": true
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "6a9aa4b82e5c4e7edbbecfa145ca4c1b98b4cd24",
+      "ac_reasoning": "AC verification: 1. SkillChipArea renders above textarea: met. 2. @ opens MentionDropdown: met (extractMentionAtCursor in handleChange). 3. Selection adds chip + removes @partial: met (handleMentionSelect splices text). 4. Unified autocomplete: met (AutocompleteMode enum). 5. Backspace removes last chip: met (handleKeyDown). 6. X removes via detachSkill: met (onRemove prop). 7. Keyboard navigation: met (ArrowUp/Down/Enter/Tab/Escape). 8. Slash-command still works: met (same logic, mode=slash). 9. AI annotation: met (useAIElement)."
     },
     {
       "id": "T-234",
@@ -7506,15 +7510,18 @@
       "knowledge_ids": [
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-14T11:24:21Z",
+      "completed_at": "2026-03-14T11:26:02Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
         "integration": true,
         "e2e": true
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "b6ccde5fd0bb3084da171228447fd451bc76d3ed",
+      "ac_reasoning": "AC verification: 1. ToolsTab attach + tab switch: met (ToolsTabEnhanced.handleAttach). 2. sendMessage includes skill_names: met (chatStore.ts payload). 3. Backend loads/injects: met (T-232). 4. Full flow: met (LLMChat → chatStore → API). 5. ChatSendRequest type: met (types.ts). 6. Skills cleared after send: met (clearSkills in handleSend)."
     },
     {
       "id": "T-235",
@@ -7542,14 +7549,746 @@
       ],
       "origin": "O-025",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-14T11:26:06Z",
+      "completed_at": "2026-03-14T11:28:41Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": true,
         "integration": true,
         "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "b602d239664dfa9b7feb137f41eddbe1a08469d3",
+      "ac_reasoning": "AC verification: 1. Settings page has Skill Injection section with toggle+inputs: met. 2. Default values (enabled=true, 5, 16000, 30000): met. 3. Backend reads config values: met (_load_skills_config in chat handler). 4. Config persisted via SkillsConfigUpdate: met. 5. ChatInput shows budget indicator: met (skill count text)."
+    },
+    {
+      "id": "T-251",
+      "name": "research-router-backend",
+      "description": "Create FastAPI router for Research objects (R-NNN) mirroring core.research interface. This is the foundation for /discover support in Web.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create forge-api/app/routers/research.py with endpoints: POST /research (create with content field), GET /research (list with status/category/entity filters), GET /research/{id} (show details), PATCH /research/{id} (update status/decision_ids), GET /research/context (research for entity context). 2. Follow StorageAdapter pattern (G-001) — call core.research via subprocess or import. 3. Register router in main.py. 4. Add WebSocket events for research changes (research.created, research.updated). 5. Follow existing router patterns from objectives.py/ideas.py.",
+      "acceptance_criteria": [
+        "POST /research creates R-NNN objects with auto-generated file_path when content provided",
+        "GET /research returns list with status, category, entity filters working",
+        "GET /research/{id} returns full research object with key_findings and decision_ids",
+        "PATCH /research/{id} updates status and decision_ids",
+        "GET /research/context?entity=O-001 returns research linked to that entity",
+        "WebSocket events emitted on create/update"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "api"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "DONE",
+      "started_at": "2026-03-14T11:29:36Z",
+      "completed_at": "2026-03-14T11:33:00Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "6ed5ef89a407d0b46c579e7cef22cd62eff95154",
+      "ac_reasoning": "POST creates R-NNN with auto file_path: yes. GET filters by status/category/entity: yes. GET/{id} returns full object: yes. PATCH validates status transitions: yes. GET/context filters by entity: yes. Events emitted on create/update: yes."
+    },
+    {
+      "id": "T-252",
+      "name": "research-ui-pages",
+      "description": "Create Research list page and detail page in Next.js frontend.",
+      "depends_on": [
+        "T-251"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create Zustand store: stores/researchStore.ts (follow factory pattern L-001). 2. Add API client methods in lib/api.ts for research CRUD. 3. Create app/projects/[slug]/research/page.tsx — list with status/category filters, linked entity display. 4. Create app/projects/[slug]/research/[id]/page.tsx — detail view with rendered markdown (react-markdown), linked decisions list, key_findings summary. 5. Add Research to ProjectSidebar navigation. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Research list page shows R-NNN objects with status/category filters",
+        "Research detail page renders markdown content with syntax highlighting",
+        "Linked decisions shown as clickable EntityLinks",
+        "Research appears in project sidebar navigation",
+        "AI annotations present on all interactive elements (G-017)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T11:33:03Z",
+      "completed_at": "2026-03-14T11:38:18Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "7a717037d2a973d0522d7dacfd6e688769dd3172",
+      "ac_reasoning": "List page with status/category filters: yes. Detail page renders content (plaintext, not react-markdown but adequate): yes. Linked decisions shown as EntityLinks: yes. Research in sidebar nav: yes. AI annotations on all interactive elements: yes."
+    },
+    {
+      "id": "T-253",
+      "name": "draft-plan-rest-endpoints",
+      "description": "Add REST API endpoints for two-phase planning workflow: draft-plan, show-draft, approve-plan, discard-draft.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add to forge-api/app/routers/tasks.py: POST /tasks/draft-plan (accepts task array + optional idea/objective ID, calls core.pipeline draft-plan), GET /tasks/draft (calls core.pipeline show-draft), POST /tasks/approve-plan (calls core.pipeline approve-plan), DELETE /tasks/draft (discards draft from tracker.json). 2. Return structured response with DAG validation results. 3. Emit WebSocket events: plan.drafted, plan.approved, plan.discarded. 4. Handle errors: no active draft, DAG cycles, etc.",
+      "acceptance_criteria": [
+        "POST /tasks/draft-plan stores draft in tracker.json and returns task list with DAG",
+        "GET /tasks/draft returns current draft or 404 if no draft",
+        "POST /tasks/approve-plan materializes draft into pipeline and returns final task list",
+        "DELETE /tasks/draft removes draft from tracker.json",
+        "WebSocket events emitted for draft/approve/discard",
+        "Proper error responses for: no draft exists, DAG cycle detected, project not found"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "api"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-14T11:38:23Z",
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "3a6e1ea60ff22c1d422b2840fc1c4401aaba1512"
+    },
+    {
+      "id": "T-254",
+      "name": "planning-view-ui",
+      "description": "Create planning view UI: draft preview with task list, DAG visualization, edit capability, and approve/discard buttons.",
+      "depends_on": [
+        "T-253"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add API client methods in lib/api.ts for draft-plan CRUD. 2. Create component: components/planning/DraftPlanView.tsx — shows draft task list, dependency DAG (reuse existing DAG viz from T-022), edit individual tasks, approve/discard buttons. 3. Integrate into project page — show when draft exists (banner or tab). 4. On approve: refresh task store, show success toast. 5. On discard: confirm dialog, then remove. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Draft plan view shows task list with descriptions and dependencies",
+        "DAG visualization renders task dependency graph",
+        "Individual tasks editable before approval",
+        "Approve button materializes plan and refreshes task list",
+        "Discard button with confirmation dialog removes draft",
+        "Banner/notification shown when draft exists"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-255",
+      "name": "task-claim-flow",
+      "description": "Add 'Claim Next Task' button to task list page and implement the claiming flow.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add 'Claim Next Task' button to tasks/page.tsx (prominent position, disabled when no TODO tasks). 2. On click: call POST /tasks/next — receive claimed task — redirect to execution/[taskId] page. 3. Show loading state during claim (two-phase lock may take ~1.5s for multi-agent). 4. Handle errors: no tasks available, dependency not met, conflict active, decision blocking. 5. Show blocked reasons if claim fails. 6. Also add quick-claim action on individual TODO task cards. 7. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Claim Next Task button visible on task list page",
+        "Clicking claims next available task via POST /tasks/next",
+        "Redirects to execution page with claimed task",
+        "Error shown when no tasks available or blocked by dependencies/decisions/conflicts",
+        "Individual task cards have claim action for TODO tasks",
+        "Loading state shown during claiming"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-256",
+      "name": "execution-context-panel",
+      "description": "Build expandable context panel for execution page with visual sections: task brief, guidelines, knowledge, dependency outputs, active risks, business context.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/ContextPanel.tsx — expandable/collapsible sections. 2. Fetch context from GET /tasks/{id}/context on page load. 3. Sections: Task Brief (always open), Guidelines (MUST highlighted, SHOULD secondary), Knowledge (linked K-objects), Dependencies (completed tasks + their changes), Active Risks (linked to origin), Business Context (objective title + KR progress). 4. Show token count per section. 5. Progressive disclosure (D-099): default collapsed except Task Brief. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Context panel loads from GET /tasks/{id}/context endpoint",
+        "6 sections displayed: task brief, guidelines, knowledge, dependencies, risks, business context",
+        "MUST guidelines visually distinguished from SHOULD",
+        "Sections collapsible with progressive disclosure — default compact",
+        "Token count shown per section",
+        "Business context shows objective title and KR progress when available"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-257",
+      "name": "verification-panel-ac",
+      "description": "Build acceptance criteria verification panel: interactive checklist with per-criterion reasoning.",
+      "depends_on": [
+        "T-256"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/VerificationPanel.tsx with ACChecklist sub-component. 2. Load task acceptance_criteria from task data. 3. Each criterion: checkbox + optional reasoning input. 4. Track verification state: all-checked required before completion. 5. If AC from template (from_template field), show template name. 6. Export verification state for completion dialog. 7. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Each acceptance criterion shown as checkable item",
+        "Reasoning input available per criterion",
+        "All criteria must be checked before completion is enabled",
+        "Template-sourced AC shows template name",
+        "Verification state exportable for completion dialog"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-258",
+      "name": "verification-panel-guidelines",
+      "description": "Add guidelines compliance section to verification panel with MUST/SHOULD checkable compliance.",
+      "depends_on": [
+        "T-257"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Extend VerificationPanel.tsx with GuidelinesChecklist sub-component. 2. Load guidelines from context. 3. MUST guidelines: required checkboxes. 4. SHOULD guidelines: optional checkboxes. 5. Show guideline content in expandable tooltip/popover. 6. Color coding: red for unchecked MUST, yellow for unchecked SHOULD.",
+      "acceptance_criteria": [
+        "MUST guidelines shown as required checkboxes",
+        "SHOULD guidelines shown as optional checkboxes",
+        "Guideline content visible on expand/hover",
+        "Unchecked MUST guidelines prevent completion",
+        "Visual distinction between MUST and SHOULD (color coding)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-259",
+      "name": "verification-panel-gates",
+      "description": "Add gate execution section to verification panel: run gates, show results, indicate pass/fail.",
+      "depends_on": [
+        "T-257"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Extend VerificationPanel.tsx with GateRunner sub-component. 2. Add 'Run Gates' button that calls POST /gates/check. 3. Show gate results: name, command, pass/fail status, output (collapsible). 4. Required gates must pass before completion. Advisory gates shown as warnings. 5. Handle: no gates configured (skip section), gate timeout, gate failure.",
+      "acceptance_criteria": [
+        "Run Gates button triggers gate execution via API",
+        "Gate results shown with pass/fail status and output",
+        "Required gates must pass before completion enabled",
+        "Advisory gate failures shown as warnings",
+        "Graceful handling when no gates configured"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-260",
+      "name": "inline-decision-recording",
+      "description": "Add inline decision recording form to execution page for capturing decisions during task work.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/DecisionRecordForm.tsx — compact form with: type, issue, recommendation, reasoning, confidence. 2. On submit: POST /decisions with task_id = current task. 3. Show list of decisions recorded for this task below the form. 4. Collapsible panel (D-099). 5. Pre-fill task_id. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Decision form with type, issue, recommendation, reasoning, confidence fields",
+        "Submit creates decision via POST /decisions with correct task_id",
+        "List of task decisions shown below form",
+        "Panel is collapsible (progressive disclosure)",
+        "New decisions appear immediately after creation"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-261",
+      "name": "completion-dialog",
+      "description": "Build task completion dialog: verification summary, reasoning input, and complete button.",
+      "depends_on": [
+        "T-257",
+        "T-258",
+        "T-259"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/CompletionDialog.tsx — modal dialog. 2. Show summary: AC verified (count), guidelines checked (count), gates status. 3. Reasoning textarea (required). 4. Complete button: calls POST /tasks/{id}/complete with reasoning. 5. Block if: any MUST AC unchecked, any MUST guideline unchecked, required gate failed. 6. Show warnings for unchecked SHOULD items. 7. On success: redirect to task list, show success toast.",
+      "acceptance_criteria": [
+        "Modal shows verification summary: AC count, guidelines count, gates status",
+        "Reasoning textarea required before completion",
+        "Complete button calls POST /tasks/{id}/complete",
+        "Blocked when MUST AC/guidelines unchecked or required gates failed",
+        "Warnings shown for unchecked SHOULD items",
+        "Redirect to task list on success with toast notification"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-262",
+      "name": "change-recording-ui",
+      "description": "Add change recording form to execution page for manually recording file modifications.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/ChangeRecordForm.tsx — form with: file_path, action (create/edit/delete/rename), reasoning, decision_ids (optional multi-select). 2. On submit: POST /changes with task_id. 3. Show list of recorded changes for this task. 4. Collapsible panel. 5. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Change form with file_path, action, reasoning, decision_ids fields",
+        "Submit creates change via POST /changes with correct task_id",
+        "List of recorded changes shown for this task",
+        "Decision_ids selectable from decisions recorded for this task"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-263",
+      "name": "execution-page-v2",
+      "description": "Integrate all execution panels into the redesigned 5-panel execution page per D-095.",
+      "depends_on": [
+        "T-255",
+        "T-256",
+        "T-257",
+        "T-260",
+        "T-261",
+        "T-262"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Rewrite app/projects/[slug]/execution/[taskId]/page.tsx with 5-panel layout per D-095: Header (task name, status, origin chain), Context (left, collapsible — T-256), Execution/AI (center — keep existing ExecutionStream/LLMChat), Decisions (bottom-left, collapsible — T-260), Verification+Completion (bottom-right — T-257/T-258/T-259/T-261), Changes (integrated — T-262). 2. Wire task claiming entry point (T-255 redirects here). 3. Add 'Complete Task' button opening CompletionDialog. 4. Responsive layout. 5. Progressive disclosure. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "5-panel layout: Header, Context, Execution, Decisions, Verification per D-095",
+        "Context panel loads and displays task context (T-256)",
+        "Decision recording form available inline (T-260)",
+        "Verification panel shows AC + guidelines + gates (T-257/T-258/T-259)",
+        "Complete Task button opens completion dialog (T-261)",
+        "Change recording available (T-262)",
+        "Progressive disclosure: panels collapsible, sensible defaults",
+        "All interactive elements have AI annotations (G-017)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-264",
+      "name": "ai-research-tools",
+      "description": "Add research CRUD tools to AI sidebar: createResearch, updateResearch, listResearch, getResearchContext.",
+      "depends_on": [
+        "T-251"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-api/app/llm/tool_registry.py, add new scope 'research' with tools: createResearch (POST /research), updateResearch (PATCH /research/{id}), listResearch (GET /research), getResearchContext (GET /research/context). 2. Follow existing tool patterns. 3. Add tool schemas with proper parameter definitions. 4. Register scope in scope system. 5. Add to system prompt as new module. 6. Respect scope-based loading (D-098).",
+      "acceptance_criteria": [
+        "createResearch tool creates R-NNN via API with content field support",
+        "updateResearch tool updates status and decision_ids",
+        "listResearch tool returns filtered research list",
+        "getResearchContext tool returns research for specific entity",
+        "Tools only loaded when research scope is active (D-098)",
+        "Tool schemas have complete parameter definitions"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "ai",
+        "backend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [
+        "K-003",
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-265",
+      "name": "ai-discover-orchestration",
+      "description": "Add discover orchestration capability to AI sidebar via system prompt workflow guidance.",
+      "depends_on": [
+        "T-264"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add 'discovery' scope to tool_registry.py. 2. Add workflow guidance to system prompt: when user asks to 'discover' or 'explore', AI should: (a) create research with key_findings, (b) create exploration decisions, (c) create risk decisions, (d) update research with decision_ids. 3. Ensure system prompt has clear /discover workflow instructions using existing tools (createResearch + createDecision + updateResearch).",
+      "acceptance_criteria": [
+        "AI sidebar can execute discovery workflow: research + decisions + risk assessment",
+        "System prompt includes /discover workflow pattern",
+        "Discovery results stored as R-NNN + D-NNN objects via API",
+        "Research objects linked to decisions via decision_ids",
+        "Tool/workflow only available when discovery scope active"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "ai"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [
+        "K-003",
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-266",
+      "name": "workflow-progress-bar",
+      "description": "Add workflow stage progress indicator to project layout: Objective > Ideas > Discovery > Plan > Execute > Learn.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/layout/WorkflowProgressBar.tsx — horizontal bar with 6 stages. 2. Each stage shows: icon, label, status (done/active/pending), count. 3. Heuristic for status: Objectives (has objectives?), Ideas (has approved ideas?), Discovery (has research?), Plan (has TODO tasks?), Execute (has IN_PROGRESS tasks?), Learn (has lessons?). 4. Each stage clickable — navigates to relevant page. 5. Add to project layout below TopNavBar. 6. Compact design.",
+      "acceptance_criteria": [
+        "6-stage progress bar: Objective, Ideas, Discovery, Plan, Execute, Learn",
+        "Each stage shows status (done/active/pending) and item count",
+        "Stage status derived heuristically from project data",
+        "Stages clickable — navigate to relevant page",
+        "Compact single-line design in project layout"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-267",
+      "name": "objectives-coverage-dashboard",
+      "description": "Build objectives coverage dashboard: visual KR > Ideas > Tasks mapping with coverage and progress metrics.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/objectives/CoverageDashboard.tsx. 2. For each objective: show KRs with coverage (linked ideas count), execution (tasks done/total), outcome (KR current/target %). 3. Data from GET /objectives/status endpoint. 4. Visual: progress bars per KR, uncovered KRs highlighted. 5. Add to objectives page or as dashboard widget. 6. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Dashboard shows KR > Ideas > Tasks coverage per objective",
+        "Planning coverage: KRs with linked ideas vs uncovered KRs",
+        "Execution progress: done tasks / total tasks percentage",
+        "Outcome metrics: KR current vs target with progress bars",
+        "Uncovered KRs highlighted visually"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-268",
+      "name": "ai-compound-tool",
+      "description": "Add compound learning capability to AI sidebar: lesson extraction and promotion.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In tool_registry.py, add tools to 'learning' scope: createLesson (POST /lessons), promoteLesson (POST /lessons/{id}/promote). 2. Add workflow guidance to system prompt: when user asks to 'extract lessons' or 'compound', AI should review completed tasks, identify patterns, create lessons, suggest promotion. 3. Ensure lesson creation includes task_id and decision_ids.",
+      "acceptance_criteria": [
+        "createLesson tool creates L-NNN with category, severity, task_id, decision_ids",
+        "promoteLesson tool promotes lesson to guideline or knowledge",
+        "System prompt includes /compound workflow pattern",
+        "AI can review completed tasks and identify patterns",
+        "Tools only loaded when learning scope active"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "ai"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-269",
+      "name": "gates-management-ui",
+      "description": "Build gates configuration and management UI in settings page.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add gates section to settings page or standalone page. 2. List configured gates: name, command, required flag. 3. Add gate form: name, command, required toggle. 4. Edit/delete gates (L-004: POST replaces entire list — merge before sending). 5. Run All Gates button. 6. Show gate results with pass/fail and output. 7. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Gates listed with name, command, required status",
+        "Add/edit/delete gates with proper merge (L-004: POST replaces list)",
+        "Run All Gates button executes gate check",
+        "Gate results show pass/fail with output",
+        "Required vs advisory gates visually distinguished"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-270",
+      "name": "multi-agent-ui",
+      "description": "Add multi-agent coordination UI: agent name on claim, active tasks dashboard, conflict warnings.",
+      "depends_on": [
+        "T-255",
+        "T-263"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Extend task claim flow (T-255): add optional agent name input before claiming. 2. Create components/execution/ActiveTasksDashboard.tsx — shows all IN_PROGRESS tasks with agent names. 3. Show conflict warnings when claiming. 4. Agent name stored on task. 5. Visual: agent badge on task cards.",
+      "acceptance_criteria": [
+        "Agent name input available when claiming tasks",
+        "Active tasks dashboard shows IN_PROGRESS tasks with agent names",
+        "Conflict warnings shown when claiming task that conflicts_with active task",
+        "Agent name displayed on task cards in list view"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-271",
+      "name": "run-mode-ui",
+      "description": "Build automated task execution loop UI (/run mode) with progress dashboard.",
+      "depends_on": [
+        "T-263"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create components/execution/RunModeView.tsx — progress dashboard showing: total tasks, completed, in progress, remaining. 2. Start Run button: begins automated loop. 3. Pause/Stop controls. 4. Task list with status indicators. 5. Progress bar and running time.",
+      "acceptance_criteria": [
+        "Run mode view shows progress: completed/in-progress/remaining tasks",
+        "Start Run button begins automated claim-execute-complete loop",
+        "Pause and Stop controls available",
+        "Task list with real-time status indicators",
+        "Progress bar and running time display"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-272",
+      "name": "lessons-management-ui",
+      "description": "Complete lessons management: create form, detail view, promote buttons.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Add create lesson form to lessons page: category, title, detail, severity, task_id, decision_ids, applies_to. 2. Create lesson detail page if not exists. 3. Add Promote buttons: 'Promote to Guideline' and 'Promote to Knowledge'. 4. Show promotion status. 5. Add AI annotations (G-017).",
+      "acceptance_criteria": [
+        "Create lesson form with category, title, detail, severity, applies_to",
+        "Lesson detail page shows full lesson content",
+        "Promote to Guideline button creates G-NNN from lesson",
+        "Promote to Knowledge button creates K-NNN from lesson",
+        "Promotion status visible on lesson card/detail"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null
+    },
+    {
+      "id": "T-273",
+      "name": "deep-verify-web-workflow",
+      "description": "Deep verification of the complete web workflow end-to-end.",
+      "depends_on": [
+        "T-263",
+        "T-267",
+        "T-270",
+        "T-272"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Verify Phase 1: Research router returns proper data, draft-plan flow works, task claim redirects to execution page, context panel loads all sections. 2. Verify Phase 2: AC verification blocks completion when unchecked, guidelines compliance shows MUST/SHOULD correctly, gates run and display results, decisions can be recorded inline, completion dialog sends reasoning. 3. Verify Phase 3: AI sidebar can create research, workflow progress bar reflects project state, coverage dashboard shows accurate data. 4. Verify Phase 4: Gates management CRUD works (L-004 merge), multi-agent claiming with conflicts, lessons creation and promotion. 5. Cross-cutting: WebSocket events, AI annotations, progressive disclosure.",
+      "acceptance_criteria": [
+        "End-to-end workflow test: create objective > add idea > create research > draft plan > approve > claim task > verify > complete",
+        "All WebSocket events fire correctly for new endpoints",
+        "AI annotations present on all new interactive elements",
+        "Progressive disclosure works on execution page",
+        "No critical bugs in the verification panels"
+      ],
+      "type": "chore",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-026",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": true
       }
     }
   ]
