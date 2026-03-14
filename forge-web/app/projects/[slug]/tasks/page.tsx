@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useEntityData } from "@/hooks/useEntityData";
 import { useTaskStore, updateTask as updateTaskAction } from "@/stores/taskStore";
+import { useExecutionStore } from "@/stores/executionStore";
 import { tasks as tasksApi } from "@/lib/api";
 import { TaskCard } from "@/components/entities/TaskCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
@@ -17,6 +18,7 @@ const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED", "CLAIMING"
 
 export default function TasksPage() {
   const { slug } = useParams() as { slug: string };
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { items, count, isLoading, error, mutate } = useEntityData<Task>(slug, "tasks");
   const saving = useTaskStore((s) => s.saving);
@@ -25,6 +27,14 @@ export default function TasksPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [draft, setDraft] = useState<DraftPlan | null>(null);
+  const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  const claimNext = useExecutionStore((s) => s.claimNext);
+  const executionPhase = useExecutionStore((s) => s.phase);
+  const executionError = useExecutionStore((s) => s.error);
+  const resetExecution = useExecutionStore((s) => s.reset);
+  const isClaiming = executionPhase === "claiming";
 
   // Load draft plan if one exists
   useEffect(() => {
@@ -101,6 +111,24 @@ export default function TasksPage() {
     ],
   });
 
+  const todoCount = statusDist["TODO"] ?? 0;
+
+  useAIElement({
+    id: "claim-next-btn",
+    type: "button",
+    label: "Claim Next Task",
+    description: `Claims the next available TODO task via /tasks/next. ${todoCount} TODO tasks available.`,
+    data: { todoCount, isClaiming },
+    actions: [
+      {
+        label: "Claim next task",
+        toolName: "claimNextTask",
+        toolParams: ["agent"],
+        availableWhen: "todoCount > 0 and not claiming",
+      },
+    ],
+  });
+
   useAIElement({
     id: "task-form",
     type: "form",
@@ -124,6 +152,37 @@ export default function TasksPage() {
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
+
+  const handleClaimNext = useCallback(async () => {
+    setClaimError(null);
+    const task = await claimNext(slug);
+    if (task) {
+      router.push(`/projects/${slug}/execution/${task.id}`);
+    } else {
+      const state = useExecutionStore.getState();
+      if (state.phase === "idle") {
+        setClaimError("No tasks available to claim. All tasks are done, blocked by dependencies, or already in progress.");
+      } else if (state.phase === "failed" && state.error) {
+        setClaimError(state.error);
+        resetExecution();
+      }
+    }
+  }, [slug, claimNext, router, resetExecution]);
+
+  const handleClaimSpecific = useCallback(async (task: Task) => {
+    setClaimError(null);
+    setClaimingTaskId(task.id);
+    try {
+      // For specific task claim, use the start status to claim it
+      await updateTaskAction(slug, task.id, { status: "IN_PROGRESS" });
+      mutate();
+      router.push(`/projects/${slug}/execution/${task.id}`);
+    } catch (e) {
+      setClaimError((e as Error).message);
+    } finally {
+      setClaimingTaskId(null);
+    }
+  }, [slug, mutate, router]);
 
   const handleStatusChange = (id: string, status: string) => {
     updateTaskAction(slug, id, { status: status as Task["status"] });
@@ -162,6 +221,13 @@ export default function TasksPage() {
         <div className="flex items-center gap-3">
           <StatusFilter options={STATUSES} value={statusFilter} onChange={setStatusFilter} />
           <button
+            onClick={handleClaimNext}
+            disabled={isClaiming || todoCount === 0}
+            className="px-3 py-1.5 text-sm text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isClaiming ? "Claiming..." : "Claim Next Task"}
+          </button>
+          <button
             onClick={handleCreate}
             className="px-3 py-1.5 text-sm text-white bg-forge-600 rounded-md hover:bg-forge-700"
           >
@@ -180,6 +246,12 @@ export default function TasksPage() {
           />
         </div>
       )}
+      {claimError && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
+          <p className="text-sm text-amber-700">{claimError}</p>
+          <button onClick={() => setClaimError(null)} className="text-xs text-amber-500 hover:text-amber-700">Dismiss</button>
+        </div>
+      )}
       {isLoading && <p className="text-sm text-gray-400">Loading...</p>}
       {error && (
         <p className="text-sm text-red-600 mb-2">{error}</p>
@@ -195,7 +267,14 @@ export default function TasksPage() {
                 : ""
             }`}
           >
-            <TaskCard task={task} slug={slug} onStatusChange={handleStatusChange} onEdit={handleEdit} />
+            <TaskCard
+              task={task}
+              slug={slug}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEdit}
+              onClaim={handleClaimSpecific}
+              claiming={claimingTaskId === task.id}
+            />
           </div>
         ))}
         {!isLoading && filtered.length === 0 && (
