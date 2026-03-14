@@ -108,7 +108,7 @@ export default function LessonsPage() {
       {slices.lessons.error && <p className="text-sm text-red-600 mb-2">{slices.lessons.error}</p>}
       <div className="space-y-3">
         {filtered.map((l) => (
-          <LessonCard key={l.id} lesson={l} />
+          <LessonCard key={l.id} lesson={l} slug={slug} onPromoted={handleFormSuccess} />
         ))}
         {!slices.lessons.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No lessons{categoryFilter ? ` in category ${categoryFilter}` : ""}</p>
