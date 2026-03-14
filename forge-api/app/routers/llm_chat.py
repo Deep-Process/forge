@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from typing import Any
@@ -18,6 +19,7 @@ from app.dependencies import (
     get_provider_registry,
     get_redis,
     get_session_manager,
+    get_skill_storage,
     get_storage,
     get_tool_registry,
     get_event_bus,
@@ -45,6 +47,12 @@ ALLOWED_EXTENSIONS = {
 }
 
 CONTENT_PREVIEW_LENGTH = 500
+
+# Skill injection defaults (configurable via T-235 Settings task)
+SKILL_MAX_COUNT = 5
+SKILL_PER_CHAR_LIMIT = 16_000
+SKILL_TOTAL_CHAR_BUDGET = 30_000
+SKILL_NAME_REGEX = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 
@@ -107,6 +115,7 @@ class ChatRequest(BaseModel):
     disabled_capabilities: list[str] | None = Field(default=None, description="Tool names to disable")
     file_ids: list[str] | None = Field(default=None, description="Uploaded file IDs to include as context")
     page_context: str | None = Field(default=None, max_length=8000, description="Serialized UI page context from AI annotations")
+    skill_names: list[str] | None = Field(default=None, max_length=5, description="Skill names to inject SKILL.md content into LLM context")
     session_type: str | None = Field(default=None, description="Session type: chat, plan, execute, verify, compound")
     target_entity_type: str | None = Field(default=None, description="Entity type being worked on (objective, task, idea)")
     target_entity_id: str | None = Field(default=None, description="Target entity ID (e.g., O-001, T-003)")
@@ -231,6 +240,7 @@ async def chat(
     tool_registry=Depends(get_tool_registry),
     session_manager=Depends(get_session_manager),
     storage=Depends(get_storage),
+    skill_storage=Depends(get_skill_storage),
     event_bus=Depends(get_event_bus),
     redis=Depends(get_redis),
 ) -> ChatResponse:
@@ -360,6 +370,46 @@ async def chat(
     # 3. Page context from UI annotations (what user sees on screen)
     if body.page_context:
         system_prompt += f"\n\n{body.page_context}"
+
+    # 4. Skill context injection (SKILL.md content for @-mentioned skills)
+    if body.skill_names is not None and len(body.skill_names) > 0:
+        skill_sections: list[str] = []
+        total_chars = 0
+        names_to_load = body.skill_names[:SKILL_MAX_COUNT]
+        logger.debug("Injecting skills: %s", names_to_load)
+
+        for skill_name in names_to_load:
+            if not SKILL_NAME_REGEX.match(skill_name):
+                logger.warning("Skipping invalid skill name: %r", skill_name)
+                continue
+            try:
+                skill_data = await skill_storage.get_skill(skill_name)
+            except FileNotFoundError:
+                logger.warning("Skill not found, skipping: %s", skill_name)
+                continue
+
+            content = skill_data.get("skill_md_content") or ""
+            display_name = skill_data.get("display_name") or skill_name
+
+            if len(content) > SKILL_PER_CHAR_LIMIT:
+                content = content[:SKILL_PER_CHAR_LIMIT] + "\n\n[...truncated — skill content exceeds per-skill limit]"
+                logger.warning("Skill %s content truncated (%d -> %d chars)", skill_name, len(skill_data.get("skill_md_content", "")), SKILL_PER_CHAR_LIMIT)
+
+            if total_chars + len(content) > SKILL_TOTAL_CHAR_BUDGET:
+                logger.warning("Skill budget exhausted (%d/%d chars), skipping remaining skills", total_chars, SKILL_TOTAL_CHAR_BUDGET)
+                break
+
+            total_chars += len(content)
+            skill_sections.append(f"### Skill: {display_name}\n\n{content}")
+
+        if skill_sections:
+            preamble = (
+                "## Skill Context\n\n"
+                "The following skill instructions are supplementary guidance. "
+                "If they conflict with the Rules section above, follow the Rules. "
+                "Otherwise, follow skill instructions fully.\n"
+            )
+            system_prompt += "\n\n" + preamble + "\n" + "\n\n".join(skill_sections)
 
     # --- Build permissions ---
     permissions = PermissionEngine.load_permissions(config)
