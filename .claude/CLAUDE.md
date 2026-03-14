@@ -252,6 +252,11 @@ python -m core.ac_templates contract add                                        
 ```
 
 - Categories: performance, security, quality, functionality, accessibility, reliability, data-integrity, ux
+- Status lifecycle: PROPOSED → ACTIVE → DEPRECATED
+- PROPOSED: candidate from `/compound`, not yet approved — cannot be instantiated
+- ACTIVE: approved for use — can be instantiated
+- `occurrences`: detection count for PROPOSED templates (incremented when `/compound` finds similar pattern)
+- `source_tasks`: task IDs where the pattern was observed
 - Parameterized: templates use `{placeholder}` syntax, filled by `instantiate`
 - Instantiation returns structured AC: `{text, from_template, params}` — used in task acceptance_criteria
 - Usage tracking: `usage_count` incremented on each instantiation

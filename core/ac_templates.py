@@ -66,14 +66,18 @@ CONTRACTS = {
     "add": {
         "required": ["title", "template", "category"],
         "optional": ["description", "parameters", "scopes", "tags",
-                      "verification_method"],
+                      "verification_method", "status", "source_tasks",
+                      "occurrences"],
         "enums": {
             "category": VALID_CATEGORIES,
+            "status": {"ACTIVE", "PROPOSED"},
         },
         "types": {
             "parameters": list,
             "scopes": list,
             "tags": list,
+            "source_tasks": list,
+            "occurrences": int,
         },
         "invariant_texts": [
             "title: concise name for the AC template",
@@ -87,6 +91,9 @@ CONTRACTS = {
             "scopes: project scopes where this template applies (e.g., ['backend', 'api'])",
             "tags: searchable keywords",
             "verification_method: how to verify/test this criterion",
+            "status: ACTIVE (default) or PROPOSED (candidate from /compound, not yet approved)",
+            "source_tasks: list of task IDs where this pattern was observed (for PROPOSED templates)",
+            "occurrences: how many times this pattern was detected (default 1, incremented on dedup match)",
         ],
         "example": [
             {
@@ -112,24 +119,29 @@ CONTRACTS = {
         "required": ["id"],
         "optional": ["title", "template", "description", "category",
                       "parameters", "scopes", "tags", "verification_method",
-                      "status"],
+                      "status", "occurrences", "source_tasks"],
         "enums": {
             "category": VALID_CATEGORIES,
-            "status": {"ACTIVE", "DEPRECATED"},
+            "status": {"ACTIVE", "PROPOSED", "DEPRECATED"},
         },
         "types": {
             "parameters": list,
             "scopes": list,
             "tags": list,
+            "source_tasks": list,
+            "occurrences": int,
         },
         "invariant_texts": [
             "id: existing template ID (AC-001, etc.)",
             "Only provided fields are updated — omitted fields stay unchanged",
-            "status: ACTIVE or DEPRECATED",
+            "status: ACTIVE, PROPOSED, or DEPRECATED",
+            "occurrences: set to increment detection count (for PROPOSED templates matched by /compound)",
+            "source_tasks: list of task IDs — appended to existing (not replaced)",
         ],
         "example": [
             {"id": "AC-001", "status": "DEPRECATED"},
-            {"id": "AC-003", "template": "Updated template {param}..."},
+            {"id": "AC-003", "status": "ACTIVE"},
+            {"id": "AC-005", "occurrences": 3, "source_tasks": ["T-010"]},
         ],
     },
 }
@@ -230,6 +242,7 @@ def cmd_add(args):
                 print(f"  WARNING: {pe}", file=sys.stderr)
 
         ac_id = _next_id(data)
+        status = item.get("status", "ACTIVE")
         template = {
             "id": ac_id,
             "title": item["title"],
@@ -240,8 +253,10 @@ def cmd_add(args):
             "scopes": item.get("scopes", []),
             "tags": item.get("tags", []),
             "verification_method": item.get("verification_method", ""),
-            "status": "ACTIVE",
+            "status": status,
             "usage_count": 0,
+            "occurrences": item.get("occurrences", 1),
+            "source_tasks": item.get("source_tasks", []),
             "created_at": timestamp,
             "updated_at": timestamp,
         }
@@ -298,12 +313,13 @@ def cmd_read(args):
         print("(none)")
         return
 
-    print("| ID | Category | Status | Uses | Title |")
-    print("|----|----------|--------|------|-------|")
+    print("| ID | Category | Status | Uses | Occ | Title |")
+    print("|----|----------|--------|------|-----|-------|")
     for t in items:
         title = t.get("title", "")[:45]
+        occ = t.get("occurrences", 1) if t.get("status") == "PROPOSED" else ""
         print(f"| {t['id']} | {t.get('category', '')} | {t.get('status', '')} "
-              f"| {t.get('usage_count', 0)} | {title} |")
+              f"| {t.get('usage_count', 0)} | {occ} | {title} |")
 
 
 def cmd_show(args):
@@ -315,8 +331,13 @@ def cmd_show(args):
         sys.exit(1)
 
     print(f"## {t['id']}: {t['title']}")
-    print(f"**Category**: {t['category']} | **Status**: {t.get('status', 'ACTIVE')} "
+    status = t.get('status', 'ACTIVE')
+    print(f"**Category**: {t['category']} | **Status**: {status} "
           f"| **Uses**: {t.get('usage_count', 0)}")
+    if status == "PROPOSED":
+        print(f"**Occurrences**: {t.get('occurrences', 1)}")
+        if t.get("source_tasks"):
+            print(f"**Source Tasks**: {', '.join(t['source_tasks'])}")
     if t.get("scopes"):
         print(f"**Scopes**: {', '.join(t['scopes'])}")
     if t.get("tags"):
@@ -398,10 +419,18 @@ def cmd_update(args):
 
         updatable = ["title", "template", "description", "category",
                      "parameters", "scopes", "tags", "verification_method",
-                     "status"]
+                     "status", "occurrences"]
         for field in updatable:
             if field in u:
                 t[field] = u[field]
+
+        # source_tasks: append-merge (not replace)
+        if "source_tasks" in u:
+            existing_st = t.get("source_tasks", [])
+            for st in u["source_tasks"]:
+                if st not in existing_st:
+                    existing_st.append(st)
+            t["source_tasks"] = existing_st
 
         t["updated_at"] = timestamp
         updated.append(u["id"])
@@ -420,6 +449,11 @@ def cmd_instantiate(args):
     t = find_template(data, args.template_id)
     if not t:
         print(f"ERROR: Template '{args.template_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    if t.get("status") == "PROPOSED":
+        print(f"ERROR: Template '{args.template_id}' is PROPOSED — approve it first "
+              f"(update status to ACTIVE).", file=sys.stderr)
         sys.exit(1)
 
     if t.get("status") == "DEPRECATED":
@@ -505,7 +539,7 @@ def main():
     p.add_argument("project")
     p.add_argument("--category", choices=sorted(VALID_CATEGORIES))
     p.add_argument("--scope")
-    p.add_argument("--status", choices=["ACTIVE", "DEPRECATED"])
+    p.add_argument("--status", choices=["ACTIVE", "PROPOSED", "DEPRECATED"])
 
     p = sub.add_parser("show", help="Show template details")
     p.add_argument("project")

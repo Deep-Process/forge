@@ -62,6 +62,46 @@ python -m core.lessons add {project} --data '[
 python -m core.lessons read {project}
 ```
 
+### AC Template Candidates
+
+6. Analyze completed tasks for recurring acceptance criteria patterns:
+```bash
+python -m core.pipeline status {project}
+python -m core.ac_templates read {project} --status PROPOSED
+python -m core.ac_templates contract add
+```
+
+Review DONE tasks and their `acceptance_criteria`. Look for patterns that:
+- Appear across 2+ tasks (same category of check)
+- Are parameterizable (specific values can become `{placeholders}`)
+- Would be useful in future projects
+
+For each candidate pattern:
+
+**a. Check existing PROPOSED templates** — if a very similar template already exists:
+```bash
+python -m core.ac_templates contract update
+python -m core.ac_templates update {project} --data '[{"id": "AC-NNN", "occurrences": {N+1}, "source_tasks": ["T-XXX"]}]'
+```
+Increment `occurrences` and append the new task ID to `source_tasks`.
+
+**b. If no similar PROPOSED exists** — create a new one per the `add` contract:
+```bash
+python -m core.ac_templates add {project} --data '[{...per contract..., "status": "PROPOSED", "source_tasks": ["T-XXX", "T-YYY"]}]'
+```
+
+Templates with high `occurrences` (3+) are strong candidates for promotion to ACTIVE.
+Present candidates to the user:
+```
+## AC Template Candidates
+| ID | Occ | Category | Template |
+|----|-----|----------|----------|
+| AC-005 | 4 | security | {pattern} |
+| AC-007 | 2 | quality | {pattern} |
+
+Recommend: AC-005 (4 occurrences) — promote to ACTIVE?
+```
+
 ## Guidelines
 
 - Focus on REUSABLE insights, not project-specific details
