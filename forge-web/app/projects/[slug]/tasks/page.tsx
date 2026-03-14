@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEntityData } from "@/hooks/useEntityData";
 import { useTaskStore, updateTask as updateTaskAction } from "@/stores/taskStore";
+import { tasks as tasksApi } from "@/lib/api";
 import { TaskCard } from "@/components/entities/TaskCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { SuggestionPanel } from "@/components/ai/SuggestionPanel";
 import { TaskForm } from "@/components/forms/TaskForm";
+import { DraftPlanView } from "@/components/planning/DraftPlanView";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
-import type { Task } from "@/lib/types";
+import type { Task, DraftPlan } from "@/lib/types";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED", "CLAIMING"];
 
@@ -22,6 +24,12 @@ export default function TasksPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [draft, setDraft] = useState<DraftPlan | null>(null);
+
+  // Load draft plan if one exists
+  useEffect(() => {
+    tasksApi.getDraft(slug).then(setDraft).catch(() => setDraft(null));
+  }, [slug]);
 
   const tasks = items;
   const filtered = statusFilter
@@ -161,6 +169,17 @@ export default function TasksPage() {
           </button>
         </div>
       </div>
+      {/* Draft plan banner */}
+      {draft && (
+        <div className="mb-4">
+          <DraftPlanView
+            slug={slug}
+            draft={draft}
+            onApproved={() => { setDraft(null); mutate(); }}
+            onDiscarded={() => setDraft(null)}
+          />
+        </div>
+      )}
       {isLoading && <p className="text-sm text-gray-400">Loading...</p>}
       {error && (
         <p className="text-sm text-red-600 mb-2">{error}</p>

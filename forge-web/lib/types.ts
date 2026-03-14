@@ -139,6 +139,50 @@ export interface TaskContext {
 }
 
 // ---------------------------------------------------------------------------
+// Draft Plan
+// ---------------------------------------------------------------------------
+
+export interface DraftTaskItem {
+  id: string;
+  name: string;
+  description?: string;
+  instruction?: string;
+  type?: string;
+  depends_on?: string[];
+  parallel?: boolean;
+  conflicts_with?: string[];
+  acceptance_criteria?: string[];
+  scopes?: string[];
+  origin?: string;
+  knowledge_ids?: string[];
+  test_requirements?: Record<string, boolean>;
+  blocked_by_decisions?: string[];
+  skill?: string;
+}
+
+export interface DraftPlan {
+  source_idea_id?: string | null;
+  source_objective_id?: string | null;
+  created: string;
+  tasks: DraftTaskItem[];
+}
+
+export interface DraftPlanResponse {
+  status: string;
+  task_count: number;
+  idea_id?: string | null;
+  objective_id?: string | null;
+  tasks: DraftTaskItem[];
+}
+
+export interface ApprovePlanResponse {
+  status: string;
+  materialized_count: number;
+  total_tasks: number;
+  tasks: Task[];
+}
+
+// ---------------------------------------------------------------------------
 // Decisions
 // ---------------------------------------------------------------------------
 

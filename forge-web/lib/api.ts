@@ -247,7 +247,7 @@ export async function health(): Promise<{ status: string; version: string }> {
 
 import type {
   ProjectDetail, ProjectCreate, ProjectStatus,
-  Task, TaskCreate, TaskUpdate, TaskContext,
+  Task, TaskCreate, TaskUpdate, TaskContext, DraftTaskItem, DraftPlan, DraftPlanResponse, ApprovePlanResponse,
   Decision, DecisionCreate, DecisionUpdate,
   Objective, ObjectiveCreate, ObjectiveUpdate,
   Idea, IdeaCreate, IdeaUpdate,
@@ -305,6 +305,14 @@ export const tasks = {
       { reasoning: reasoning ?? "" }),
   context: (slug: string, id: string) =>
     get<TaskContext>(projectPath(slug, "tasks", id) + "/context"),
+  draftPlan: (slug: string, data: { tasks: DraftTaskItem[]; idea_id?: string; objective_id?: string }) =>
+    create<DraftPlanResponse>(projectPath(slug, "tasks") + "/draft-plan", data),
+  getDraft: (slug: string) =>
+    get<DraftPlan>(projectPath(slug, "tasks") + "/draft"),
+  approvePlan: (slug: string) =>
+    create<ApprovePlanResponse>(projectPath(slug, "tasks") + "/approve-plan", {}),
+  discardDraft: (slug: string) =>
+    remove<{ status: string; removed_tasks: number }>(projectPath(slug, "tasks") + "/draft"),
 };
 
 // -- Decisions --
