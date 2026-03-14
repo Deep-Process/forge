@@ -6,6 +6,7 @@ import { useEntityData } from "@/hooks/useEntityData";
 import { notifications as notificationsApi } from "@/lib/api";
 import { markAsRead, dismissNotification, markAllRead } from "@/stores/notificationEntityStore";
 import type { Notification, NotificationPriority, NotificationType } from "@/lib/types";
+import { useNotificationModal } from "@/components/notifications/useNotificationModal";
 
 // ---------------------------------------------------------------------------
 // Priority / type constants
@@ -112,11 +113,12 @@ export function NotificationCenter() {
     }
   };
 
+  const openModal = useNotificationModal((s) => s.open);
   const handleRespond = (n: Notification, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Response modal will be implemented in T-025/T-026
-    // For now, mark as read and navigate to source entity
     handleMarkRead(n);
+    openModal(n);
+    setOpen(false);
   };
 
   return (

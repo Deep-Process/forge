@@ -12,6 +12,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { WorkflowProgressBar } from "@/components/layout/WorkflowProgressBar";
 
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { NotificationResponseModal } from "@/components/notifications/NotificationResponseModal";
 import { useDebugPanelStore } from "@/stores/debugPanelStore";
 import { useLeftPanel } from "@/components/layout/LeftPanelProvider";
 
@@ -100,6 +101,8 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
     <div className="flex flex-col h-full">
       {/* Command palette (Cmd+K / Ctrl+K) */}
       <CommandPalette />
+      {/* Notification response modal */}
+      <NotificationResponseModal />
 
       {/* Project header bar */}
       <div className="flex-shrink-0 px-6 pt-4 pb-2 border-b bg-white">
