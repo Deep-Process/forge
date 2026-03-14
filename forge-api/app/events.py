@@ -34,6 +34,8 @@ EVENT_TYPES = {
     "chat.tool_result",
     "chat.complete",
     "chat.error",
+    "research.created",
+    "research.updated",
 }
 
 

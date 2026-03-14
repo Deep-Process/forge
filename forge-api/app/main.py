@@ -31,6 +31,7 @@ from app.routers import (
     maintenance,
     objectives,
     projects,
+    research,
     skills,
     tasks,
     ws,
@@ -216,6 +217,7 @@ app.include_router(maintenance.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(guidelines.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(changes.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(lessons.router, prefix=PREFIX, dependencies=auth_deps)
+app.include_router(research.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(ac_templates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(gates.router, prefix=PREFIX, dependencies=auth_deps)
 app.include_router(execution.router, prefix=PREFIX, dependencies=auth_deps)
