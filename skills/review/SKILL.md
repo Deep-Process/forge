@@ -23,14 +23,17 @@ description: "Structured code review of task changes before completion."
 | R2 | `python -m core.decisions read {project} --task {task_id}` | Decisions made in this task | Step 1 — understand reasoning |
 | R3 | `python -m core.pipeline status {project}` | Pipeline state | Step 1 — context |
 | R4 | `python -m core.gates show {project}` | Configured gates | Step 3 — validation |
+| R5 | `python -m core.decisions contract add` | Contract for recording decisions | Step 2 — before recording |
+| R6 | `python -m core.lessons contract` | Contract for recording lessons | Step 4 — before recording |
+| R7 | `python -m core.guidelines context {project} --scopes "{scopes}"` | Guidelines for task scopes | Step 2F — compliance check |
 
 ## Write Commands
 
-| ID | Command | Effect | When |
-|----|---------|--------|------|
-| W1 | `python -m core.decisions add {project} --data '{json}'` | Records review findings | Step 2 — for issues found |
-| W2 | `python -m core.gates check {project} --task {task_id}` | Runs validation | Step 3 — automated checks |
-| W3 | `python -m core.lessons add {project} --data '{json}'` | Records review lessons | Step 4 — patterns found |
+| ID | Command | Effect | When | Contract |
+|----|---------|--------|------|----------|
+| W1 | `python -m core.decisions add {project} --data '{json}'` | Records review findings | Step 2 — for issues found | `decisions:add` |
+| W2 | `python -m core.gates check {project} --task {task_id}` | Runs validation | Step 3 — automated checks | — |
+| W3 | `python -m core.lessons add {project} --data '{json}'` | Records review lessons | Step 4 — patterns found | `lessons:add` |
 
 ## Output
 
@@ -173,35 +176,13 @@ For each `must` guideline:
 For each `should` guideline:
 - Check compliance; note deviations as CONCERN (not FAIL)
 
-Record any findings:
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{task_id}",
-  "type": "convention",
-  "issue": "Guideline {G-NNN} compliance: {title}",
-  "recommendation": "{compliant|violated|partially}",
-  "reasoning": "{what was checked and found}"
-}]'
-```
+Record any findings per the decisions contract (R5). Use `type: "convention"` for guideline compliance findings.
 
 Mini-verdict: `Guidelines: {PASS|CONCERN|FAIL} — {1-line summary}`
 
 ---
 
-For each CONCERN or FAIL, record a finding as a decision:
-
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{task_id}",
-  "type": "security|implementation|architecture|testing",
-  "issue": "Review finding: ...",
-  "recommendation": "Fix: ...",
-  "reasoning": "Why this matters: ...",
-  "confidence": "HIGH",
-  "status": "OPEN",
-  "decided_by": "claude"
-}]'
-```
+For each CONCERN or FAIL, record a finding as a decision per the decisions contract (R5). Use appropriate `type` (security, implementation, architecture, testing), `status: "OPEN"`.
 
 ---
 
@@ -217,19 +198,7 @@ If gates fail, record findings as OPEN decisions.
 
 ### Step 4 — Extract Patterns
 
-If the review reveals reusable patterns or common mistakes:
-
-```bash
-python -m core.lessons add {project} --data '[{
-  "category": "pattern-discovered|mistake-avoided",
-  "title": "...",
-  "detail": "...",
-  "task_id": "{task_id}",
-  "severity": "critical|important|minor",
-  "applies_to": "...",
-  "tags": ["..."]
-}]'
-```
+If the review reveals reusable patterns or common mistakes, record per the lessons contract (R6).
 
 ---
 

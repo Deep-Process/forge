@@ -126,25 +126,14 @@ python -m core.decisions read {project} --status OPEN
 
 Implement the task following its instruction.
 
-For every significant choice during implementation, record a decision:
+For every significant choice during implementation, load the contract and record per its spec:
 
 ```bash
 python -m core.decisions contract add
+python -m core.decisions add {project} --data '[...]'
 ```
 
-Then:
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{task_id}",
-  "type": "implementation",
-  "issue": "...",
-  "recommendation": "...",
-  "reasoning": "...",
-  "alternatives": ["..."],
-  "confidence": "HIGH|MEDIUM|LOW",
-  "decided_by": "claude"
-}]'
-```
+Use `type: "implementation"`, `task_id: "{task_id}"`, and include `reasoning` and `alternatives`.
 
 **What counts as a significant decision:**
 - Choosing between two valid approaches
@@ -166,22 +155,10 @@ Changes are **auto-recorded at completion** (Step 7) from git diff. This step
 is only needed if you want per-file reasoning traces or to link specific
 changes to decisions mid-task.
 
-For detailed per-file recording:
+For detailed per-file recording, load the contract first:
 ```bash
-python -m core.changes record {project} --data '[{
-  "task_id": "{task_id}",
-  "file": "path/to/file",
-  "action": "create|edit|delete",
-  "summary": "What was changed",
-  "reasoning_trace": [
-    {"step": "design", "detail": "Why this approach"},
-    {"step": "implementation", "detail": "How it works"}
-  ],
-  "decision_ids": ["D-001"],
-  "guidelines_checked": ["G-001"],
-  "lines_added": N,
-  "lines_removed": N
-}]'
+python -m core.changes contract
+python -m core.changes record {project} --data '[...]'
 ```
 
 Already-recorded files are skipped by auto-recording (no duplicates).
@@ -201,27 +178,8 @@ python -m core.guidelines context {project} --scopes "{scopes}"
 
 If a guideline was violated:
 - **Minor fix** (< 5 minutes): fix it now, update change records
-- **Major fix** (new feature/refactor needed): create a follow-up TODO task:
-```bash
-python -m core.pipeline add-tasks {project} --data '[{
-  "id": "T-{next}",
-  "name": "fix-{description}",
-  "description": "Guideline {G-NNN} violated in {task_id}: {what needs fixing}",
-  "type": "chore",
-  "depends_on": ["{task_id}"]
-}]'
-```
-Record the violation as a decision:
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{task_id}",
-  "type": "convention",
-  "issue": "Guideline {G-NNN} not fully met: {details}",
-  "recommendation": "Created follow-up task T-{next}",
-  "confidence": "HIGH",
-  "decided_by": "claude"
-}]'
-```
+- **Major fix** (new feature/refactor needed): create a follow-up TODO task per the add-tasks contract (`python -m core.pipeline contract add-tasks`), with `type: "chore"` and `depends_on: ["{task_id}"]`.
+Record the violation as a decision per the decisions contract (`python -m core.decisions contract add`), with `type: "convention"`.
 
 **b. Deep-verify (for non-trivial changes):**
 

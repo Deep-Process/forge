@@ -31,6 +31,10 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | R10 | `ls forge_output/ 2>/dev/null` | Existing projects | Step 4 — context |
 | R11 | `python -m core.pipeline status {project}` | Current pipeline state | Step 4 — context (if project exists) |
 | R12 | `python -m core.guidelines context {project} --scopes "{idea_scopes}"` | Applicable guidelines (constraints for analysis) | Step 4 — context |
+| R13 | `python -m core.decisions contract add` | Contract for recording decisions | Step 6 — before recording |
+| R14 | `python -m core.lessons contract` | Contract for recording lessons | Step 6 — before recording |
+| R15 | `python -m core.research contract add` | Contract for recording research | Step 5 — before recording |
+| R16 | `python -m core.research contract update` | Contract for updating research | Step 6 — before updating |
 
 ## Write Commands
 
@@ -188,21 +192,12 @@ Skills that must be sequential:
 
 After each skill completes, persist its full output via `core.research add` with the `content` field (W7). The core module writes the research file to disk automatically — **do NOT write files directly**.
 
+Load the research contract first:
 ```bash
-python -m core.research add {project} --data '[{
-  "title": "{Skill Name} Analysis: {topic}",
-  "topic": "{key question being explored}",
-  "category": "{architecture|domain|feasibility|risk|business|technical}",
-  "summary": "{1-3 sentence summary of this analysis phase}",
-  "linked_entity_type": "{objective|idea}",
-  "linked_entity_id": "{O-NNN or I-NNN}",
-  "skill": "{deep-explore|deep-risk|deep-architect|deep-feasibility}",
-  "content": "# {Skill Name} Analysis: {topic}\nDate: {ISO timestamp}\nSkill: {skill-name} v{version}\n\n---\n\n{Complete analysis output — option map, scoring tables, risk register, ADRs, etc.}",
-  "key_findings": ["{finding 1}", "{finding 2}"],
-  "scopes": ["{from entity scopes}"],
-  "tags": ["{topic keywords}"]
-}]'
+python -m core.research contract add
 ```
+
+Then record the research object per the contract. Key fields: `title`, `topic`, `category`, `summary`, `linked_entity_type`, `linked_entity_id`, `skill`, `content` (full analysis markdown), `key_findings`, `scopes`, `tags`.
 
 The `content` field causes the core module to:
 1. Auto-generate `file_path` as `research/{skill}-{slug}.md`
@@ -246,102 +241,42 @@ python -m core.ideas read {project} --status APPROVED
 Filter to ideas advancing this objective — their exploration notes provide additional context.
 - If discovering a **general topic** (no idea, no objective): use `"DISCOVERY"` as task_id.
 
+Load contracts before recording (one call covers all decision types):
+```bash
+python -m core.decisions contract add
+python -m core.lessons contract
+python -m core.research contract update
+```
+
 **a. Record exploration decisions (W3):**
 
-For each analysis phase completed, create an exploration decision:
+For each analysis phase completed, create an exploration decision per the decisions contract.
+Use `type: "exploration"` with `exploration_type`, `findings`, `options`, `open_questions`, `evidence_refs`.
+Set `task_id` to the idea ID or `"DISCOVERY"`, `status: "OPEN"`, `decided_by: "claude"`.
 
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{idea_id or DISCOVERY}",
-  "type": "exploration",
-  "exploration_type": "{domain|architecture|business|risk|feasibility}",
-  "issue": "{key question being explored}",
-  "recommendation": "{overall recommendation}",
-  "reasoning": "{key conclusion from this analysis}",
-  "findings": ["{finding 1}", "{finding 2}"],
-  "options": [{"name": "...", "pros": ["..."], "cons": ["..."], "recommendation": "GO|NO-GO"}],
-  "open_questions": ["{unresolved question}"],
-  "confidence": "HIGH|MEDIUM|LOW",
-  "decided_by": "claude",
-  "status": "OPEN",
-  "evidence_refs": ["research/{skill-name}-{slug}.md"],
-  "scope": "{exploration scope matching guidelines}"
-}]'
-```
-
-For feasibility exploration decisions, add:
-```json
-"blockers": ["{blocking issue}"],
-"ready_for_tracker": true
-```
+For feasibility exploration decisions, also include `blockers` and `ready_for_tracker: true`.
 
 **b. Record risk decisions (W4):**
 
-From deep-risk findings, create risk decisions:
+From deep-risk findings, create risk decisions per the decisions contract.
+Use `type: "risk"` with `severity`, `likelihood`, `mitigation_plan`, `linked_entity_type`, `linked_entity_id`.
+Set `evidence_refs` to the research file path.
 
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{idea_id or DISCOVERY}",
-  "type": "risk",
-  "issue": "{risk name}",
-  "recommendation": "{proposed mitigation}",
-  "reasoning": "{what could go wrong and impact}",
-  "linked_entity_type": "idea",
-  "linked_entity_id": "{I-NNN}",
-  "severity": "{HIGH|MEDIUM|LOW}",
-  "likelihood": "{HIGH|MEDIUM|LOW}",
-  "mitigation_plan": "{proposed mitigation}",
-  "confidence": "MEDIUM",
-  "decided_by": "claude",
-  "status": "OPEN",
-  "evidence_refs": ["research/deep-risk-{slug}.md"]
-}]'
-```
+**c. Record standard decisions (W1):**
 
-**c. Record Decisions (W1):**
-
-Translate significant findings into Forge decisions:
-
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "{idea_id or DISCOVERY}",
-  "type": "architecture",
-  "issue": "{finding}",
-  "recommendation": "{recommended option}",
-  "reasoning": "{from analysis}",
-  "alternatives": ["{option B}", "{option C}"],
-  "confidence": "MEDIUM",
-  "decided_by": "claude",
-  "status": "OPEN",
-  "evidence_refs": ["research/{relevant-skill}-{slug}.md"]
-}]'
-```
+Translate significant findings into decisions per the decisions contract.
+Use appropriate `type` (architecture, implementation, etc.) with `alternatives`, `evidence_refs`.
 
 **d. Record Lessons (W2, optional):**
 
-If significant insights emerged:
-```bash
-python -m core.lessons add {project} --data '[{
-  "category": "pattern-discovered",
-  "title": "{key insight}",
-  "detail": "{why this matters}",
-  "task_id": "DISCOVERY",
-  "severity": "important",
-  "applies_to": "{when this lesson is relevant}",
-  "tags": ["discovery", "{topic}"]
-}]'
-```
+If significant insights emerged, record per the lessons contract.
+Use `category: "pattern-discovered"`, `task_id: "DISCOVERY"`.
 
 **e. Update research objects with decision IDs (W9):**
 
-After recording all decisions, link them to the corresponding R-NNN research objects created in Step 5 (W7):
-
+After recording all decisions, link them to the corresponding R-NNN research objects:
 ```bash
-python -m core.research update {project} --data '[{
-  "id": "R-001",
-  "decision_ids": ["D-001", "D-002", "D-003"],
-  "status": "ACTIVE"
-}]'
+python -m core.research update {project} --data '[{"id": "R-001", "decision_ids": ["D-001", "D-002"], "status": "ACTIVE"}]'
 ```
 
 This marks the research as ACTIVE (ready for context loading) and establishes bidirectional linking:

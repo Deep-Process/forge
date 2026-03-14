@@ -254,23 +254,10 @@ python -m core.pipeline init {slug} --goal "{full goal text}"
 If you make any architectural decisions during planning (e.g., choosing a framework,
 deciding on a pattern), record them immediately:
 
-MANDATORY — load contract first (R4):
+MANDATORY — load contract first (R4), then record per its spec:
 ```bash
 python -m core.decisions contract add
-```
-
-Then record:
-```bash
-python -m core.decisions add {project} --data '[{
-  "task_id": "PLANNING",
-  "type": "architecture",
-  "issue": "...",
-  "recommendation": "...",
-  "reasoning": "...",
-  "alternatives": ["...", "..."],
-  "confidence": "HIGH|MEDIUM|LOW",
-  "decided_by": "claude"
-}]'
+python -m core.decisions add {project} --data '[...]'
 ```
 
 Use `task_id: "PLANNING"` for decisions made before tasks exist.
