@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-13T21:41:42Z",
+  "updated": "2026-03-14T11:17:44Z",
   "config": {},
   "tasks": [
     {
@@ -7237,6 +7237,314 @@
       },
       "agent": "default",
       "started_at_commit": "37eaeff9f53ac5d3d5c4d88c09f65d2923bc499a"
+    },
+    {
+      "id": "T-228",
+      "name": "sidebar-store-attached-skills",
+      "description": "Extend sidebarStore with attachedSkills state and actions for skill chip management",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-web/stores/sidebarStore.ts: (1) Add AttachedSkillInfo type {name: string, display_name: string}. (2) Add attachedSkills: AttachedSkillInfo[] to SidebarState (default []). (3) Add actions: attachSkill(name, display_name) — append if not already attached and count < MAX_ATTACHED_SKILLS, detachSkill(name) — remove by name, clearSkills() — empty array. (4) Include attachedSkills in persist() partialize. (5) Export MAX_ATTACHED_SKILLS = 5 constant. (6) Ensure Zustand selectors used for subscription (s => s.attachedSkills) per L-018.",
+      "acceptance_criteria": [
+        "sidebarStore has attachedSkills: AttachedSkillInfo[] state persisted to localStorage",
+        "attachSkill() adds skill, enforces max 5 limit, prevents duplicates",
+        "detachSkill() removes by name, clearSkills() empties array",
+        "MAX_ATTACHED_SKILLS constant exported",
+        "No re-render issues — uses Zustand ref-based subscription (L-018 compliance)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T11:14:03Z",
+      "completed_at": "2026-03-14T11:17:00Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "3694538a6cc40738a68df5a5ab1e17f13cc017db",
+      "ac_reasoning": "AC verification: 1. AttachedSkillInfo exported with name+display_name: met. 2. attachedSkills in state with default []: met. 3. attachSkill guards dedup and max: met. 4. detachSkill filters by name: met. 5. clearSkills empties: met. 6. Persisted in partialize: met. 7. MAX_ATTACHED_SKILLS=5 exported: met. 8. Hydration restores attachedSkills: met."
+    },
+    {
+      "id": "T-229",
+      "name": "skill-chip-area-component",
+      "description": "Create SkillChipArea component rendering blue skill chips with X button above ChatInput textarea",
+      "depends_on": [
+        "T-228"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Create forge-web/components/ai/SkillChipArea.tsx (~60 LOC): (1) Props: skills: AttachedSkillInfo[], onRemove: (name: string) => void. (2) Render a flex-wrap div above textarea area. (3) Each chip: blue-500 bg, white text, rounded-full, px-3 py-1, display_name text + X button (HiX icon or × char). (4) X button onClick calls onRemove(name). (5) Empty state: render nothing (no empty container). (6) Add useAIElement annotation per G-017 — id: 'skill-chips', type: 'display', label: 'Attached Skills', value: comma-joined skill names.",
+      "acceptance_criteria": [
+        "Blue chips (bg-blue-500 text-white rounded-full) render for each attached skill",
+        "X button removes chip via onRemove callback",
+        "Empty array renders nothing (no container div)",
+        "AI annotation registered via useAIElement (G-017)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T11:17:05Z",
+      "completed_at": "2026-03-14T11:17:40Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "9756423c17298c2fcef18ec3a73563ee8f0bec45",
+      "ac_reasoning": "AC verification: 1. Blue chips with bg-blue-500 text-white rounded-full: met (line 28). 2. X button calls onRemove: met (line 33). 3. Empty array renders nothing: met (line 20, returns null). 4. AI annotation via useAIElement: met (lines 13-18)."
+    },
+    {
+      "id": "T-230",
+      "name": "tools-tab-enhanced",
+      "description": "Replace inline ToolsTab with ToolsTabEnhanced — search input and expandable category sections",
+      "depends_on": [
+        "T-228"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Create forge-web/components/ai/ToolsTabEnhanced.tsx (~150 LOC) and SkillCategorySection.tsx (~70 LOC): (1) ToolsTabEnhanced: search input at top (filters skills by name/display_name, case-insensitive). Below: category sections grouped by _config.json categories. Skills with no categories go to 'Uncategorized'. Skills with multiple categories appear in each. (2) SkillCategorySection: collapsible accordion with category name + skill count badge. Each skill row: display_name, truncated description, 'attach' button (or checkmark if already attached). Click attach calls onAttachSkill and switches activeTab to 'chat' via sidebarStore.setActiveTab('chat'). (3) Props: onAttachSkill(name, display_name), attachedSkillNames: Set<string>. (4) Use useSkillStore for data, fetchSkills() on mount if empty. (5) Add useAIElement annotations for search input and category sections (G-017). (6) In AISidebar.tsx: replace inline ToolsTab (lines 104-146) with <ToolsTabEnhanced> import.",
+      "acceptance_criteria": [
+        "Search input filters skills by name/display_name in real-time",
+        "Skills grouped by categories from _config.json, expandable/collapsible sections",
+        "Skill appearing in multiple categories is shown in each",
+        "Skills with no categories appear under 'Uncategorized'",
+        "Attach button adds chip and switches tab to Chat",
+        "Already-attached skills show checkmark instead of attach button",
+        "AI annotations registered (G-017)",
+        "Inline ToolsTab in AISidebar.tsx replaced with ToolsTabEnhanced import"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "skills"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-14T11:17:44Z",
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "45346d0a6f168d57c1c9d4a16bbf0f63274b1a6e"
+    },
+    {
+      "id": "T-231",
+      "name": "mention-dropdown-caret-utility",
+      "description": "Create MentionDropdown component with caret position utility for @-mention autocomplete",
+      "depends_on": [
+        "T-228"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Create forge-web/components/ai/MentionDropdown.tsx (~120 LOC) and a getCaretCoordinates utility: (1) MentionDropdown: renders skill list filtered by partial match, positioned at caret coordinates. Props: filter, skills: SkillMentionItem[], selectedIndex, onSelect, position: {top, left}. Arrow key navigation, Enter/Tab selects, Escape closes. Purple 'skill' badge per item (matching SlashCommandDropdown style). (2) getCaretCoordinates(textarea, position): mirror element technique — hidden div with identical styles (font, padding, line-height, width), insert text up to position, measure offsetWidth/scrollHeight. Return {top, left} relative to textarea. ~20 lines utility. (3) Dedicated mention regex function: extractMentionAtCursor(text, cursorPos) → {filter, startIndex} | null. Rules per D-093: @ preceded by whitespace or at position 0, partial matches [a-z0-9-] only. (4) Add comprehensive unit tests for extractMentionAtCursor covering: mid-text @, email addresses, URLs, code blocks, start of line, after newline.",
+      "acceptance_criteria": [
+        "MentionDropdown renders filtered skill list at caret position",
+        "Arrow keys navigate, Enter/Tab select, Escape closes",
+        "getCaretCoordinates returns correct {top, left} for cursor position in textarea",
+        "extractMentionAtCursor correctly identifies @-mention: after whitespace or at position 0",
+        "extractMentionAtCursor does NOT trigger on email addresses, URLs, or mid-word @",
+        "Unit tests cover all edge cases per D-093 mitigation"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-232",
+      "name": "backend-skill-injection",
+      "description": "Add skill_names to ChatRequest and inject SKILL.md content into LLM system prompt with budget enforcement",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "In forge-api/app/routers/llm_chat.py: (1) Add skill_names: list[str] | None = Field(default=None, max_length=5) to ChatRequest Pydantic model. (2) In chat() handler, after system_prompt build (after AppContextBuilder.build() and entity/page context): if body.skill_names, load each skill via SkillStorageService.get_skill(name). Validate names against slug regex. Cap at 5 skills (from config). (3) For each valid skill, extract skill_md_content. Enforce per-skill char limit (default 16000) — truncate with '[...truncated]' notice. Enforce total char budget (default 30000) — skip remaining skills with warning. (4) Inject as: system_prompt += '\\n\\n## Skill Context\\n\\nThe following skill instructions are supplementary guidance. If they conflict with the Rules section above, follow the Rules. Otherwise, follow skill instructions fully.\\n\\n' + joined skill sections with '### Skill: {display_name}' headers. (5) Log skill names at DEBUG level, warn on missing/truncated. (6) Read limits from config (see T-235 for Settings task).",
+      "acceptance_criteria": [
+        "ChatRequest accepts skill_names: list[str] | None",
+        "Backend loads SKILL.md for each valid skill name via SkillStorageService",
+        "Invalid skill names logged as warning, skipped gracefully",
+        "Per-skill content capped at configurable limit (default 16K chars) with truncation notice",
+        "Total skill content capped at configurable limit (default 30K chars)",
+        "Priority preamble injected before skill sections (D-091 mitigation)",
+        "Max skills count configurable (default 5)",
+        "Skill names validated against slug regex — no path traversal"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend",
+        "ai"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": true,
+        "e2e": false
+      }
+    },
+    {
+      "id": "T-233",
+      "name": "chatinput-chip-mention-integration",
+      "description": "Integrate SkillChipArea and MentionDropdown into ChatInput with unified autocomplete controller",
+      "depends_on": [
+        "T-229",
+        "T-231"
+      ],
+      "parallel": false,
+      "conflicts_with": [
+        "T-230"
+      ],
+      "skill": null,
+      "instruction": "In forge-web/components/ai/ChatInput.tsx: (1) Add unified autocomplete state: autocompleteMode: 'none' | 'slash' | 'mention'. Replace separate slashOpen with this controller (D-092 mitigation). Opening @ sets mode='mention', opening / sets mode='slash'. Only one active at a time. (2) Render SkillChipArea above textarea (before file attachment chips). Props from sidebarStore: attachedSkills, detachSkill. (3) In onChange handler: after existing slash detection, add mention detection using extractMentionAtCursor(). If match found and mode != 'slash', set mode='mention', compute caret position. (4) Render MentionDropdown when mode='mention'. On select: call sidebarStore.attachSkill(), remove @partial from textarea value (splice text at mentionStartIndex..cursorPos), set mode='none'. (5) Handle Backspace: when textarea is empty and selectionStart === 0, remove last chip via detachSkill. (6) Keyboard handler: when mode !== 'none', ArrowUp/Down/Enter/Tab/Escape go to active dropdown. When mode === 'none', Enter sends message. (7) Add useAIElement annotation for the mention dropdown (G-017).",
+      "acceptance_criteria": [
+        "SkillChipArea renders above textarea with attached skills from sidebarStore",
+        "Typing @ after whitespace or at position 0 opens MentionDropdown",
+        "Selecting from MentionDropdown adds chip and removes @partial text from textarea",
+        "Unified autocomplete: only one dropdown active (slash OR mention), opening one closes other",
+        "Backspace on empty textarea removes last skill chip",
+        "X button on chip removes skill via detachSkill",
+        "Keyboard navigation (ArrowUp/Down/Enter/Tab/Escape) dispatched to active dropdown",
+        "Existing slash-command autocomplete still works correctly",
+        "AI annotation on mention dropdown (G-017)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": true
+      }
+    },
+    {
+      "id": "T-234",
+      "name": "wire-sidebar-chat-skill-flow",
+      "description": "Wire AISidebar → LLMChat → chatStore → backend to pass skill_names through the full send flow",
+      "depends_on": [
+        "T-230",
+        "T-233",
+        "T-232"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Complete the end-to-end skill flow: (1) In forge-web/components/ai/LLMChat.tsx: read attachedSkills from sidebarStore. Extract skill names array. Pass skill_names to sendMessage call. (2) In forge-web/stores/chatStore.ts: add skill_names?: string[] parameter to sendMessage(). Include in the POST /llm/chat payload. (3) In forge-web/lib/types.ts (or wherever ChatSendRequest is typed): add skill_names?: string[] field. (4) In AISidebar.tsx: ensure ToolsTabEnhanced receives onAttachSkill callback that writes to sidebarStore. Verify tab switch to 'chat' on attach works. (5) Verify clearSkills() is called at appropriate time (e.g., when manually clearing chat or starting new session — optional, discuss with user).",
+      "acceptance_criteria": [
+        "Clicking skill in ToolsTab adds chip in ChatInput and switches to Chat tab",
+        "sendMessage in chatStore includes skill_names in POST payload",
+        "Backend receives skill_names, loads SKILL.md content, injects into system prompt",
+        "Full flow works: attach skill → type message → send → LLM receives skill context",
+        "ChatSendRequest type includes skill_names field",
+        "Debug tab shows injected skill content in system prompt"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [
+        "K-006"
+      ],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": true
+      }
+    },
+    {
+      "id": "T-235",
+      "name": "skill-injection-settings",
+      "description": "Add configurable skill injection limits to Settings page (max skills, per-skill char limit, total char budget)",
+      "depends_on": [
+        "T-232"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "Per D-090 user requirement — limits must be configurable in Settings: (1) Backend: in LLM config or skills config endpoint (likely /skills/config or /llm/config), add fields: max_skill_count (default 5), per_skill_char_limit (default 16000), total_skill_char_budget (default 30000), skill_injection_enabled (default true). Use existing config pattern from forge-api/app/routers/skills.py SkillsConfigUpdate. (2) Frontend: in Settings page (forge-web/app/settings/page.tsx), add a 'Skill Injection' section with: toggle for enabled/disabled, number inputs for max skills, per-skill limit, total budget. Use existing settings form patterns. (3) Backend chat() handler reads these config values instead of hardcoded constants. (4) Frontend ChatInput shows budget indicator: 'N skills attached (~X chars)' when skills attached.",
+      "acceptance_criteria": [
+        "Settings page has Skill Injection section with: enabled toggle, max skills, per-skill limit, total budget",
+        "Default values: enabled=true, max_skills=5, per_skill_limit=16000, total_budget=30000",
+        "Backend chat() handler reads config values instead of hardcoded constants",
+        "Config persisted via existing config mechanism (SkillsConfigUpdate or LLMConfig)",
+        "ChatInput shows budget indicator when skills are attached"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-025",
+      "knowledge_ids": [],
+      "status": "TODO",
+      "started_at": null,
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": true,
+        "e2e": false
+      }
     }
   ]
 }

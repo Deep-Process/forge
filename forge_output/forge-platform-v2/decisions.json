@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-14T11:07:33Z",
+  "updated": "2026-03-14T11:15:56Z",
   "decisions": [
     {
       "id": "D-001",
@@ -3270,6 +3270,275 @@
         "parsing"
       ],
       "updated": "2026-03-14T11:07:33Z"
+    },
+    {
+      "id": "D-094",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "How should Forge Core workflow be adapted for Web? Three approaches: UI-only, AI-only, or Hybrid",
+      "recommendation": "Hybrid UI+AI: UI buttons for structured workflows (claim, verify, complete), AI sidebar for complex orchestration (discover, compound, review)",
+      "reasoning": "UI-only is too rigid for discovery/analysis. AI-only is too opaque for task execution where users need visual confirmation. Hybrid gives best of both.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "CLOSED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-explore",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "Web has 37 AI tools but no orchestration workflows - sidebar is entity assistant, not process guide",
+        "Core has 7 workflow stages, Web supports CRUD for all entities but no stage transitions",
+        "Task execution page is a mock stream viewer - no claim, verify, or complete flow",
+        "Research router completely absent - blocks /discover workflow",
+        "Draft-plan/approve-plan not in REST API despite AI tools calling core Python directly",
+        "Web has unique strengths: real-time WebSocket, drag-drop, DAG viz, AI page context",
+        "10 critical gaps across 3 priority tiers identified"
+      ],
+      "options": [
+        {
+          "name": "UI-Only (wizard-style)",
+          "pros": [
+            "Explicit, guided flow",
+            "No AI dependency"
+          ],
+          "cons": [
+            "Too rigid for discovery/analysis",
+            "Hard to handle open-ended exploration"
+          ],
+          "recommendation": "NO-GO"
+        },
+        {
+          "name": "AI-Only (chat-driven)",
+          "pros": [
+            "Flexible",
+            "Handles complex orchestration"
+          ],
+          "cons": [
+            "Opaque for structured tasks",
+            "Users need visual confirmation for completion"
+          ],
+          "recommendation": "NO-GO"
+        },
+        {
+          "name": "Hybrid UI+AI",
+          "pros": [
+            "Best modality per workflow type",
+            "Preserves existing 82 components",
+            "AI handles complexity, UI handles structure"
+          ],
+          "cons": [
+            "Two interaction paradigms to maintain",
+            "Must keep UI and AI in sync"
+          ],
+          "recommendation": "GO"
+        }
+      ],
+      "open_questions": [
+        "How should git operations (branch, worktree, PR) surface in Web? Web should track but not create?",
+        "Should /run (automated loop) be an AI-driven loop or a UI progress dashboard?",
+        "How to handle multi-agent coordination visually?"
+      ],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [
+        "research/deep-explore-gap-analysis-forge-core-vs-forge-web-workflow.md",
+        "research/deep-architect-web-workflow-architecture-adapting-forge-core-process-for-we.md"
+      ],
+      "tags": [
+        "workflow",
+        "architecture",
+        "process-parity"
+      ],
+      "resolution_notes": "User accepted: Hybrid UI+AI approach. UI buttons for structured workflows, AI sidebar for complex orchestration.",
+      "updated": "2026-03-14T11:15:46Z"
+    },
+    {
+      "id": "D-095",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "Task Execution Page design: how should the web task execution experience work?",
+      "recommendation": "5-panel integrated page: Context (left), Execution/AI chat (center), Decisions (bottom-left), Verification (bottom-right), with Completion dialog",
+      "reasoning": "All task context must be visible during work. Separate pages fragment the experience. Context panel shows guidelines/knowledge/deps/risks. Verification panel enables AC+guidelines+gates check before completion.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "CLOSED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-architect",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "Current execution page only shows mock stream + basic context - no claiming, verifying, or completing",
+        "Forge Core dumps context as text - Web can do expandable panels with token counts",
+        "Verification is 3-part: AC checklist + guideline compliance + gate execution",
+        "Decision recording during execution is common in Core but has no Web form",
+        "Complete button needs reasoning field + auto-change recording"
+      ],
+      "options": [
+        {
+          "name": "5-Panel Integrated Page",
+          "pros": [
+            "All context visible",
+            "Natural flow claim>execute>verify>complete",
+            "Rich information density"
+          ],
+          "cons": [
+            "Complex page",
+            "Needs responsive design"
+          ],
+          "recommendation": "GO"
+        },
+        {
+          "name": "Separate Pages Per Step",
+          "pros": [
+            "Simpler individual pages"
+          ],
+          "cons": [
+            "Loses context between steps",
+            "Too many navigations"
+          ],
+          "recommendation": "NO-GO"
+        },
+        {
+          "name": "Tab-Based Single Page",
+          "pros": [
+            "Organized sections"
+          ],
+          "cons": [
+            "Hides important information behind tabs"
+          ],
+          "recommendation": "NO-GO"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [
+        "research/deep-architect-web-workflow-architecture-adapting-forge-core-process-for-we.md"
+      ],
+      "tags": [
+        "ux",
+        "execution",
+        "task-flow"
+      ],
+      "resolution_notes": "User accepted: 5-panel integrated execution page design.",
+      "updated": "2026-03-14T11:15:46Z"
+    },
+    {
+      "id": "D-096",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "Implementation phasing: how to deliver Web workflow parity incrementally?",
+      "recommendation": "4 phases: Foundation (research router + plan flow + claim), Execution (verify + complete), Orchestration (AI discover + dashboard), Advanced (compound + multi-agent + run)",
+      "reasoning": "Each phase delivers usable value. Phase 1 unblocks the basic workflow. Phase 2 enables task completion. Phase 3 adds AI-driven workflows. Phase 4 adds advanced features.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "CLOSED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-explore",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "exploration_type": "feasibility",
+      "findings": [
+        "Phase 1 (Foundation): Research router, draft-plan endpoints, task claim button, context panel - enables basic workflow",
+        "Phase 2 (Execution): Verification panel, decision recording, completion dialog, change recording - enables task completion",
+        "Phase 3 (Orchestration): AI research tools, discover orchestration, workflow progress bar, coverage dashboard - enables AI-driven workflows",
+        "Phase 4 (Advanced): Compound learning, gates UI, multi-agent, run mode - full parity",
+        "Total estimated: ~20-25 new/modified components, ~5 new API endpoints, ~8 new AI tools"
+      ],
+      "options": [],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": true,
+      "evidence_refs": [
+        "research/deep-architect-web-workflow-architecture-adapting-forge-core-process-for-we.md"
+      ],
+      "tags": [
+        "phasing",
+        "planning",
+        "incremental"
+      ],
+      "resolution_notes": "User accepted: 4-phase incremental delivery (Foundation > Execution > Orchestration > Advanced).",
+      "updated": "2026-03-14T11:15:46Z"
+    },
+    {
+      "id": "D-097",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Scope creep risk: Web workflow parity could expand indefinitely as new Core features emerge",
+      "recommendation": "Define minimum viable workflow parity (Phase 1+2) and treat Phase 3+4 as separate objectives",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "MEDIUM",
+      "status": "ACCEPTED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "severity": "MEDIUM",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-026",
+      "mitigation_plan": "Scope O-026 to analysis + Phase 1 plan only. Create separate objective for Phase 2+ implementation. Review and re-scope after Phase 1 completion.",
+      "resolution_notes": "User accepted risk without additional mitigation. Scope creep acknowledged as inherent to platform work.",
+      "tags": [
+        "scope-creep",
+        "planning"
+      ],
+      "updated": "2026-03-14T11:15:46Z"
+    },
+    {
+      "id": "D-098",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "AI sidebar tool sprawl: adding 8+ new tools may exceed context window budget or confuse LLM",
+      "recommendation": "Group tools by scope, only load active scope tools. Research tools only when research scope enabled.",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "MEDIUM",
+      "status": "MITIGATED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-026",
+      "mitigation_plan": "Scope-based tool loading already exists (O-024). New tools follow same pattern. Monitor token budget impact. Consider tool consolidation if budget exceeded.",
+      "resolution_notes": "Mitigated via scope-based tool loading (O-024 pattern). Monitor token budget impact.",
+      "tags": [
+        "ai-tools",
+        "context-budget"
+      ],
+      "updated": "2026-03-14T11:15:56Z"
+    },
+    {
+      "id": "D-099",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Execution page complexity: 5-panel design may be overwhelming for users",
+      "recommendation": "Progressive disclosure: start with Context+Execution visible, reveal Decision/Verification/Completion panels on demand",
+      "reasoning": "",
+      "alternatives": [],
+      "confidence": "MEDIUM",
+      "status": "MITIGATED",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "",
+      "timestamp": "2026-03-14T11:12:15Z",
+      "severity": "LOW",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-026",
+      "mitigation_plan": "Use collapsible panels. Only Verification panel required before completion. Decision panel optional. Default state: Context collapsed, Execution expanded.",
+      "resolution_notes": "Mitigated via progressive disclosure - collapsible panels, default compact state.",
+      "tags": [
+        "ux",
+        "complexity"
+      ],
+      "updated": "2026-03-14T11:15:56Z"
     }
   ],
   "open_count": 31
