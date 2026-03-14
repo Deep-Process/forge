@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { HiChevronDown, HiChevronRight, HiCheck } from "react-icons/hi2";
 import type { Skill } from "@/lib/types";
 
 interface SkillCategorySectionProps {
@@ -26,11 +25,9 @@ export function SkillCategorySection({
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-gray-600 hover:bg-gray-50"
       >
-        {expanded ? (
-          <HiChevronDown className="h-3.5 w-3.5 shrink-0" />
-        ) : (
-          <HiChevronRight className="h-3.5 w-3.5 shrink-0" />
-        )}
+        <span className="text-[10px] text-gray-400 shrink-0 select-none w-3 text-center">
+          {expanded ? "\u25BC" : "\u25B6"}
+        </span>
         <span className="truncate">{category}</span>
         <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
           {skills.length}
@@ -69,7 +66,7 @@ export function SkillCategorySection({
                   }`}
                   aria-label={isAttached ? `${displayName} attached` : `Attach ${displayName}`}
                 >
-                  {isAttached ? <HiCheck className="h-3.5 w-3.5" /> : "Attach"}
+                  {isAttached ? "\u2713" : "Attach"}
                 </button>
               </div>
             );

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chatStore";
-import { useSidebarStore } from "@/stores/sidebarStore";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
 
@@ -42,9 +41,6 @@ export default function LLMChat({
     startConversation,
     clearError,
   } = useChatStore();
-  const attachedSkills = useSidebarStore((s) => s.attachedSkills);
-  const clearSkills = useSidebarStore((s) => s.clearSkills);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get current conversation
@@ -75,13 +71,17 @@ export default function LLMChat({
   const handleSend = useCallback(
     (message: string, fileIds?: string[]) => {
       clearError();
-      const skillNames = attachedSkills.length > 0
-        ? attachedSkills.map((s) => s.name)
-        : undefined;
+      // Parse @skill-name mentions inline from message text
+      const mentionRegex = /@([a-z0-9][a-z0-9-]*)/g;
+      const found: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = mentionRegex.exec(message)) !== null) {
+        if (!found.includes(m[1])) found.push(m[1]);
+      }
+      const skillNames = found.length > 0 ? found : undefined;
       sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext, undefined, undefined, undefined, skillNames);
-      if (skillNames) clearSkills();
     },
-    [contextType, contextId, slug, sendMessage, clearError, scopes, disabledCapabilities, pageContext, attachedSkills, clearSkills],
+    [contextType, contextId, slug, sendMessage, clearError, scopes, disabledCapabilities, pageContext],
   );
 
   // Token counter

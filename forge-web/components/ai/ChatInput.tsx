@@ -11,7 +11,6 @@ import SlashCommandDropdown, {
   getFilteredCommands,
   type SlashCommand,
 } from "./SlashCommandDropdown";
-import { SkillChipArea } from "./SkillChipArea";
 import { MentionDropdown, type SkillMentionItem } from "./MentionDropdown";
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
@@ -62,18 +61,30 @@ export default function ChatInput({
   const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const dragCounter = useRef(0);
   const preSessionId = useRef(`pre-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   // --- Skill stores ---
   const { items: skills } = useSkillStore();
   const attachedSkills = useSidebarStore((s) => s.attachedSkills);
-  const attachSkill = useSidebarStore((s) => s.attachSkill);
-  const detachSkill = useSidebarStore((s) => s.detachSkill);
+  const clearSkills = useSidebarStore((s) => s.clearSkills);
 
   useEffect(() => {
     if (skills.length === 0) fetchSkills();
   }, [skills.length]);
+
+  // ToolsTab integration: when skills are attached via ToolsTab, insert @mention into textarea
+  useEffect(() => {
+    if (attachedSkills.length === 0) return;
+    const mentions = attachedSkills.map((s) => `@${s.name}`).join(" ");
+    setValue((prev) => {
+      const needsSpace = prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n");
+      return prev + (needsSpace ? " " : "") + mentions + " ";
+    });
+    clearSkills();
+    textareaRef.current?.focus();
+  }, [attachedSkills, clearSkills]);
 
   const skillCommands = useMemo<SlashCommand[]>(
     () =>
@@ -96,6 +107,31 @@ export default function ChatInput({
     [skills],
   );
 
+  // Highlight @mentions in overlay
+  const highlightedText = useMemo(() => {
+    if (!value) return null;
+    const regex = /@([a-z0-9][a-z0-9-]*)/g;
+    const result: (string | JSX.Element)[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(value)) !== null) {
+      if (match.index > lastIdx) result.push(value.slice(lastIdx, match.index));
+      result.push(
+        <span key={match.index} className="text-blue-600 font-semibold">{match[0]}</span>
+      );
+      lastIdx = match.index + match[0].length;
+    }
+    if (lastIdx < value.length) result.push(value.slice(lastIdx));
+    result.push("\n");
+    return result;
+  }, [value]);
+
+  const syncScroll = useCallback(() => {
+    if (highlightRef.current && textareaRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, []);
+
   // Determine slash filter
   const slashFilter = autocompleteMode === "slash" && value.startsWith("/") ? value.slice(1) : "";
 
@@ -116,17 +152,16 @@ export default function ChatInput({
 
   const handleMentionSelect = useCallback(
     (skill: SkillMentionItem) => {
-      // Remove @partial from textarea, attach skill
+      // Complete @mention inline — keep as text in textarea
       const before = value.slice(0, mentionStartIdx);
       const after = value.slice(mentionStartIdx + 1 + mentionFilter.length);
-      setValue(before + after);
-      attachSkill(skill.name, skill.display_name);
+      setValue(before + "@" + skill.name + " " + after);
       setAutocompleteMode("none");
       setMentionIndex(0);
       setMentionFilter("");
       textareaRef.current?.focus();
     },
-    [value, mentionStartIdx, mentionFilter, attachSkill],
+    [value, mentionStartIdx, mentionFilter],
   );
 
   const handleSend = useCallback(() => {
@@ -139,9 +174,6 @@ export default function ChatInput({
     setValue("");
     setAttachments([]);
     setUploadError(null);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
   }, [value, disabled, onSend, attachments]);
 
   const handleKeyDown = useCallback(
@@ -210,36 +242,20 @@ export default function ChatInput({
         }
       }
 
-      // Backspace: remove last skill chip when textarea empty and cursor at start
-      if (e.key === "Backspace" && attachedSkills.length > 0) {
-        const el = textareaRef.current;
-        if (el && el.selectionStart === 0 && el.selectionEnd === 0 && value === "") {
-          e.preventDefault();
-          const last = attachedSkills[attachedSkills.length - 1];
-          detachSkill(last.name);
-          return;
-        }
-      }
-
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
     [handleSend, autocompleteMode, slashFilter, slashIndex, skillCommands, handleSlashSelect,
-     mentionFilter, mentionIndex, mentionSkills, handleMentionSelect, attachedSkills, detachSkill, value],
+     mentionFilter, mentionIndex, mentionSkills, handleMentionSelect, value],
   );
 
   const handleChange = useCallback(
     (newVal: string) => {
       setValue(newVal);
 
-      // Auto-resize textarea
       const el = textareaRef.current;
-      if (el) {
-        el.style.height = "auto";
-        el.style.height = Math.min(el.scrollHeight, 160) + "px";
-      }
 
       // Slash detection: '/' at position 0, no space yet
       if (newVal.startsWith("/") && !newVal.includes(" ")) {
@@ -400,15 +416,6 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Skill chips (above file attachments) */}
-      {/* Skill chips (above file attachments) */}
-      <SkillChipArea skills={attachedSkills} onRemove={detachSkill} />
-      {attachedSkills.length > 0 && (
-        <div className="px-3 text-[10px] text-gray-400">
-          {attachedSkills.length} skill{attachedSkills.length > 1 ? "s" : ""} attached
-        </div>
-      )}
-
       {/* File attachment chips */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2">
@@ -464,18 +471,34 @@ export default function ChatInput({
             position={mentionPos}
           />
         )}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? "Type a message, use / for commands, @ for skills..."}
-          disabled={disabled}
-          rows={1}
-          className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm
-            focus:border-forge-500 focus:outline-none focus:ring-1 focus:ring-forge-500
-            disabled:bg-gray-50 disabled:text-gray-400"
-        />
+        <div className="relative flex-1">
+          {/* Highlight overlay for @mentions */}
+          <div
+            ref={highlightRef}
+            className="absolute inset-0 px-3 py-2 text-sm pointer-events-none
+              overflow-hidden whitespace-pre-wrap break-words text-gray-900
+              border border-transparent rounded-lg"
+            aria-hidden="true"
+          >
+            {highlightedText}
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onScroll={syncScroll}
+            placeholder={placeholder ?? "Type a message, use / for commands, @ for skills..."}
+            disabled={disabled}
+            rows={3}
+            className="relative w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm
+              min-h-[72px] max-h-[50vh] overflow-y-auto bg-transparent
+              text-transparent caret-gray-900 selection:bg-blue-200/50
+              placeholder:text-gray-400
+              focus:border-forge-500 focus:outline-none focus:ring-1 focus:ring-forge-500
+              disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
         <button
           onClick={handleSend}
           disabled={disabled || (!value.trim() && attachments.length === 0)}

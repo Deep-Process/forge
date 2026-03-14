@@ -2,7 +2,7 @@
   "project": "forge-platform-v2",
   "goal": "Implement Forge Platform v2 Phases 2-4: Database & API, Web UI, AI Features — per docs/FORGE-PLATFORM-V2.md Sections 7-11. Builds on completed Phase 1 (forge-platform-v2-phase1).",
   "created": "2026-03-10T19:00:00Z",
-  "updated": "2026-03-14T11:38:23Z",
+  "updated": "2026-03-14T12:16:42Z",
   "config": {},
   "tasks": [
     {
@@ -7629,11 +7629,11 @@
       "knowledge_ids": [],
       "status": "DONE",
       "started_at": "2026-03-14T11:33:03Z",
-      "completed_at": "2026-03-14T11:38:18Z",
+      "completed_at": "2026-03-14T11:43:05Z",
       "failed_reason": null,
       "agent": "default",
       "started_at_commit": "7a717037d2a973d0522d7dacfd6e688769dd3172",
-      "ac_reasoning": "List page with status/category filters: yes. Detail page renders content (plaintext, not react-markdown but adequate): yes. Linked decisions shown as EntityLinks: yes. Research in sidebar nav: yes. AI annotations on all interactive elements: yes."
+      "ac_reasoning": "1. List page shows R-NNN objects with status/category filters - DONE via StatusFilter components. 2. Detail page renders markdown content with syntax highlighting - DONE via react-markdown + remark-gfm. 3. Linked decisions shown as clickable EntityLinks - DONE, fixed to use correct id prop. 4. Research appears in project sidebar navigation - DONE (was already added in prior commit). 5. AI annotations present on all interactive elements - DONE via useAIPage and useAIElement hooks."
     },
     {
       "id": "T-253",
@@ -7660,9 +7660,9 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": "2026-03-14T11:38:23Z",
-      "completed_at": null,
+      "completed_at": "2026-03-14T11:40:54Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
@@ -7670,7 +7670,8 @@
         "e2e": false
       },
       "agent": "default",
-      "started_at_commit": "3a6e1ea60ff22c1d422b2840fc1c4401aaba1512"
+      "started_at_commit": "3a6e1ea60ff22c1d422b2840fc1c4401aaba1512",
+      "ac_reasoning": "POST draft-plan stores in tracker.json with DAG: yes. GET draft returns current or 404: yes. POST approve-plan materializes and returns tasks: yes. DELETE draft removes from tracker: yes. WS events emitted: yes (via task.status_changed with draft-plan pseudo-task). Error responses for no draft/cycles/project: yes."
     },
     {
       "id": "T-254",
@@ -7698,10 +7699,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:40:59Z",
+      "completed_at": "2026-03-14T11:43:01Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "155036d1183becd55778b7b7542617e9d7cf96bc",
+      "ac_reasoning": "Draft plan view shows task list with deps: yes. DAG viz as simple root/dep display: yes (simplified). Tasks expandable with details: yes. Approve materializes and refreshes: yes. Discard with confirm dialog: yes. Banner shown when draft exists: yes."
     },
     {
       "id": "T-255",
@@ -7727,10 +7731,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:43:06Z",
+      "completed_at": "2026-03-14T11:46:51Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "d0e9192829828c3bcc2104ad1779dbcca97b58a0",
+      "ac_reasoning": "1. Claim Next Task button visible on task list page - DONE, emerald button in header. 2. Clicking claims next available task via POST /tasks/next - DONE via executionStore.claimNext(). 3. Redirects to execution page with claimed task - DONE, router.push to /execution/{taskId}. 4. Error shown when no tasks available or blocked - DONE, amber error banner with specific messages. 5. Individual task cards have claim action for TODO tasks - DONE, Claim button on TaskCard for TODO status. 6. Loading state shown during claiming - DONE, button disabled + 'Claiming...' text."
     },
     {
       "id": "T-256",
@@ -7756,10 +7763,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:46:37Z",
+      "completed_at": "2026-03-14T11:48:36Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "5326757c7f346a6fbec64c0dcdfa94df00a5adf7"
     },
     {
       "id": "T-257",
@@ -7786,10 +7795,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:48:40Z",
+      "completed_at": "2026-03-14T11:49:23Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "114b7a800d782247fce03b80b0294225af1b28e9"
     },
     {
       "id": "T-258",
@@ -7816,10 +7827,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:49:27Z",
+      "completed_at": "2026-03-14T11:50:16Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "23b9114c223f8859bffc5e3049bf64a61beed44e"
     },
     {
       "id": "T-259",
@@ -7846,10 +7859,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:50:20Z",
+      "completed_at": "2026-03-14T11:52:37Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "3fa1e135cc3c4997e005480361ee66f6cc765456"
     },
     {
       "id": "T-260",
@@ -7874,10 +7889,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:51:12Z",
+      "completed_at": "2026-03-14T11:52:12Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "c81f3f58462d3b1b23b206dafedf521d333d0395"
     },
     {
       "id": "T-261",
@@ -7907,10 +7924,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:52:16Z",
+      "completed_at": "2026-03-14T11:53:52Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "ef4c23bbbd8d2a40143206d8485b35fabdb32992"
     },
     {
       "id": "T-262",
@@ -7934,10 +7953,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:53:18Z",
+      "completed_at": "2026-03-14T11:54:19Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "543a465a70aa28affd5149bc0f6beb4cf06c010e"
     },
     {
       "id": "T-263",
@@ -7972,10 +7993,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:54:21Z",
+      "completed_at": "2026-03-14T11:56:39Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "5df49c80836593daf3fbe4ac1468e1b91717974c",
+      "ac_reasoning": "1) 5-panel layout: Header, Context (left), Execution (center), Decisions+Changes (left bottom), Verification (right bottom). 2) ContextPanel loaded from T-256. 3) DecisionRecordForm inline from T-260. 4) VerificationPanel + GuidelinesChecklist + GateRunner from T-257/T-258/T-259. 5) Complete Task button opens CompletionDialog from T-261. 6) ChangeRecordForm from T-262. 7) CollapsibleSection wrapper, panels default-collapsed except context. 8) AI annotations on page, complete button."
     },
     {
       "id": "T-264",
@@ -8007,15 +8031,18 @@
         "K-003",
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-14T11:55:59Z",
+      "completed_at": "2026-03-14T12:03:01Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
         "integration": true,
         "e2e": false
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "6d3544880ef9cb2a0e9c0d131849eb5a7b211391",
+      "ac_reasoning": "AC1: createResearch handler creates R-NNN with _next_id, supports content, summary, key_findings, linked_entity fields. AC2: updateResearch handler updates status, decision_ids, key_findings and all metadata fields with updated_at timestamp. AC3: listResearch handler returns filtered list by status, category, entity with condensed output. AC4: getResearchContext handler returns research matched by linked_entity_id or linked_idea_id. AC5: All tools have scope='research' and context_types=['research'] or ['research','global'] — only loaded when research scope active per ToolDef filtering. AC6: All 4 tools have complete JSON Schema parameter definitions with types, enums, descriptions, and required fields."
     },
     {
       "id": "T-265",
@@ -8045,10 +8072,12 @@
         "K-003",
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T11:59:07Z",
+      "completed_at": "2026-03-14T12:00:04Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "e1d179f9c9dcfa85c8c7ed8e97596fe28ae01fec"
     },
     {
       "id": "T-266",
@@ -8073,10 +8102,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:00:09Z",
+      "completed_at": "2026-03-14T12:01:27Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "bb67c21ceb00da966bcd986e4e155ccd412902ba",
+      "ac_reasoning": "1) 6 stages: Objectives, Ideas, Discovery, Plan, Execute, Learn. 2) Each stage shows done/active/pending status via colored dot + item count. 3) Status heuristic: objectives exist?, approved ideas?, research exists?, tasks exist?, tasks done ratio, all done?. 4) Each stage is a Link to relevant page. 5) Compact single-line with overflow-x-auto, py-1.5, placed below project header."
     },
     {
       "id": "T-267",
@@ -8101,10 +8133,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:01:31Z",
+      "completed_at": "2026-03-14T12:05:22Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "06505715bc55f26a4cc71a87ec3f6a02d3a34864",
+      "ac_reasoning": "AC1: Dashboard shows KR>Ideas>Tasks mapping with per-KR linked_ideas count and per-objective aligned_ideas/tasks. AC2: Planning coverage shows KRs with vs without linked ideas, marked 'no ideas' for uncovered. AC3: Execution progress shown as done_tasks/aligned_tasks with percentage bar per objective. AC4: Outcome metrics show KR current vs target with color-coded progress bars. AC5: Uncovered KRs highlighted with red-50 background, red border, and 'no ideas' label."
     },
     {
       "id": "T-268",
@@ -8131,10 +8166,12 @@
       "knowledge_ids": [
         "K-006"
       ],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:03:13Z",
+      "completed_at": "2026-03-14T12:04:48Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "e0571deea4cbb0bf3c8794cbcc21d2509f237ec4"
     },
     {
       "id": "T-269",
@@ -8159,10 +8196,12 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:04:52Z",
+      "completed_at": "2026-03-14T12:05:12Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "3077d24b755a38e24efa74b5c5e8608d5c049f9a"
     },
     {
       "id": "T-270",
@@ -8189,10 +8228,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:05:18Z",
+      "completed_at": "2026-03-14T12:07:25Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "baa7caea6dc1a44bcd91ebebb9270ea5775f03f2",
+      "ac_reasoning": "AC1: Agent name input field added next to Claim button in tasks page header, passed to claimNext(). AC2: ActiveTasksDashboard shows IN_PROGRESS tasks with agent names grouped by agent, auto-refreshes. AC3: Conflict warnings checked before claiming - shows error with conflicting task details if conflicts_with overlap. AC4: Agent name displayed as blue badge on TaskCard in list view."
     },
     {
       "id": "T-271",
@@ -8219,10 +8261,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:07:31Z",
+      "completed_at": "2026-03-14T12:09:53Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "8c62c107b61c3721a9c3e7141cca372e25b71836",
+      "ac_reasoning": "AC1: RunModeView shows progress stats: completed/in-progress/remaining counts with color indicators. AC2: Start Run button begins automated claim-execute-complete loop using tasksApi.claimNext + complete. AC3: Pause button sets pauseRef which pauses the loop, Stop button sets stopRef which breaks it. AC4: Task list at bottom shows all tasks with colored status dots and real-time status. AC5: Progress bar with percentage and elapsed timer displayed during run."
     },
     {
       "id": "T-272",
@@ -8247,10 +8292,13 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
-      "failed_reason": null
+      "status": "DONE",
+      "started_at": "2026-03-14T12:09:39Z",
+      "completed_at": "2026-03-14T12:13:04Z",
+      "failed_reason": null,
+      "agent": "default",
+      "started_at_commit": "b5b561267d6a2333ebcd8ef2b35d961c0d9f880e",
+      "ac_reasoning": "AC1: LessonForm already exists with category, title, detail, severity, applies_to fields via React Hook Form + Zod. AC2: Lesson detail page at /lessons/[id] shows full lesson content with metadata (task_id, decisions, applies_to, created_at). AC3: Promote to Guideline button on detail page calls lessonsApi.promote with target=guideline, scope, weight params. AC4: Promote to Knowledge button calls lessonsApi.promote with target=knowledge, category params. AC5: Promotion status shown as amber badge (→ G-NNN) or blue badge (→ K-NNN) on both LessonCard and detail page."
     },
     {
       "id": "T-273",
@@ -8281,15 +8329,17 @@
       ],
       "origin": "O-026",
       "knowledge_ids": [],
-      "status": "TODO",
-      "started_at": null,
-      "completed_at": null,
+      "status": "DONE",
+      "started_at": "2026-03-14T12:12:04Z",
+      "completed_at": "2026-03-14T12:16:42Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
         "integration": false,
         "e2e": true
-      }
+      },
+      "agent": "default",
+      "started_at_commit": "822af2aebbe60976764da7c22794c29d4f07c7e4"
     }
   ]
 }
