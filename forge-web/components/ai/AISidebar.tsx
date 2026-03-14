@@ -6,14 +6,13 @@ import { fetchContractsForScopes, getPermissionStatus, type CapabilityDef } from
 import { useAIPageContextSafe, serializePageContext, deriveScopesFromElements, type AIElementDescriptor } from "@/lib/ai-context";
 import { useSidebarStore, type SidebarTab } from "@/stores/sidebarStore";
 import { useChatStore } from "@/stores/chatStore";
-import { useSkillStore, fetchSkills } from "@/stores/skillStore";
 import type { LLMConfig } from "@/lib/types";
 import LLMChat from "./LLMChat";
 import { useStreamDebug, subscribeToStreamEvents } from "@/lib/hooks/useStreamDebug";
 import { StreamView } from "./stream/StreamView";
 import useSWR from "swr";
 import { llm } from "@/lib/api";
-import Link from "next/link";
+import { ToolsTabEnhanced } from "./ToolsTabEnhanced";
 
 // ---------------------------------------------------------------------------
 // Tab types
@@ -97,53 +96,7 @@ function TabBar({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tools tab
-// ---------------------------------------------------------------------------
-
-function ToolsTab() {
-  const { items: skills } = useSkillStore();
-
-  useEffect(() => {
-    if (skills.length === 0) {
-      fetchSkills();
-    }
-  }, [skills.length]);
-
-  if (skills.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-32 text-sm text-gray-400">
-        No skills available
-      </div>
-    );
-  }
-
-  return (
-    <div className="divide-y">
-      {skills.map((skill) => (
-        <Link
-          key={skill.name}
-          href={`/skills/${skill.name}`}
-          className="block px-3 py-2 hover:bg-gray-50 transition-colors"
-        >
-          <div className="text-xs font-medium text-gray-800 truncate">{skill.display_name || skill.name}</div>
-          {skill.description && (
-            <div className="text-[11px] text-gray-500 truncate mt-0.5">{skill.description}</div>
-          )}
-          {skill.scopes && skill.scopes.length > 0 && (
-            <div className="flex gap-1 mt-1">
-              {skill.scopes.slice(0, 3).map((s: string) => (
-                <span key={s} className="text-[10px] rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
-                  {s}
-                </span>
-              ))}
-            </div>
-          )}
-        </Link>
-      ))}
-    </div>
-  );
-}
+// ToolsTab replaced by ToolsTabEnhanced (imported)
 
 // ---------------------------------------------------------------------------
 // Scopes tab — scope checkboxes + capabilities for active scopes
@@ -742,7 +695,7 @@ export default function AISidebar() {
           </div>
         )}
 
-        {activeTab === "tools" && <ToolsTab />}
+        {activeTab === "tools" && <ToolsTabEnhanced />}
 
         {activeTab === "scopes" && (
           <ScopesTab
