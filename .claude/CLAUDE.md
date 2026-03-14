@@ -394,12 +394,36 @@ Provides: full task graph with dependencies, guidelines per scope, verification,
 Use when: 9+ tasks, architectural decisions, high risk, needs exploration.
 Provides: everything — objectives, ideas, discovery, risk assessment, full traceability.
 
+### Architecture-first Track (design before implementation)
+
+When the project needs upfront architecture, UI mockups, or technical design before coding:
+
+```
+/objective ──→ /discover --full ──→ /knowledge add ──→ /plan ──→ /next|/run
+  (why)         (design+assess)     (persist design)   (tasks)   (build)
+```
+
+Key difference from Full Track: `/discover` with `deep-architect` IS the design phase.
+Discovery findings that should persist as living docs → create Knowledge objects (category: `architecture`).
+`/plan` reads Knowledge (Step 2, R9) and assigns `knowledge_ids` to tasks.
+`pipeline context` loads Knowledge for each task during execution.
+
+**How design artifacts flow to implementation:**
+1. `/discover --full` → Research (R-NNN, snapshot) + Decisions (architecture type)
+2. Promote durable findings to Knowledge (K-NNN, living docs) — architecture, API contracts, data models
+3. `/plan` assigns `knowledge_ids: [K-001, K-002]` to relevant tasks
+4. `/next` loads Knowledge via `pipeline context` (explicit IDs + origin chain)
+5. When implementation reveals design issues → `knowledge update` creates new version
+
+No special skills or entity types needed — existing primitives cover the full workflow.
+
 ### How to choose
 
 | Signal | Track |
 |--------|-------|
 | "Fix this bug", "Rename X", "Add a test" | **Standard** (`/task` + `/next`) |
 | "Add feature X with Y and Z" | **Standard** (`/plan`) |
+| "Design the system first, then build" | **Architecture-first** (`/objective` → `/discover --full` → ...) |
 | "We need to redesign the auth system" | **Full** (`/objective` → ...) |
 | User explicitly asks for full analysis | **Full** |
 
@@ -445,6 +469,7 @@ Provides: everything — objectives, ideas, discovery, risk assessment, full tra
 - **When unsure, create an OPEN decision** — let the human decide.
 - **Tests before completion** — run tests/lint before marking a task DONE.
 - **Use --force on complete** only for tasks that genuinely have no code changes (e.g., investigation, planning).
+- **NEVER create temporary files** (`tmp_*.json`, etc.) as workarounds for CLI parameter issues. If `--data` fails due to bash quoting, use a heredoc: `--data "$(cat <<'EOF'`...`EOF`)`". If still unsure how to pass parameters, run the `contract` command first to see the expected format.
 
 ## Multi-Agent Support
 

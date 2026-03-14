@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T19:55:02Z",
+  "updated": "2026-03-14T10:55:16Z",
   "objectives": [
     {
       "id": "O-001",
@@ -1831,6 +1831,147 @@
       "status": "ACTIVE",
       "created": "2026-03-13T19:55:02Z",
       "updated": "2026-03-13T19:55:02Z"
+    },
+    {
+      "id": "O-025",
+      "title": "Skill Discovery & Chat Integration — Tools tab browser, @-mention autocomplete, SKILL.md context injection",
+      "description": "Users need an intuitive way to discover, browse, and use skills directly from the AI Sidebar. Currently the Tools tab shows a flat list of skills as links — there is no search, no categorization, and no way to attach a skill to a chat message. Users must know the exact slash-command name to invoke a skill. This objective makes skills first-class citizens in the chat UX: browsable by category with search, insertable via @-mention inline autocomplete, visually distinct in the chat input (blue chips), and automatically injected as SKILL.md content into the LLM context when the message is sent. This bridges the gap between skill discovery (Tools tab) and skill execution (Chat tab).",
+      "key_results": [
+        {
+          "id": "KR-1",
+          "description": "Tools tab has a search input that filters skills by name in real-time, with expandable category sections (from _config.json categories) containing skills — a skill appears in every category it belongs to",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-2",
+          "description": "Clicking a skill in Tools tab inserts it as a visually distinct chip (blue background, rounded corners) into the ChatInput and switches to Chat tab",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-3",
+          "description": "@-mention autocomplete works inline anywhere in ChatInput: typing @ opens a dropdown filtering skills by name as user types, selecting inserts a skill chip at cursor position",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-4",
+          "description": "Skill chips in ChatInput are removable via X button click and via Backspace key (both methods work)",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-5",
+          "description": "When a message with skill chips is sent, backend receives skill names, loads SKILL.md content for each, and injects it into the LLM context (system prompt or user context section)",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-6",
+          "description": "LLM can follow SKILL.md instructions including loading referenced files via Read tool during execution — user can combine natural language with @skill references (e.g. run @deep-explore and check architecture)",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "appetite": "medium",
+      "scope": "project",
+      "assumptions": [
+        "Skills already have categories in _config.json — we use these for grouping, no new metadata needed",
+        "ChatInput.tsx can be extended with chip-based input (contentEditable or separate chip area + textarea) without breaking existing slash-command autocomplete",
+        "@-mention dropdown reuses similar pattern as SlashCommandDropdown but triggered by @ anywhere in text, not just / at position 0",
+        "Backend skill_storage already exposes SKILL.md content — we need an endpoint or extend existing ones to return full content for injection",
+        "Skill chip state is local to ChatInput — not persisted in conversation history (messages store the resolved skill names/content)",
+        "O-015 slash-command autocomplete (/) and this @-mention system coexist — / for built-in commands, @ for skill attachment"
+      ],
+      "tags": [
+        "ai",
+        "skills",
+        "chat",
+        "ux",
+        "tools-tab",
+        "autocomplete",
+        "sidebar"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "derived_guidelines": [],
+      "knowledge_ids": [],
+      "guideline_ids": [],
+      "relations": [
+        {
+          "type": "related_to",
+          "target_id": "O-015",
+          "notes": "Extends chat input UX — @-mention complements /-slash commands from O-015"
+        },
+        {
+          "type": "related_to",
+          "target_id": "O-024",
+          "notes": "Skill content injection feeds into operational autonomy — AI needs skill instructions to act"
+        },
+        {
+          "type": "related_to",
+          "target_id": "O-016",
+          "notes": "Depends on file-based skill storage for SKILL.md content loading"
+        }
+      ],
+      "status": "ACTIVE",
+      "created": "2026-03-14T10:37:08Z",
+      "updated": "2026-03-14T10:37:08Z"
+    },
+    {
+      "id": "O-026",
+      "title": "Forge Web Process Parity — analiza i adaptacja workflow z Forge Core",
+      "description": "Forge Web ma infrastrukturę (API, CRUD, AI sidebar) ale sam proces orchestracji nie działa. Cel: przeanalizować co z Forge Core (objective → idea → discover → plan → next/run → complete → compound) powinno być odzwierciedlone w Forge Web, zaprojektować workflow webowy, i stworzyć plan implementacji. Nie kopia 1:1 ale przemyślana adaptacja — wziąć najlepsze z Core i przełożyć na interfejs webowy.",
+      "key_results": [
+        {
+          "id": "KR-1",
+          "metric": "Gap analysis Core vs Web (dokument)",
+          "baseline": 0,
+          "target": 1,
+          "current": 0,
+          "description": "Lista co Core robi, czego Web nie ma, co wymaga adaptacji vs co można pominąć. Mapa brakujących procesów z priorytetami."
+        },
+        {
+          "id": "KR-2",
+          "metric": "Workflow design dla Web (projekt UX/flow)",
+          "baseline": 0,
+          "target": 1,
+          "current": 0,
+          "description": "Jak objective→idea→discover→plan→next→complete→compound wygląda w UI. Sekwencja ekranów, interakcji, stanow."
+        },
+        {
+          "id": "KR-3",
+          "metric": "Plan implementacji (zatwierdzony /plan)",
+          "baseline": 0,
+          "target": 1,
+          "current": 0,
+          "description": "Task graph z zależnościami, gotowy do /run. Wynikający z gap analysis i workflow design."
+        }
+      ],
+      "appetite": "small",
+      "scope": "project",
+      "assumptions": [
+        "Istniejący stos technologiczny (FastAPI + Next.js + Zustand) pozostaje bez zmian",
+        "Forge Core (Python CLI) jest stabilne i nie będziemy go modyfikować pod Web",
+        "Nie każdy element Core musi mieć odpowiednik w Web — niektóre procesy są CLI-specific",
+        "Web może mieć elementy których Core nie ma (wizualizacje, drag-and-drop, real-time)"
+      ],
+      "tags": [
+        "process-parity",
+        "workflow",
+        "ux-design",
+        "analysis"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "derived_guidelines": [],
+      "knowledge_ids": [],
+      "guideline_ids": [],
+      "relations": [],
+      "status": "ACTIVE",
+      "created": "2026-03-14T10:55:16Z",
+      "updated": "2026-03-14T10:55:16Z"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T20:08:25Z",
+  "updated": "2026-03-14T10:59:29Z",
   "research": [
     {
       "id": "R-001",
@@ -287,6 +287,128 @@
       ],
       "created_at": "2026-03-13T20:08:25Z",
       "updated_at": "2026-03-13T20:08:25Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-008",
+      "title": "Skill Discovery & Chat Integration — Option Map",
+      "topic": "How to implement skill browser, @-mention autocomplete, chip input, and SKILL.md injection",
+      "status": "ACTIVE",
+      "category": "architecture",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "linked_idea_id": null,
+      "skill": "deep-explore",
+      "file_path": null,
+      "summary": "Recommends chip area above textarea (not contentEditable), regex scan for @-mention, backend SKILL.md loading with 30K char budget, and Zustand sidebarStore for skill-to-chat bridge. 4 key decisions explored with consequence traces and challenges.",
+      "key_findings": [
+        "SKILL.md files range 4K-25K chars (1000-6400 tokens) — injecting 2-3 skills uses 3000-19000 tokens",
+        "Chip area above textarea is simpler and more accessible than contentEditable",
+        "Regex scan on onChange handles paste/IME better than onKeyDown",
+        "Backend loading preferred over frontend sending skill content — security, efficiency",
+        "Max 5 skills cap limits context budget to ~14K tokens total system prompt",
+        "Zero skills exist in forge_output/_global/skills/ currently — feature is greenfield"
+      ],
+      "decision_ids": [
+        "D-084",
+        "D-085"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "tags": [
+        "skills",
+        "chat",
+        "ux",
+        "autocomplete",
+        "chips",
+        "context-injection"
+      ],
+      "created_at": "2026-03-14T10:58:16Z",
+      "updated_at": "2026-03-14T10:59:29Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-009",
+      "title": "Skill Discovery & Chat Integration — Component Architecture",
+      "topic": "Component decomposition, API boundaries, data model, and adversarial analysis",
+      "status": "ACTIVE",
+      "category": "architecture",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "linked_idea_id": null,
+      "skill": "deep-architect",
+      "file_path": null,
+      "summary": "4 new components (SkillChipArea, MentionDropdown, ToolsTabEnhanced, SkillCategorySection) + 7 modified files. ~400 new frontend lines, ~25 backend lines. Zero new dependencies. 6 ADRs. No critical adversarial findings.",
+      "key_findings": [
+        "4 new components: SkillChipArea (~60 LOC), MentionDropdown (~120 LOC), ToolsTabEnhanced (~150 LOC), SkillCategorySection (~70 LOC)",
+        "attachedSkills state lives in sidebarStore — same lifecycle as addedScopes",
+        "MentionDropdown separate from SlashCommandDropdown — different triggers and positioning",
+        "Backend: only ChatRequest.skill_names + ~25 lines injection logic, zero new endpoints",
+        "Caret position via custom mirror element utility (~20 lines) — no npm dependency",
+        "ADR-005: Max 5 skills per message — fits 32K context windows"
+      ],
+      "decision_ids": [
+        "D-086"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "tags": [
+        "architecture",
+        "components",
+        "c4",
+        "adr",
+        "adversarial"
+      ],
+      "created_at": "2026-03-14T10:58:16Z",
+      "updated_at": "2026-03-14T10:59:29Z",
+      "created_by": "claude"
+    },
+    {
+      "id": "R-010",
+      "title": "Skill Discovery & Chat Integration — Risk Assessment",
+      "topic": "5-dimensional risk scoring with cascade analysis for skill browser and chat integration",
+      "status": "ACTIVE",
+      "category": "risk",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "linked_idea_id": null,
+      "skill": "deep-risk",
+      "file_path": null,
+      "summary": "14 risks identified, top 3: Context Window Exhaustion (composite 26), Contradictory Instructions (22), Slash/Mention Collision (20). All reversible. HIGH profile but manageable.",
+      "key_findings": [
+        "R-01 Context Window Exhaustion (composite 26): server-side budget enforcement needed",
+        "R-03 Contradictory Instructions (composite 22): SKILL.md files need priority preamble for web context",
+        "R-02 Slash/Mention Collision (composite 20): unified autocomplete controller needed",
+        "R-04 Regex Parsing Fragility (composite 20): dedicated function with unit tests required",
+        "R-10 LLM Ignores Skills (composite 18): web context adaptation needed",
+        "Key cascade: R-01 triggers R-03 triggers R-10",
+        "All 14 risks have reversibility <=3 — no permanent damage risk"
+      ],
+      "decision_ids": [
+        "D-087",
+        "D-088",
+        "D-089",
+        "D-090"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai"
+      ],
+      "tags": [
+        "risk",
+        "context-window",
+        "autocomplete",
+        "prompt-injection"
+      ],
+      "created_at": "2026-03-14T10:58:16Z",
+      "updated_at": "2026-03-14T10:59:29Z",
       "created_by": "claude"
     }
   ]

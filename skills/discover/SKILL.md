@@ -283,6 +283,28 @@ This marks the research as ACTIVE (ready for context loading) and establishes bi
 - Research → Decisions (via `decision_ids`)
 - Decisions → Research (via `evidence_refs`)
 
+**f. Promote durable findings to Knowledge (optional):**
+
+If discovery produced findings that should persist as **living reference documents** (not one-time analysis), create Knowledge objects. This bridges discovery output (Research = snapshot) to reusable context (Knowledge = evolving).
+
+When to create Knowledge:
+- **Architecture design** — component structure, API contracts, data models → `category: "architecture"`
+- **Domain rules** discovered during exploration → `category: "domain-rules"`
+- **Integration patterns** — how systems connect, auth flows → `category: "integration"`
+- **Code patterns** — conventions established during design → `category: "code-patterns"`
+
+When NOT to create Knowledge:
+- Feasibility assessment (one-time → stays as Research)
+- Risk analysis (one-time → stays as Risk decisions)
+- Option comparison (one-time → stays as Exploration decision)
+
+```bash
+python -m core.knowledge contract add
+python -m core.knowledge add {project} --data '[...]'
+```
+
+Set `scopes` matching the objective/idea scopes — this enables `/plan` to find and assign them to tasks via `knowledge_ids`. Link to the source research/objective for traceability.
+
 ---
 
 ### Step 7 — Present Discovery Brief

@@ -1,6 +1,6 @@
 {
   "project": "forge-platform-v2",
-  "updated": "2026-03-13T21:43:19Z",
+  "updated": "2026-03-14T10:59:23Z",
   "decisions": [
     {
       "id": "D-001",
@@ -2934,7 +2934,333 @@
         "deep-verify",
         "routing"
       ]
+    },
+    {
+      "id": "D-087",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "ChatInput chip rendering approach: contentEditable vs chip area above textarea vs hybrid overlay",
+      "recommendation": "Chip area above textarea — separate div for chips, textarea stays unmodified",
+      "reasoning": "contentEditable reimplements all textarea behavior (undo, IME, selection, a11y). Chip area pattern already exists for file attachments in ChatInput. Email To fields, tag inputs, GitHub labels use same familiar pattern. Trade-off: chips are not inline with text, but this is acceptable.",
+      "alternatives": [
+        "contentEditable div with inline chip DOM nodes — true Slack-like look but high complexity",
+        "Hybrid: textarea shows @skill-name as text, chips rendered as overlay — visual mismatch"
+      ],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-explore",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "contentEditable is notoriously difficult: cursor positioning, undo/redo, IME, mobile keyboards, a11y",
+        "ChatInput already 361 lines with file attachments, slash commands, drag-drop — conversion too risky",
+        "Chip area pattern proven: file attachment chips already exist in ChatInput lines 281-305"
+      ],
+      "options": [
+        {
+          "name": "Chip area above textarea",
+          "pros": [
+            "Simple",
+            "Accessible",
+            "Non-invasive",
+            "Proven pattern"
+          ],
+          "cons": [
+            "Chips not inline with text"
+          ],
+          "recommendation": "RECOMMENDED"
+        },
+        {
+          "name": "contentEditable div",
+          "pros": [
+            "True inline @mention look"
+          ],
+          "cons": [
+            "Reimplements all textarea behavior",
+            "IME issues",
+            "Mobile issues",
+            "a11y issues"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        },
+        {
+          "name": "Hybrid overlay",
+          "pros": [
+            "Keep existing textarea"
+          ],
+          "cons": [
+            "Visual mismatch",
+            "Complex state sync"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [
+        "R-008"
+      ],
+      "tags": [
+        "chip",
+        "textarea",
+        "contentEditable",
+        "ux"
+      ]
+    },
+    {
+      "id": "D-088",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "SKILL.md content injection strategy: backend loads vs frontend sends vs dynamic LLM tool",
+      "recommendation": "Backend loads SKILL.md on chat request — add skill_names[] to ChatRequest, backend fetches and injects into system prompt",
+      "reasoning": "Backend already has SkillStorageService.get_skill() which reads SKILL.md. Sending content from frontend wastes bandwidth, exposes prompt structure. System prompt assembly is centralized in chat() handler. Backend can validate names, enforce cap, prevent injection of archived skills.",
+      "alternatives": [
+        "Frontend fetches SKILL.md content and sends as page_context — less backend work but large payloads, security risk",
+        "Dynamic tool getSkillContent(name) called by LLM — lazy loading but adds round-trip latency"
+      ],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-explore",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "SKILL.md files range 4K-25K chars — sending multiple from frontend wastes bandwidth",
+        "Backend get_skill() already returns skill_md_content — zero new loading code needed",
+        "System prompt assembly centralized in chat() handler — adding ## Skill Context section is consistent",
+        "Max 5 skills * 2000 avg tokens = 10K tokens. With 2K base = 12K total. Fits 32K+ models."
+      ],
+      "options": [
+        {
+          "name": "Backend loads on request",
+          "pros": [
+            "Secure",
+            "Efficient",
+            "Centralized",
+            "Validates names"
+          ],
+          "cons": [
+            "Extra disk I/O per request"
+          ],
+          "recommendation": "RECOMMENDED"
+        },
+        {
+          "name": "Frontend sends content",
+          "pros": [
+            "Less backend work"
+          ],
+          "cons": [
+            "Large payloads",
+            "Exposes prompt structure"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        },
+        {
+          "name": "Dynamic LLM tool",
+          "pros": [
+            "Lazy loading"
+          ],
+          "cons": [
+            "Extra latency",
+            "LLM may not call it"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [
+        "R-008"
+      ],
+      "tags": [
+        "skill-injection",
+        "system-prompt",
+        "backend",
+        "context"
+      ]
+    },
+    {
+      "id": "D-089",
+      "task_id": "DISCOVERY",
+      "type": "exploration",
+      "issue": "State management for attached skills: new store vs sidebarStore vs chatStore",
+      "recommendation": "Extend sidebarStore with attachedSkills[], attachSkill(), detachSkill(), clearSkills()",
+      "reasoning": "Attached skills are sidebar-scoped UI state, same lifecycle as addedScopes and disabledCapabilities. L-001 recommends per-entity stores for CRUD entities — attached skills are transient selection, not CRUD. chatStore is wrong because skills persist across messages. New store adds boilerplate for 3 actions on a string array.",
+      "alternatives": [
+        "New dedicated attachedSkillStore — clean separation but unnecessary file for 30 lines",
+        "chatStore extension — wrong lifecycle (per-session, not cross-message)"
+      ],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-architect",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "exploration_type": "architecture",
+      "findings": [
+        "sidebarStore already has persist() infrastructure for localStorage",
+        "addedScopes and disabledCapabilities follow identical lifecycle pattern",
+        "sidebarStore is 156 lines — adding 30 lines is acceptable",
+        "L-001 store factory is for CRUD entities, not transient UI state"
+      ],
+      "options": [
+        {
+          "name": "Extend sidebarStore",
+          "pros": [
+            "Existing persist",
+            "Same lifecycle as scopes",
+            "No new file"
+          ],
+          "cons": [
+            "sidebarStore grows"
+          ],
+          "recommendation": "RECOMMENDED"
+        },
+        {
+          "name": "New attachedSkillStore",
+          "pros": [
+            "Clean separation"
+          ],
+          "cons": [
+            "30 lines boilerplate for 3 actions"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        },
+        {
+          "name": "Extend chatStore",
+          "pros": [
+            "Close to chat domain"
+          ],
+          "cons": [
+            "Wrong lifecycle — per-session not cross-message"
+          ],
+          "recommendation": "NOT RECOMMENDED"
+        }
+      ],
+      "open_questions": [],
+      "blockers": [],
+      "ready_for_tracker": false,
+      "evidence_refs": [
+        "R-009"
+      ],
+      "tags": [
+        "zustand",
+        "state-management",
+        "sidebarStore"
+      ]
+    },
+    {
+      "id": "D-090",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Context Window Exhaustion from multiple SKILL.md injections — 3 largest skills exceed 54K chars combined",
+      "recommendation": "Server-side 30K char budget enforcement with per-skill size cap of 4000 tokens, return 422 if exceeded",
+      "reasoning": "SKILL.md files range 4K-25K chars. Injecting 3 large skills (onboard 21K + plan 17K + discover 16K = 54K) exceeds 30K budget. Combined with 2K base prompt + entity/page context, total system prompt could hit 70K+ tokens. Context exhaustion degrades reasoning quality silently.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-risk",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "severity": "HIGH",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "mitigation_plan": "1. Backend enforces 30K char total for skill_names content. 2. Per-skill cap at 16K chars (truncate with notice). 3. Frontend shows real-time budget consumption in chip area. 4. Max 5 skills hard limit.",
+      "resolution_notes": "",
+      "tags": [
+        "context-window",
+        "tokens",
+        "budget",
+        "system-prompt"
+      ]
+    },
+    {
+      "id": "D-091",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "SKILL.md files may contain contradictory instructions when multiple skills injected — designed for standalone CLI use",
+      "recommendation": "Add priority preamble before skill sections: base system rules take precedence over skill instructions",
+      "reasoning": "SKILL.md files authored independently for CLI. Two skills may give conflicting workflow sequences. LLM has no mechanism to resolve priority. Contradictions manifest as subtle non-deterministic behavior across skill combinations.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-risk",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "severity": "MEDIUM",
+      "likelihood": "MEDIUM",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "mitigation_plan": "1. Inject skills in clearly delimited ## Skill Context section with priority ordering. 2. Preamble: 'If skill instructions directly contradict Rules section above, follow Rules. Otherwise follow skill instructions fully.' 3. Document skill compatibility during creation.",
+      "resolution_notes": "",
+      "tags": [
+        "skill-conflict",
+        "prompt-priority",
+        "instructions"
+      ]
+    },
+    {
+      "id": "D-092",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "@-mention and slash-command autocomplete collision — dual triggers share keyboard handlers and visual space",
+      "recommendation": "Implement unified autocomplete controller: activeMode = none | slash | mention, opening one closes other",
+      "reasoning": "Current slash-command code uses component-level state (slashOpen, slashIndex) assuming single dropdown. Adding second dropdown with same keyboard handlers (ArrowUp/Down, Enter, Tab, Escape) creates interaction conflicts. MentionDropdown needs caret-relative positioning vs SlashCommandDropdown uses bottom-full.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-risk",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "severity": "MEDIUM",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "mitigation_plan": "1. Single autocomplete state machine: activeMode controls which dropdown renders. 2. Opening @ closes / and vice versa. 3. Shared keyboard handler dispatches to active mode. 4. Integration tests for edge cases: @skill /command, rapid switching.",
+      "resolution_notes": "",
+      "tags": [
+        "autocomplete",
+        "collision",
+        "keyboard",
+        "dropdown"
+      ]
+    },
+    {
+      "id": "D-093",
+      "task_id": "DISCOVERY",
+      "type": "risk",
+      "issue": "Regex-based @-mention parsing may produce false positives on email addresses, URLs, and code blocks",
+      "recommendation": "Precise trigger rules: @ preceded by whitespace or at position 0, partial matches [a-z0-9-] only, scan only word at cursor",
+      "reasoning": "Regex mention parsing is a well-documented source of edge-case bugs. Pattern /@([\\w-]*)$/ matches end of text before caret, reducing false positives. But pasted text with @ mid-string could trigger if caret lands after it.",
+      "alternatives": [],
+      "confidence": "HIGH",
+      "status": "OPEN",
+      "decided_by": "claude",
+      "file": "",
+      "scope": "deep-risk",
+      "timestamp": "2026-03-14T10:59:23Z",
+      "severity": "LOW",
+      "likelihood": "HIGH",
+      "linked_entity_type": "objective",
+      "linked_entity_id": "O-025",
+      "mitigation_plan": "1. Trigger rule: @ must be preceded by whitespace or be at start. 2. Partial matches [a-z0-9-] only (skill names are slugified). 3. Dedicated regex function with comprehensive unit tests. 4. Only scan word at cursor position, not entire text.",
+      "resolution_notes": "",
+      "tags": [
+        "regex",
+        "mention",
+        "edge-cases",
+        "parsing"
+      ]
     }
   ],
-  "open_count": 31
+  "open_count": 38
 }
