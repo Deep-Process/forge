@@ -12,6 +12,7 @@ import { SuggestionPanel } from "@/components/ai/SuggestionPanel";
 import { TaskForm } from "@/components/forms/TaskForm";
 import { DraftPlanView } from "@/components/planning/DraftPlanView";
 import { ActiveTasksDashboard } from "@/components/execution/ActiveTasksDashboard";
+import { RunModeView } from "@/components/execution/RunModeView";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Task, DraftPlan } from "@/lib/types";
 
@@ -31,6 +32,7 @@ export default function TasksPage() {
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [agentName, setAgentName] = useState("");
+  const [showRunMode, setShowRunMode] = useState(false);
 
   const claimNext = useExecutionStore((s) => s.claimNext);
   const executionPhase = useExecutionStore((s) => s.phase);
@@ -256,6 +258,12 @@ export default function TasksPage() {
             {isClaiming ? "Claiming..." : "Claim Next Task"}
           </button>
           <button
+            onClick={() => setShowRunMode((v) => !v)}
+            className={`px-3 py-1.5 text-sm rounded-md border ${showRunMode ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+          >
+            Run Mode
+          </button>
+          <button
             onClick={handleCreate}
             className="px-3 py-1.5 text-sm text-white bg-forge-600 rounded-md hover:bg-forge-700"
           >
@@ -263,8 +271,14 @@ export default function TasksPage() {
           </button>
         </div>
       </div>
+      {/* Run mode view */}
+      {showRunMode && (
+        <div className="mb-4">
+          <RunModeView slug={slug} agentName={agentName || undefined} />
+        </div>
+      )}
       {/* Active tasks dashboard */}
-      <ActiveTasksDashboard slug={slug} />
+      {!showRunMode && <ActiveTasksDashboard slug={slug} />}
       {/* Draft plan banner */}
       {draft && (
         <div className="mb-4">
