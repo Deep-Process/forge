@@ -147,7 +147,14 @@ class AppContextBuilder:
             "**Browse a module:**\n"
             "`listEntities(entity_type, filters, project)` — list with optional status/type filters\n\n"
             "**Update KR progress:**\n"
-            "`updateObjective(id, key_results=[{id, current}], project)`"
+            "`updateObjective(id, key_results=[{id, current}], project)`\n\n"
+            "**Discovery workflow** (requires research + decisions scopes):\n"
+            "When user asks to 'discover', 'explore', or 'assess' a topic/idea:\n"
+            "1. `createResearch(title, category, summary, key_findings, linked_entity_id, project)` — create R-NNN\n"
+            "2. `createDecision(type=exploration, issue, recommendation, reasoning, project)` — D-NNN for options/findings\n"
+            "3. `createDecision(type=risk, issue, recommendation, severity, likelihood, project)` — D-NNN for risks\n"
+            "4. `updateResearch(id=R-NNN, decision_ids=[D-001, D-002], status=ACTIVE)` — link decisions to research\n"
+            "This mirrors `/discover` from Forge CLI. Output summary with findings + risks + recommendations."
         )
 
     def _scope_awareness_section(
