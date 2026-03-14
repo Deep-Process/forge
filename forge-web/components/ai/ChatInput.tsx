@@ -3,11 +3,16 @@
 import { useRef, useState, useCallback, useMemo, useEffect, type KeyboardEvent, type DragEvent } from "react";
 import type { ChatFileAttachment } from "@/lib/types";
 import { llm } from "@/lib/api";
+import { useAIElement } from "@/lib/ai-context";
 import { useSkillStore, fetchSkills } from "@/stores/skillStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
+import { extractMentionAtCursor, getCaretCoordinates } from "@/lib/utils/mentionUtils";
 import SlashCommandDropdown, {
   getFilteredCommands,
   type SlashCommand,
 } from "./SlashCommandDropdown";
+import { SkillChipArea } from "./SkillChipArea";
+import { MentionDropdown, type SkillMentionItem } from "./MentionDropdown";
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
 const MAX_FILES_PER_SESSION = 10;
@@ -15,6 +20,8 @@ const ALLOWED_EXTENSIONS = new Set([
   ".md", ".txt", ".py", ".js", ".ts", ".json", ".yaml", ".yml",
   ".sh", ".css", ".html", ".pdf",
 ]);
+
+type AutocompleteMode = "none" | "slash" | "mention";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -45,15 +52,25 @@ export default function ChatInput({
   const [attachments, setAttachments] = useState<ChatFileAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [slashOpen, setSlashOpen] = useState(false);
+
+  // Unified autocomplete controller (D-092 mitigation)
+  const [autocompleteMode, setAutocompleteMode] = useState<AutocompleteMode>("none");
   const [slashIndex, setSlashIndex] = useState(0);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [mentionStartIdx, setMentionStartIdx] = useState(0);
+  const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 });
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
-  // Stable pre-session ID for file uploads before a chat session is created
   const preSessionId = useRef(`pre-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-  // --- Slash-command autocomplete ---
+  // --- Skill stores ---
   const { items: skills } = useSkillStore();
+  const attachedSkills = useSidebarStore((s) => s.attachedSkills);
+  const attachSkill = useSidebarStore((s) => s.attachSkill);
+  const detachSkill = useSidebarStore((s) => s.detachSkill);
+
   useEffect(() => {
     if (skills.length === 0) fetchSkills();
   }, [skills.length]);
@@ -69,15 +86,48 @@ export default function ChatInput({
     [skills],
   );
 
-  // Determine if slash dropdown should show: '/' at position 0 only
-  const slashFilter = slashOpen && value.startsWith("/") ? value.slice(1) : "";
+  const mentionSkills = useMemo<SkillMentionItem[]>(
+    () =>
+      skills.map((s) => ({
+        name: s.name,
+        display_name: s.display_name || s.name,
+        description: s.description,
+      })),
+    [skills],
+  );
+
+  // Determine slash filter
+  const slashFilter = autocompleteMode === "slash" && value.startsWith("/") ? value.slice(1) : "";
+
+  // AI annotation for mention dropdown
+  useAIElement({
+    id: "mention-dropdown",
+    type: "input",
+    label: "Skill @-mention",
+    value: autocompleteMode === "mention" ? `@${mentionFilter}` : "",
+  });
 
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
     setValue(`/${cmd.name} `);
-    setSlashOpen(false);
+    setAutocompleteMode("none");
     setSlashIndex(0);
     textareaRef.current?.focus();
   }, []);
+
+  const handleMentionSelect = useCallback(
+    (skill: SkillMentionItem) => {
+      // Remove @partial from textarea, attach skill
+      const before = value.slice(0, mentionStartIdx);
+      const after = value.slice(mentionStartIdx + 1 + mentionFilter.length);
+      setValue(before + after);
+      attachSkill(skill.name, skill.display_name);
+      setAutocompleteMode("none");
+      setMentionIndex(0);
+      setMentionFilter("");
+      textareaRef.current?.focus();
+    },
+    [value, mentionStartIdx, mentionFilter, attachSkill],
+  );
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
@@ -97,7 +147,7 @@ export default function ChatInput({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       // Slash-command navigation
-      if (slashOpen) {
+      if (autocompleteMode === "slash") {
         const filtered = getFilteredCommands(slashFilter, skillCommands);
         const count = filtered.length;
         if (e.key === "ArrowDown") {
@@ -120,8 +170,53 @@ export default function ChatInput({
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          setSlashOpen(false);
+          setAutocompleteMode("none");
           setSlashIndex(0);
+          return;
+        }
+      }
+
+      // Mention navigation
+      if (autocompleteMode === "mention") {
+        const filtered = mentionSkills.filter(
+          (s) =>
+            s.name.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+            s.display_name.toLowerCase().includes(mentionFilter.toLowerCase()),
+        );
+        const count = filtered.length;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setMentionIndex((prev) => (prev + 1) % Math.max(count, 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setMentionIndex((prev) => (prev - 1 + Math.max(count, 1)) % Math.max(count, 1));
+          return;
+        }
+        if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+          const skill = filtered[mentionIndex];
+          if (skill) {
+            e.preventDefault();
+            handleMentionSelect(skill);
+            return;
+          }
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setAutocompleteMode("none");
+          setMentionIndex(0);
+          return;
+        }
+      }
+
+      // Backspace: remove last skill chip when textarea empty and cursor at start
+      if (e.key === "Backspace" && attachedSkills.length > 0) {
+        const el = textareaRef.current;
+        if (el && el.selectionStart === 0 && el.selectionEnd === 0 && value === "") {
+          e.preventDefault();
+          const last = attachedSkills[attachedSkills.length - 1];
+          detachSkill(last.name);
           return;
         }
       }
@@ -131,15 +226,47 @@ export default function ChatInput({
         handleSend();
       }
     },
-    [handleSend, slashOpen, slashFilter, slashIndex, skillCommands, handleSlashSelect],
+    [handleSend, autocompleteMode, slashFilter, slashIndex, skillCommands, handleSlashSelect,
+     mentionFilter, mentionIndex, mentionSkills, handleMentionSelect, attachedSkills, detachSkill, value],
   );
 
-  const handleInput = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }, []);
+  const handleChange = useCallback(
+    (newVal: string) => {
+      setValue(newVal);
+
+      // Auto-resize textarea
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 160) + "px";
+      }
+
+      // Slash detection: '/' at position 0, no space yet
+      if (newVal.startsWith("/") && !newVal.includes(" ")) {
+        setAutocompleteMode("slash");
+        setSlashIndex(0);
+        return;
+      }
+
+      // Mention detection (only if not in slash mode)
+      if (el) {
+        const cursorPos = el.selectionStart ?? newVal.length;
+        const mention = extractMentionAtCursor(newVal, cursorPos);
+        if (mention) {
+          const coords = getCaretCoordinates(el, mention.startIndex);
+          setMentionFilter(mention.filter);
+          setMentionStartIdx(mention.startIndex);
+          setMentionPos(coords);
+          setAutocompleteMode("mention");
+          setMentionIndex(0);
+          return;
+        }
+      }
+
+      setAutocompleteMode("none");
+    },
+    [],
+  );
 
   // --- Drag & Drop ---
   const handleDragEnter = useCallback((e: DragEvent) => {
@@ -176,12 +303,10 @@ export default function ChatInput({
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length === 0) return;
-      if (uploading) return; // Guard against concurrent drops
+      if (uploading) return;
 
-      // Use real session ID if available, otherwise stable pre-session ID
       const sid = sessionId ?? preSessionId.current;
 
-      // Check session limit
       const remaining = MAX_FILES_PER_SESSION - attachments.length;
       if (remaining <= 0) {
         setUploadError(`Session limit reached (max ${MAX_FILES_PER_SESSION} files).`);
@@ -191,7 +316,6 @@ export default function ChatInput({
       const toUpload = files.slice(0, remaining);
       const rejected: string[] = [];
 
-      // Validate files
       const valid: File[] = [];
       for (const file of toUpload) {
         const ext = getExtension(file.name);
@@ -215,7 +339,6 @@ export default function ChatInput({
         return;
       }
 
-      // Upload valid files
       setUploading(true);
       const newAttachments: ChatFileAttachment[] = [];
       const errors: string[] = [...rejected];
@@ -277,6 +400,9 @@ export default function ChatInput({
         </div>
       )}
 
+      {/* Skill chips (above file attachments) */}
+      <SkillChipArea skills={attachedSkills} onRemove={detachSkill} />
+
       {/* File attachment chips */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2">
@@ -313,8 +439,8 @@ export default function ChatInput({
 
       {/* Input area */}
       <div className="relative flex items-end gap-2 p-3">
-        {/* Slash-command dropdown — positioned above the textarea */}
-        {slashOpen && (
+        {/* Slash-command dropdown */}
+        {autocompleteMode === "slash" && (
           <SlashCommandDropdown
             filter={slashFilter}
             skillCommands={skillCommands}
@@ -322,23 +448,22 @@ export default function ChatInput({
             onSelect={handleSlashSelect}
           />
         )}
+        {/* Mention dropdown */}
+        {autocompleteMode === "mention" && (
+          <MentionDropdown
+            filter={mentionFilter}
+            skills={mentionSkills}
+            selectedIndex={mentionIndex}
+            onSelect={handleMentionSelect}
+            position={mentionPos}
+          />
+        )}
         <textarea
           ref={textareaRef}
           value={value}
-          onChange={(e) => {
-            const newVal = e.target.value;
-            setValue(newVal);
-            handleInput();
-            // Show slash dropdown when '/' is typed at position 0
-            if (newVal.startsWith("/") && !newVal.includes(" ")) {
-              setSlashOpen(true);
-              setSlashIndex(0);
-            } else {
-              setSlashOpen(false);
-            }
-          }}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? "Type a message or drop files..."}
+          placeholder={placeholder ?? "Type a message, use / for commands, @ for skills..."}
           disabled={disabled}
           rows={1}
           className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm
