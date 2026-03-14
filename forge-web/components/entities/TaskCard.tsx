@@ -7,6 +7,8 @@ interface TaskCardProps {
   slug: string;
   onStatusChange?: (id: string, status: string) => void;
   onEdit?: (task: Task) => void;
+  onClaim?: (task: Task) => void;
+  claiming?: boolean;
 }
 
 const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; className: string }>> = {
@@ -23,7 +25,7 @@ const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; clas
   ],
 };
 
-export function TaskCard({ task, slug, onStatusChange, onEdit }: TaskCardProps) {
+export function TaskCard({ task, slug, onStatusChange, onEdit, onClaim, claiming }: TaskCardProps) {
   const actions = STATUS_ACTIONS[task.status] || [];
 
   return (
@@ -41,6 +43,15 @@ export function TaskCard({ task, slug, onStatusChange, onEdit }: TaskCardProps) 
           )}
         </Link>
         <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+          {onClaim && task.status === "TODO" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onClaim(task); }}
+              disabled={claiming}
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+            >
+              {claiming ? "Claiming..." : "Claim"}
+            </button>
+          )}
           {onEdit && (task.status === "TODO" || task.status === "FAILED") && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(task); }}
