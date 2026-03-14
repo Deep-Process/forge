@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
 
@@ -41,6 +42,8 @@ export default function LLMChat({
     startConversation,
     clearError,
   } = useChatStore();
+  const attachedSkills = useSidebarStore((s) => s.attachedSkills);
+  const clearSkills = useSidebarStore((s) => s.clearSkills);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -72,9 +75,13 @@ export default function LLMChat({
   const handleSend = useCallback(
     (message: string, fileIds?: string[]) => {
       clearError();
-      sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext);
+      const skillNames = attachedSkills.length > 0
+        ? attachedSkills.map((s) => s.name)
+        : undefined;
+      sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext, undefined, undefined, undefined, skillNames);
+      if (skillNames) clearSkills();
     },
-    [contextType, contextId, slug, sendMessage, clearError, scopes, disabledCapabilities, pageContext],
+    [contextType, contextId, slug, sendMessage, clearError, scopes, disabledCapabilities, pageContext, attachedSkills, clearSkills],
   );
 
   // Token counter

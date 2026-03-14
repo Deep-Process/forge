@@ -1060,6 +1060,7 @@ export interface ChatSendRequest {
   session_type?: string;
   target_entity_type?: string;
   target_entity_id?: string;
+  skill_names?: string[];
 }
 
 export interface ChatSendResponse {

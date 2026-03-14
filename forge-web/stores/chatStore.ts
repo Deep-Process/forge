@@ -91,6 +91,7 @@ interface ChatActions {
     sessionType?: string,
     targetEntityType?: string,
     targetEntityId?: string,
+    skillNames?: string[],
   ) => Promise<ChatSendResponse | null>;
   /** Start a new conversation (clears active session). */
   startConversation: (contextType: string, contextId: string, project?: string) => void;
@@ -218,7 +219,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   sessionsLoading: false,
   pendingSessionMeta: null,
 
-  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId) => {
+  sendMessage: async (message, contextType = "global", contextId = "", project = "", model = null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId, skillNames) => {
     const state = get();
     const sessionId = state.activeSessionId;
 
@@ -281,6 +282,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
         session_type: sessionType,
         target_entity_type: targetEntityType,
         target_entity_id: targetEntityId,
+        skill_names: skillNames,
       });
 
       // Synthesize debug events from HTTP response (fallback when WS events
