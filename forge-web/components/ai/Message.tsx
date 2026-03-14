@@ -1,11 +1,54 @@
 "use client";
 
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useParams } from "next/navigation";
 import type { ChatMessage } from "@/lib/types";
 import ToolCallBlock from "./ToolCallBlock";
+import EntityInlineCard from "./EntityInlineCard";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { ErrorDetail } from "@/components/debug/ErrorDetail";
+
+// ---------------------------------------------------------------------------
+// Entity ID pattern: T-001, D-003, O-001, I-002, K-001, G-001, R-001, L-001, AC-001
+// ---------------------------------------------------------------------------
+
+const ENTITY_ID_SPLIT = /\b(AC-\d+|[TDOIKGLR]-\d+)\b/g;
+const ENTITY_ID_TEST = /^(?:AC-\d+|[TDOIKGLR]-\d+)$/;
+
+/**
+ * Walk React children, splitting text nodes on entity-ID patterns
+ * and inserting EntityInlineCard components inline.
+ */
+function injectEntityCards(
+  children: React.ReactNode,
+  projectSlug: string,
+): React.ReactNode {
+  if (!projectSlug) return children;
+
+  return React.Children.map(children, (child) => {
+    if (typeof child === "string") {
+      const parts = child.split(ENTITY_ID_SPLIT);
+      if (parts.length === 1) return child; // no match
+      return parts.map((part, i) =>
+        ENTITY_ID_TEST.test(part) ? (
+          <EntityInlineCard key={`${part}-${i}`} entityId={part} projectSlug={projectSlug} />
+        ) : (
+          part || null
+        ),
+      );
+    }
+    if (React.isValidElement(child) && child.props.children) {
+      return React.cloneElement(
+        child as React.ReactElement<{ children?: React.ReactNode }>,
+        {},
+        injectEntityCards(child.props.children, projectSlug),
+      );
+    }
+    return child;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Scope suggestion extraction
@@ -37,6 +80,8 @@ export default function Message({ message }: MessageProps) {
   const isUser = message.role === "user";
   const isStreaming = message.streaming;
   const addScope = useSidebarStore((s) => s.addScope);
+  const params = useParams() as { slug?: string };
+  const slug = params.slug || "";
 
   // Extract scope suggestions from assistant messages
   const { cleanContent, scopes: suggestedScopes } =
@@ -88,6 +133,9 @@ export default function Message({ message }: MessageProps) {
                     {children}
                   </a>
                 ),
+                p: ({ children }) => <p>{injectEntityCards(children, slug)}</p>,
+                li: ({ children }) => <li>{injectEntityCards(children, slug)}</li>,
+                td: ({ children }) => <td>{injectEntityCards(children, slug)}</td>,
               }}
             >
               {cleanContent}
