@@ -691,7 +691,7 @@ def _claim_with_retry(args, candidate, agent, max_retries=5):
                 print(f"Worktree: `{task['worktree_path']}`")
             print()
             print_task_detail(task)
-            return
+            return task
 
         # Claim lost — find next candidate
         print(f"  Claim conflict on {candidate['id']} (attempt {attempt + 1}/{max_retries})",
@@ -741,7 +741,7 @@ def cmd_next(args):
     if not tracker["tasks"]:
         print(f"## No tasks in project '{args.project}'")
         print(f"\nAdd tasks with `add-tasks` or run `/plan {args.project}`")
-        return
+        return None
 
     done_ids = {t["id"] for t in tracker["tasks"]
                 if t["status"] in ("DONE", "SKIPPED")}
@@ -752,25 +752,25 @@ def cmd_next(args):
         if task["status"] == "IN_PROGRESS" and task.get("agent") == agent:
             if task.get("has_subtasks"):
                 _next_subtask(args.project, tracker, task)
-                return
+                return task
             print(f"## Current task: {task['id']} — {task['name']}")
             print(f"Agent: {agent}")
             print(f"Status: **IN_PROGRESS** (started: {task['started_at']})")
             print()
             print_task_detail(task)
-            return
+            return task
 
     # Check if ANY task is IN_PROGRESS without an agent (single-agent compat)
     for task in tracker["tasks"]:
         if task["status"] == "IN_PROGRESS" and not task.get("agent"):
             if task.get("has_subtasks"):
                 _next_subtask(args.project, tracker, task)
-                return
+                return task
             print(f"## Current task: {task['id']} — {task['name']}")
             print(f"Status: **IN_PROGRESS** (started: {task['started_at']})")
             print()
             print_task_detail(task)
-            return
+            return task
 
     # Find next TODO with deps met, no conflicts, and no blocking decisions
     open_decisions = _load_open_decision_ids(args.project)
@@ -827,7 +827,7 @@ def cmd_next(args):
             else:
                 print(f"## No tasks available (dependencies not met)")
                 print_status(args.project, tracker)
-        return
+        return None
 
     # --- Check if other agents are active ---
     other_agents = {t.get("agent") for t in tracker["tasks"]
@@ -858,9 +858,10 @@ def cmd_next(args):
             print(f"Worktree: `{candidate['worktree_path']}`")
         print()
         print_task_detail(candidate)
+        return candidate
     else:
         # Multi-agent — use two-phase claim protocol
-        _claim_with_retry(args, candidate, agent, max_retries=5)
+        return _claim_with_retry(args, candidate, agent, max_retries=5)
 
 
 def cmd_begin(args):
@@ -871,38 +872,11 @@ def cmd_begin(args):
     Equivalent to running ``pipeline next`` followed by ``pipeline context``,
     but in a single invocation.
     """
-    # Phase 1: Claim or resume task (prints task header + detail)
-    cmd_next(args)
+    task = cmd_next(args)
 
-    # Phase 2: Find which task is now IN_PROGRESS for this agent
-    agent = getattr(args, "agent", None) or "default"
-    try:
-        tracker = load_tracker(args.project)
-    except SystemExit:
-        return  # Project doesn't exist — cmd_next already printed error
-
-    task = None
-    # Check for agent-specific IN_PROGRESS task
-    for t in tracker["tasks"]:
-        if t["status"] == "IN_PROGRESS" and t.get("agent") == agent:
-            task = t
-            break
-    if not task:
-        # Single-agent mode — IN_PROGRESS without agent field
-        for t in tracker["tasks"]:
-            if t["status"] == "IN_PROGRESS" and not t.get("agent"):
-                task = t
-                break
-
-    if not task:
-        return  # No task claimed (all done, blocked, etc.) — cmd_next printed status
-
-    if task.get("has_subtasks"):
-        # Subtask mode — subtask info already printed, skip full context
-        # (subtasks are small self-contained units)
+    if not task or task.get("has_subtasks"):
         return
 
-    # Phase 3: Print full context
     print()
     print("---")
     print()
