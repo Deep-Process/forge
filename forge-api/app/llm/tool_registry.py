@@ -3032,7 +3032,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createTask",
-        description="Create a new task in the project pipeline. Only 'name' is required — all other fields are optional. Example: createTask(name='setup-database', description='Install and configure PostgreSQL').",
+        description="TASK: Create a new task in the project pipeline. Only 'name' is required. Example: createTask(name='setup-database', description='Install and configure PostgreSQL'). Tasks are concrete work items with status tracking.",
         parameters={
             "type": "object",
             "properties": {
@@ -3056,7 +3056,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateTask",
-        description="Update fields on a TODO or FAILED task. Call directly with the fields you want to change — no need to read the task first. Only include fields that should be modified.",
+        description="TASK: Update fields on a TODO or FAILED task. Call directly with the fields you want to change — no need to read first. Example: updateTask(task_id='T-001', description='New description').",
         parameters={
             "type": "object",
             "properties": {
@@ -3080,7 +3080,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="completeTask",
-        description="Mark a task as DONE with completion reasoning.",
+        description="TASK: Mark a task as DONE with completion reasoning. Example: completeTask(task_id='T-001', reasoning='Implemented and tested').",
         parameters={
             "type": "object",
             "properties": {
@@ -3100,7 +3100,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createObjective",
-        description="Create a business objective with measurable key results. Only 'title' is required. Key results are optional — add with key_results array containing {description, metric, baseline, target}.",
+        description="OBJECTIVE: Create a business objective with measurable key results. Objectives are high-level goals — not tasks. Example: createObjective(title='Improve API performance', key_results=[{metric: 'p95_latency', target: 200}]).",
         parameters={
             "type": "object",
             "properties": {
@@ -3135,7 +3135,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateObjective",
-        description="Update an objective's status or key result progress. Call directly — no need to read first. To update a KR: pass id and key_results array with the KR to update (include kr_id and new current value).",
+        description="OBJECTIVE: Update an objective's status or key result progress. Call directly — no need to read first. Example: updateObjective(id='O-001', key_results=[{id: 'KR-1', current: 150}]).",
         parameters={
             "type": "object",
             "properties": {
@@ -3170,7 +3170,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createIdea",
-        description="Add a new idea to the staging area.",
+        description="IDEA: Add a new idea to the staging area. Ideas are proposals/concepts for future work — use for brainstorming, not for tasks.",
         parameters={
             "type": "object",
             "properties": {
@@ -3200,7 +3200,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateIdea",
-        description="Update an idea's fields or status.",
+        description="IDEA: Update an idea's fields or status. Call directly with the fields you want to change — no need to read the idea first.",
         parameters={
             "type": "object",
             "properties": {
@@ -3241,7 +3241,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createDecision",
-        description="Record a decision, exploration finding, or risk assessment.",
+        description="DECISION: Record a decision, exploration finding, or risk assessment. Decisions track 'why' — architectural choices, risks, explorations.",
         parameters={
             "type": "object",
             "properties": {
@@ -3278,7 +3278,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateDecision",
-        description="Update a decision — close it (status='CLOSED'), defer, mitigate, or add resolution notes. Call directly with the fields to change — no need to read the decision first. To close: set status='CLOSED'.",
+        description="DECISION: Update a decision — close (status='CLOSED'), defer, mitigate, or add resolution notes. Call directly with the fields to change — no need to read first. Example: updateDecision(id='D-001', status='CLOSED', resolution_notes='...').",
         parameters={
             "type": "object",
             "properties": {
@@ -3306,7 +3306,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createKnowledge",
-        description="Create a knowledge object (domain rules, patterns, technical context).",
+        description="KNOWLEDGE: Create a knowledge object — domain rules, code patterns, technical context. Knowledge persists across sessions and tasks.",
         parameters={
             "type": "object",
             "properties": {
@@ -3333,7 +3333,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateKnowledge",
-        description="Update a knowledge object — content (creates new version), status, or metadata. Call directly with the fields to change — no need to read first. Content changes require change_reason.",
+        description="KNOWLEDGE: Update a knowledge object — content (creates new version), status, or metadata. Call directly with the fields to change — no need to read first. Content changes require change_reason. Example: updateKnowledge(id='K-001', content='...', change_reason='Updated API reference').",
         parameters={
             "type": "object",
             "properties": {
@@ -3362,7 +3362,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createGuideline",
-        description="Create a project guideline (standard, convention, rule).",
+        description="GUIDELINE: Create a project guideline — coding standard, convention, or rule. Guidelines are enforced during task execution.",
         parameters={
             "type": "object",
             "properties": {
@@ -3384,7 +3384,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateGuideline",
-        description="Update a guideline's content, status, weight, or scope. Call directly with the fields to change — no need to read the guideline first. Example: to change weight, pass id and weight only.",
+        description="GUIDELINE: Update a guideline's content, status, weight, or scope. Call directly with the fields to change — no need to read first. Example: updateGuideline(id='G-001', weight='must').",
         parameters={
             "type": "object",
             "properties": {
@@ -3409,7 +3409,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createLesson",
-        description="Record a lesson learned from project execution.",
+        description="LESSON: Record a lesson learned from project execution. Lessons capture patterns, mistakes, and insights for future projects.",
         parameters={
             "type": "object",
             "properties": {
@@ -3439,7 +3439,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="promoteLesson",
-        description="Promote a lesson to a global guideline or project knowledge object.",
+        description="LESSON: Promote a lesson to a global guideline or project knowledge object. Severity maps to weight: critical→must, important→should, minor→may.",
         parameters={
             "type": "object",
             "properties": {
@@ -3472,7 +3472,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="createResearch",
-        description="Create a research analysis object (R-NNN) linked to an objective or idea.",
+        description="RESEARCH: Create a research analysis object (R-NNN) linked to an objective or idea. Research captures structured findings from exploration/discovery.",
         parameters={
             "type": "object",
             "properties": {
@@ -3511,7 +3511,7 @@ def create_default_registry() -> ToolRegistry:
 
     registry.register(ToolDef(
         name="updateResearch",
-        description="Update a research object — status, findings, or metadata.",
+        description="RESEARCH: Update a research object — status, findings, or metadata. Call directly with the fields to change — no need to read first.",
         parameters={
             "type": "object",
             "properties": {
