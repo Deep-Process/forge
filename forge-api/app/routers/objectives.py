@@ -231,10 +231,30 @@ async def objectives_coverage(slug: str, storage=Depends(get_storage)):
             akr.startswith(f"{obj_id}/") for akr in i.get("advances_key_results", [])
         )]
         aligned_task_ids = set()
+        done_task_ids = set()
         for idea in aligned_ideas:
             for t in tasks:
-                if t.get("origin_idea_id") == idea.get("id"):
+                if t.get("origin_idea_id") == idea.get("id") or t.get("origin") == idea.get("id"):
                     aligned_task_ids.add(t["id"])
+                    if t.get("status") == "DONE":
+                        done_task_ids.add(t["id"])
+        # Also count tasks with origin = objective
+        for t in tasks:
+            if t.get("origin") == obj_id or t.get("origin_idea_id") == obj_id:
+                aligned_task_ids.add(t["id"])
+                if t.get("status") == "DONE":
+                    done_task_ids.add(t["id"])
+
+        # Per-KR idea coverage
+        for kr_entry in kr_progress:
+            kr_id_variants = []
+            kr_idx = kr_progress.index(kr_entry)
+            kr_id_variants.append(f"{obj_id}/KR-{kr_idx + 1}")
+            # Count ideas advancing this specific KR
+            kr_ideas = [i for i in ideas if any(
+                akr in kr_id_variants for akr in i.get("advances_key_results", [])
+            )]
+            kr_entry["linked_ideas"] = len(kr_ideas)
 
         results.append({
             "id": obj_id,
@@ -243,6 +263,7 @@ async def objectives_coverage(slug: str, storage=Depends(get_storage)):
             "key_results": kr_progress,
             "aligned_ideas": len(aligned_ideas),
             "aligned_tasks": len(aligned_task_ids),
+            "done_tasks": len(done_task_ids),
         })
 
     return {"objectives": results, "count": len(results)}
