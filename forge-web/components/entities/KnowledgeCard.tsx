@@ -8,6 +8,8 @@ interface KnowledgeCardProps {
   onEdit?: (knowledge: Knowledge) => void;
   /** Optional stale info from the maintenance endpoint. */
   staleInfo?: StaleKnowledge;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 /** Check if knowledge is stale based on its own fields (client-side heuristic). */
@@ -24,7 +26,7 @@ function isStaleLocally(k: Knowledge): { stale: boolean; daysSince: number | nul
   return { stale: daysSince > interval, daysSince };
 }
 
-export function KnowledgeCard({ knowledge: k, slug, onEdit, staleInfo }: KnowledgeCardProps) {
+export function KnowledgeCard({ knowledge: k, slug, onEdit, staleInfo, selected, onSelect }: KnowledgeCardProps) {
   // Use server-provided stale info if available, otherwise compute locally
   const localStale = isStaleLocally(k);
   const isStale = staleInfo
@@ -42,6 +44,17 @@ export function KnowledgeCard({ knowledge: k, slug, onEdit, staleInfo }: Knowled
         showStaleIndicator || isReviewNeeded ? "border-l-4 border-l-amber-400" : ""
       }`}
     >
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+            onChange={() => {}}
+            className="mt-1 shrink-0 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+          />
+        )}
+        <div className="flex-1 min-w-0">
       <div className="flex items-start justify-between mb-1">
         <Link
           href={`/projects/${slug}/knowledge/${k.id}`}
@@ -89,6 +102,8 @@ export function KnowledgeCard({ knowledge: k, slug, onEdit, staleInfo }: Knowled
           ))}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

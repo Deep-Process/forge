@@ -123,6 +123,7 @@ function ScopesTab({
   onRemove,
   onReset,
   disabledCapabilities,
+  disabledToolNames,
   permissions,
   onToggleCapability,
   pageTitle,
@@ -137,6 +138,8 @@ function ScopesTab({
   onRemove: (scope: string) => void;
   onReset: () => void;
   disabledCapabilities: string[];
+  /** Tool names (not capability IDs) disabled in this session. */
+  disabledToolNames: string[];
   permissions: Record<string, { read: boolean; write: boolean; delete: boolean }>;
   onToggleCapability: (capabilityId: string, enabled: boolean) => void;
   /** Current page title from AI annotations (e.g., "Tasks (25)"). */
@@ -158,9 +161,10 @@ function ScopesTab({
   const disabledSet = new Set(disabledCapabilities);
 
   // Fetch App Context preview (SKILL text) from backend
+  const disabledKey = disabledToolNames.length > 0 ? disabledToolNames.join(",") : "";
   const { data: appContextData } = useSWR(
-    activeScopes.length > 0 ? ["app-context", ...activeScopes, projectSlug ?? ""] : null,
-    () => llm.getAppContext(activeScopes, projectSlug ?? undefined),
+    activeScopes.length > 0 ? ["app-context", ...activeScopes, projectSlug ?? "", disabledKey] : null,
+    () => llm.getAppContext(activeScopes, projectSlug ?? undefined, disabledToolNames.length > 0 ? disabledToolNames : undefined),
   );
 
   // Fetch capabilities for active scopes from backend (dynamic)
@@ -704,6 +708,7 @@ export default function AISidebar() {
             onRemove={removeScope}
             onReset={resetScopes}
             disabledCapabilities={disabledCapabilities}
+            disabledToolNames={disabledToolNames}
             permissions={permissions}
             onToggleCapability={toggleCapability}
             pageTitle={pageSnapshot?.pageConfig?.title ?? null}

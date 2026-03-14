@@ -6,6 +6,9 @@ import { useEntityStore } from "@/stores/entityStore";
 import { GuidelineCard } from "@/components/entities/GuidelineCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { guidelines as guidelinesApi } from "@/lib/api";
 import type { Guideline, GuidelineWeight, GuidelineCreate } from "@/lib/types";
 
 const STATUSES = ["ACTIVE", "DEPRECATED"];
@@ -24,14 +27,21 @@ const emptyForm: GuidelineCreate = {
 
 export default function GuidelinesPage() {
   const { slug } = useParams() as { slug: string };
-  const { slices, fetchEntities, createGuideline, updateGuideline } = useEntityStore();
+  const { slices, fetchEntities, createGuideline } = useEntityStore();
   const [statusFilter, setStatusFilter] = useState("");
   const [weightFilter, setWeightFilter] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [form, setForm] = useState<GuidelineCreate>({ ...emptyForm });
   const [tagInput, setTagInput] = useState("");
   const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => guidelinesApi.remove(slug, id)));
+    fetchEntities(slug, "guidelines");
+  };
 
   useEffect(() => {
     fetchEntities(slug, "guidelines");
@@ -92,15 +102,13 @@ export default function GuidelinesPage() {
     type: "form",
     label: "Guideline Form",
     value: showCreateForm,
-    description: showCreateForm ? `open (${editingId ? `editing ${editingId}` : "creating"})` : "closed",
+    description: showCreateForm ? "open (creating)" : "closed",
     data: { fields: ["title*", "scope*", "content*", "weight", "rationale", "examples", "tags"] },
     actions: [
       {
-        label: editingId ? "Update" : "Create",
-        toolName: editingId ? "updateGuideline" : "createGuideline",
-        toolParams: editingId
-          ? ["guideline_id*", "title", "content", "weight", "scope"]
-          : ["title*", "scope*", "content*", "weight", "rationale"],
+        label: "Create",
+        toolName: "createGuideline",
+        toolParams: ["title*", "scope*", "content*", "weight", "rationale"],
       },
     ],
   });
@@ -264,18 +272,15 @@ export default function GuidelinesPage() {
 
       {slices.guidelines.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.guidelines.error && <p className="text-sm text-red-600 mb-2">{slices.guidelines.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="guidelines" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((g) => (
           <GuidelineCard
             key={g.id}
             guideline={g}
-            editing={editingId === g.id}
-            onEditToggle={() => setEditingId(editingId === g.id ? null : g.id)}
-            onSave={async (data) => {
-              await updateGuideline(slug, g.id, data);
-              setEditingId(null);
-              await fetchEntities(slug, "guidelines");
-            }}
+            slug={slug}
+            selected={isSelected(g.id)}
+            onSelect={() => toggle(g.id)}
           />
         ))}
         {!slices.guidelines.loading && filtered.length === 0 && (

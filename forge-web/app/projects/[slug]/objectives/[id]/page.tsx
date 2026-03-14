@@ -5,10 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { objectives as objectivesApi, ideas as ideasApi, guidelines as guidelinesApi, knowledge as knowledgeApi, tasks as tasksApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
-import type { Objective, Idea, Guideline, Task, KeyResult, ObjectiveRelation, ObjectiveStatus } from "@/lib/types";
+import type { Objective, Idea, Guideline, Task, KeyResult, ObjectiveRelation, ObjectiveStatus, ObjectiveUpdate } from "@/lib/types";
 
 const KR_STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "ACHIEVED"] as const;
 
@@ -77,6 +78,20 @@ export default function ObjectiveDetailPage() {
   const [editingKR, setEditingKR] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Full edit mode state
+  const [editing, setEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAppetite, setEditAppetite] = useState<"small" | "medium" | "large">("medium");
+  const [editScopes, setEditScopes] = useState<string[]>([]);
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editAssumptions, setEditAssumptions] = useState<string[]>([]);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Actions menu state
   const [menuOpen, setMenuOpen] = useState(false);
@@ -239,6 +254,55 @@ export default function ObjectiveDetailPage() {
     useSidebarStore.getState().setActiveTab("chat");
   };
 
+  // Full edit mode
+  const startEdit = () => {
+    if (!objective) return;
+    setEditTitle(objective.title);
+    setEditDescription(objective.description || "");
+    setEditAppetite(objective.appetite);
+    setEditScopes([...objective.scopes]);
+    setEditTags([...objective.tags]);
+    setEditAssumptions([...objective.assumptions]);
+    setEditing(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!objective) return;
+    setEditSaving(true);
+    setError(null);
+    try {
+      const update: ObjectiveUpdate = {};
+      if (editTitle !== objective.title) update.title = editTitle;
+      if (editDescription !== (objective.description || "")) update.description = editDescription;
+      if (editAppetite !== objective.appetite) update.appetite = editAppetite;
+      if (JSON.stringify(editScopes) !== JSON.stringify(objective.scopes)) update.scopes = editScopes;
+      if (JSON.stringify(editTags) !== JSON.stringify(objective.tags)) update.tags = editTags;
+      if (JSON.stringify(editAssumptions) !== JSON.stringify(objective.assumptions)) update.assumptions = editAssumptions;
+
+      if (Object.keys(update).length > 0) {
+        const updated = await objectivesApi.update(slug, id, update);
+        setObjective(updated);
+      }
+      setEditing(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await objectivesApi.remove(slug, id);
+      router.push(`/projects/${slug}/objectives`);
+    } catch (e) {
+      setError((e as Error).message);
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  };
+
   // --- AI Annotations ---
   useAIPage({
     id: "objective-detail",
@@ -266,14 +330,14 @@ export default function ObjectiveDetailPage() {
   });
 
   if (loading) return <p className="text-sm text-gray-400">Loading objective...</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error && !objective) return <p className="text-sm text-red-600">{error}</p>;
   if (!objective) return <p className="text-sm text-gray-400">Objective not found</p>;
 
   const knowledgeIds = objective.knowledge_ids || [];
 
   return (
     <div>
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog for status change */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
@@ -309,6 +373,16 @@ export default function ObjectiveDetailPage() {
         </div>
       )}
 
+      {/* Delete confirmation */}
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${objective.id}?`}
+        description="This will permanently remove this objective and cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
+
       {/* Header */}
       <div className="mb-6">
         <button onClick={() => router.back()} className="text-xs text-gray-400 hover:text-gray-600 mb-2">
@@ -323,6 +397,24 @@ export default function ObjectiveDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
+          {/* Edit / Delete buttons (only in read mode) */}
+          {!editing && (
+            <>
+              <button
+                onClick={startEdit}
+                className="px-3 py-1.5 text-xs font-medium text-forge-700 border border-forge-300 rounded hover:bg-forge-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </>
+          )}
+
           {/* AI session launch */}
           <button
             onClick={launchPlanSession}
@@ -360,20 +452,108 @@ export default function ObjectiveDetailPage() {
           </div>
           </div>
         </div>
-        <h1 className="text-xl font-bold">{objective.title}</h1>
-        {objective.description && (
-          <p className="text-sm text-gray-600 mt-2">{objective.description}</p>
-        )}
-        {objective.scopes.length > 0 && (
-          <div className="flex gap-1 mt-2">
-            {objective.scopes.map((s) => (
-              <span key={s} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{s}</span>
-            ))}
+
+        {/* Error banner */}
+        {error && (
+          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
+            <p className="text-sm text-red-600">{error}</p>
+            <button onClick={() => setError(null)} className="text-xs text-red-400 hover:text-red-600">Dismiss</button>
           </div>
+        )}
+
+        {editing ? (
+          /* ===== Full Edit mode ===== */
+          <div className="space-y-5 border rounded-lg p-5 bg-gray-50 mt-4">
+            <fieldset>
+              <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Core</legend>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Title *</label>
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Appetite</label>
+                  <select
+                    value={editAppetite}
+                    onChange={(e) => setEditAppetite(e.target.value as "small" | "medium" | "large")}
+                    className="w-full rounded-md border px-3 py-1.5 text-sm"
+                  >
+                    <option value="small">small</option>
+                    <option value="medium">medium</option>
+                    <option value="large">large</option>
+                  </select>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Metadata</legend>
+              <EditableList items={editScopes} setItems={setEditScopes} label="Scopes" addLabel="Add scope" />
+              <div className="mt-3">
+                <EditableList items={editTags} setItems={setEditTags} label="Tags" addLabel="Add tag" />
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Assumptions</legend>
+              <EditableList items={editAssumptions} setItems={setEditAssumptions} label="Assumptions" addLabel="Add assumption" rows={2} />
+            </fieldset>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={handleEditSave}
+                disabled={editSaving}
+                className="px-4 py-1.5 text-sm font-medium text-white bg-forge-600 rounded hover:bg-forge-700 disabled:opacity-50"
+              >
+                {editSaving ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="px-4 py-1.5 text-sm text-gray-600 border rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ===== Read mode ===== */
+          <>
+            <h1 className="text-xl font-bold">{objective.title}</h1>
+            {objective.description && (
+              <p className="text-sm text-gray-600 mt-2">{objective.description}</p>
+            )}
+            {objective.scopes.length > 0 && (
+              <div className="flex gap-1 mt-2">
+                {objective.scopes.map((s) => (
+                  <span key={s} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{s}</span>
+                ))}
+              </div>
+            )}
+            {objective.tags.length > 0 && (
+              <div className="flex gap-1 mt-2">
+                {objective.tags.map((t) => (
+                  <span key={t} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{t}</span>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Key Results */}
+      {/* Key Results — always visible (KR inline editing is a separate feature) */}
       <section className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">
           Key Results ({objective.key_results.length})
@@ -587,7 +767,7 @@ export default function ObjectiveDetailPage() {
       )}
 
       {/* Assumptions */}
-      {objective.assumptions.length > 0 && (
+      {!editing && objective.assumptions.length > 0 && (
         <section className="mb-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">
             Assumptions ({objective.assumptions.length})
@@ -602,6 +782,58 @@ export default function ObjectiveDetailPage() {
           </ul>
         </section>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Editable list helper
+ * --------------------------------------------------------------------------- */
+
+function EditableList({
+  items, setItems, label, addLabel, rows = 1,
+}: {
+  items: string[];
+  setItems: (items: string[]) => void;
+  label: string;
+  addLabel: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label} ({items.length})
+      </label>
+      {items.map((item, i) => (
+        <div key={i} className="flex items-start gap-2 mb-1">
+          {rows > 1 ? (
+            <textarea
+              value={item}
+              onChange={(e) => { const next = [...items]; next[i] = e.target.value; setItems(next); }}
+              rows={rows}
+              className="flex-1 rounded-md border px-2 py-1 text-xs"
+            />
+          ) : (
+            <input
+              value={item}
+              onChange={(e) => { const next = [...items]; next[i] = e.target.value; setItems(next); }}
+              className="flex-1 rounded-md border px-2 py-1 text-xs"
+            />
+          )}
+          <button
+            onClick={() => setItems(items.filter((_, j) => j !== i))}
+            className="text-xs text-red-400 hover:text-red-600 mt-1"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() => setItems([...items, ""])}
+        className="text-xs text-forge-600 hover:underline mt-1"
+      >
+        + {addLabel}
+      </button>
     </div>
   );
 }

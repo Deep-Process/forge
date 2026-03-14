@@ -4,10 +4,16 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
-import type { Knowledge, KnowledgeUpdate } from "@/lib/types";
+import type { Knowledge, KnowledgeUpdate, KnowledgeCategory } from "@/lib/types";
 
 type Tab = "content" | "versions" | "links" | "impact";
+
+const CATEGORIES: KnowledgeCategory[] = [
+  "domain-rules", "api-reference", "architecture", "business-context",
+  "technical-context", "code-patterns", "integration", "infrastructure",
+];
 
 interface Version {
   version: number;
@@ -31,12 +37,22 @@ export default function KnowledgeDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("content");
 
-  // Editor state
+  // Editor state (content tab — title + content + versioning)
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [changeReason, setChangeReason] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Extended edit fields (category, scopes, tags, review_interval_days)
+  const [editCategory, setEditCategory] = useState<KnowledgeCategory>("domain-rules");
+  const [editScopes, setEditScopes] = useState<string[]>([]);
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editReviewInterval, setEditReviewInterval] = useState(30);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Versions state
   const [versions, setVersions] = useState<Version[]>([]);
@@ -105,6 +121,10 @@ export default function KnowledgeDetailPage() {
     if (!item) return;
     setEditTitle(item.title);
     setEditContent(item.content);
+    setEditCategory(item.category);
+    setEditScopes([...item.scopes]);
+    setEditTags([...item.tags]);
+    setEditReviewInterval(item.review_interval_days);
     setChangeReason("");
     setEditing(true);
   };
@@ -120,6 +140,11 @@ export default function KnowledgeDetailPage() {
         updates.change_reason = changeReason || "Updated via web UI";
         updates.changed_by = "user";
       }
+      if (editCategory !== item.category) updates.category = editCategory;
+      if (JSON.stringify(editScopes) !== JSON.stringify(item.scopes)) updates.scopes = editScopes;
+      if (JSON.stringify(editTags) !== JSON.stringify(item.tags)) updates.tags = editTags;
+      if (editReviewInterval !== item.review_interval_days) updates.review_interval_days = editReviewInterval;
+
       if (Object.keys(updates).length > 0) {
         const updated = await knowledgeApi.update(slug, id, updates);
         setItem(updated);
@@ -129,6 +154,18 @@ export default function KnowledgeDetailPage() {
       setError((e as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await knowledgeApi.remove(slug, id);
+      router.push(`/projects/${slug}/knowledge`);
+    } catch (e) {
+      setError((e as Error).message);
+      setDeleting(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -196,12 +233,40 @@ export default function KnowledgeDetailPage() {
 
   return (
     <div>
+      {/* Delete confirmation */}
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${item.id}?`}
+        description="This will permanently remove this knowledge object and cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
+
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <button onClick={() => router.back()} className="text-xs text-gray-400 hover:text-gray-600">&larr; Back</button>
         <span className="text-xs text-gray-400">{item.id}</span>
         <Badge variant={statusVariant(item.status)}>{item.status}</Badge>
         <Badge>{item.category}</Badge>
+        <div className="ml-auto flex items-center gap-2">
+          {!editing && (
+            <>
+              <button
+                onClick={startEditing}
+                className="px-3 py-1.5 text-xs font-medium text-forge-700 border border-forge-300 rounded hover:bg-forge-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <h2 className="text-lg font-semibold mb-1">{item.title}</h2>
       <div className="flex gap-2 text-xs text-gray-400 mb-4">
@@ -211,7 +276,7 @@ export default function KnowledgeDetailPage() {
       </div>
 
       {/* Tags */}
-      {item.tags.length > 0 && (
+      {!editing && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-4">
           {item.tags.map((t) => (
             <span key={t} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{t}</span>
@@ -248,7 +313,41 @@ export default function KnowledgeDetailPage() {
       {tab === "content" && (
         <div>
           {editing ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Metadata fields */}
+              <fieldset className="border rounded-lg p-4 bg-gray-50">
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">Metadata</legend>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value as KnowledgeCategory)}
+                      className="w-full rounded-md border px-3 py-1.5 text-sm"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Review Interval (days)</label>
+                    <input
+                      type="number"
+                      value={editReviewInterval}
+                      onChange={(e) => setEditReviewInterval(parseInt(e.target.value) || 30)}
+                      min={1}
+                      className="w-full rounded-md border px-3 py-1.5 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <EditableList items={editScopes} setItems={setEditScopes} label="Scopes" addLabel="Add scope" />
+                </div>
+                <EditableList items={editTags} setItems={setEditTags} label="Tags" addLabel="Add tag" />
+              </fieldset>
+
+              {/* Content fields */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                 <input
@@ -465,6 +564,58 @@ export default function KnowledgeDetailPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Editable list helper
+ * --------------------------------------------------------------------------- */
+
+function EditableList({
+  items, setItems, label, addLabel, rows = 1,
+}: {
+  items: string[];
+  setItems: (items: string[]) => void;
+  label: string;
+  addLabel: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label} ({items.length})
+      </label>
+      {items.map((item, i) => (
+        <div key={i} className="flex items-start gap-2 mb-1">
+          {rows > 1 ? (
+            <textarea
+              value={item}
+              onChange={(e) => { const next = [...items]; next[i] = e.target.value; setItems(next); }}
+              rows={rows}
+              className="flex-1 rounded-md border px-2 py-1 text-xs"
+            />
+          ) : (
+            <input
+              value={item}
+              onChange={(e) => { const next = [...items]; next[i] = e.target.value; setItems(next); }}
+              className="flex-1 rounded-md border px-2 py-1 text-xs"
+            />
+          )}
+          <button
+            onClick={() => setItems(items.filter((_, j) => j !== i))}
+            className="text-xs text-red-400 hover:text-red-600 mt-1"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() => setItems([...items, ""])}
+        className="text-xs text-forge-600 hover:underline mt-1"
+      >
+        + {addLabel}
+      </button>
     </div>
   );
 }

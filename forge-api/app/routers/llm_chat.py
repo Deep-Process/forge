@@ -203,6 +203,7 @@ async def get_app_context(
     request: Request,
     scopes: str | None = None,
     project: str | None = None,
+    disabled_tools: str | None = None,
     config=Depends(get_llm_config),
     tool_registry=Depends(get_tool_registry),
 ):
@@ -213,6 +214,7 @@ async def get_app_context(
     from app.llm.app_context_builder import AppContextBuilder
 
     active_scopes = [s.strip() for s in scopes.split(",") if s.strip()] if scopes else []
+    disabled = [t.strip() for t in disabled_tools.split(",") if t.strip()] if disabled_tools else []
 
     builder = AppContextBuilder(
         tool_registry=tool_registry,
@@ -222,6 +224,7 @@ async def get_app_context(
     text = builder.build(
         active_scopes=active_scopes or None,
         project_slug=project or None,
+        disabled_tools=disabled or None,
     )
 
     return {"text": text, "length": len(text), "scopes": active_scopes}

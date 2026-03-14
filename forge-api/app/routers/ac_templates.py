@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
     check_project_exists,
+    emit_event,
     find_item_or_404,
     load_entity,
     next_id,
@@ -162,3 +163,17 @@ async def instantiate_template(
         await save_entity(storage, slug, "ac_templates", data)
 
     return {"template_id": template_id, "criterion": result}
+
+
+@router.delete("/{template_id}")
+async def remove_template(slug: str, template_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "ac_templates"):
+        data = await load_entity(storage, slug, "ac_templates")
+        templates = data.get("ac_templates", [])
+        template = find_item_or_404(templates, template_id, "Template")
+        templates.remove(template)
+        data["ac_templates"] = templates
+        await save_entity(storage, slug, "ac_templates", data)
+    await emit_event(request, slug, "template.removed", {"id": template_id})
+    return {"removed": template_id}

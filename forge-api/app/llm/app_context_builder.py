@@ -33,11 +33,12 @@ class AppContextBuilder:
         self,
         active_scopes: list[str] | None = None,
         project_slug: str | None = None,
+        disabled_tools: list[str] | None = None,
     ) -> str:
         """Build the full App Context string in SKILL format."""
         sections = [
             self._identity_section(),
-            self._modules_section(active_scopes),
+            self._modules_section(active_scopes, disabled_tools),
             self._tool_discovery_section(),
             self._page_catalog_section(),
             self._workflow_examples_section(),
@@ -59,12 +60,15 @@ class AppContextBuilder:
             "Forge orchestrates: Objectives → Ideas → Discovery → Planning → Execution → Verification → Compound Learning."
         )
 
-    def _modules_section(self, active_scopes: list[str] | None) -> str:
+    def _modules_section(self, active_scopes: list[str] | None, disabled_tools: list[str] | None = None) -> str:
         """Generate module table showing scope status and tool counts."""
         scope_tools: dict[str, list[str]] = {}
         scope_descriptions: dict[str, str] = {}
+        disabled_set = set(disabled_tools) if disabled_tools else set()
 
         for tool in self._tool_registry._tools.values():
+            if tool.name in disabled_set:
+                continue
             scope = tool.scope or "global"
             scope_tools.setdefault(scope, []).append(tool.name)
             # Use first tool's description prefix as scope description

@@ -7,8 +7,10 @@ import { KnowledgeCard } from "@/components/entities/KnowledgeCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { KnowledgeForm } from "@/components/forms/KnowledgeForm";
 import { Badge } from "@/components/shared/Badge";
-import { knowledgeMaintenance } from "@/lib/api";
+import { knowledgeMaintenance, knowledge as knowledgeApi } from "@/lib/api";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import type { Knowledge, MaintenanceReport, StaleKnowledge } from "@/lib/types";
 
 const STATUSES = ["DRAFT", "ACTIVE", "REVIEW_NEEDED", "DEPRECATED", "ARCHIVED"];
@@ -29,6 +31,14 @@ export default function KnowledgePage() {
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [showMaintenance, setShowMaintenance] = useState(false);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => knowledgeApi.remove(slug, id)));
+    fetchEntities(slug, "knowledge");
+  };
 
   useEffect(() => {
     fetchEntities(slug, "knowledge");
@@ -307,6 +317,7 @@ export default function KnowledgePage() {
       </div>
       {slices.knowledge.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.knowledge.error && <p className="text-sm text-red-600 mb-2">{slices.knowledge.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="knowledge items" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((k) => (
           <KnowledgeCard
@@ -315,6 +326,8 @@ export default function KnowledgePage() {
             slug={slug}
             onEdit={(knowledge) => { setEditingKnowledge(knowledge); setFormOpen(true); }}
             staleInfo={staleMap.get(k.id)}
+            selected={isSelected(k.id)}
+            onSelect={() => toggle(k.id)}
           />
         ))}
         {!slices.knowledge.loading && filtered.length === 0 && (

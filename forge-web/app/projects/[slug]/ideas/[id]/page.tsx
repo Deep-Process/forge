@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ideas as ideasApi, objectives as objectivesApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
-import type { Idea, Decision, Objective } from "@/lib/types";
+import type { Idea, IdeaCategory, IdeaUpdate, Decision, Objective } from "@/lib/types";
 
 const STATUS_TRANSITIONS: Record<string, Array<{ label: string; target: string; className: string }>> = {
   DRAFT: [
@@ -32,6 +34,21 @@ export default function IdeaDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [linkedObjectives, setLinkedObjectives] = useState<Objective[]>([]);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  // Edit mode state
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState<Idea["category"]>("feature");
+  const [editPriority, setEditPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editScopes, setEditScopes] = useState<string[]>([]);
+  const [editAdvancesKR, setEditAdvancesKR] = useState<string[]>([]);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchIdea = useCallback(async () => {
     setLoading(true);
@@ -87,6 +104,56 @@ export default function IdeaDetailPage() {
     }
   };
 
+  const startEdit = () => {
+    if (!idea) return;
+    setEditTitle(idea.title);
+    setEditDescription(idea.description || "");
+    setEditCategory(idea.category);
+    setEditPriority(idea.priority);
+    setEditTags([...idea.tags]);
+    setEditScopes([...(idea.scopes || [])]);
+    setEditAdvancesKR([...(idea.advances_key_results || [])]);
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!idea) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const update: IdeaUpdate = {};
+      if (editTitle !== idea.title) update.title = editTitle;
+      if (editDescription !== (idea.description || "")) update.description = editDescription;
+      if (editCategory !== idea.category) update.category = editCategory;
+      if (editPriority !== idea.priority) update.priority = editPriority;
+      if (JSON.stringify(editTags) !== JSON.stringify(idea.tags)) update.tags = editTags;
+      if (JSON.stringify(editScopes) !== JSON.stringify(idea.scopes || [])) update.scopes = editScopes;
+      if (JSON.stringify(editAdvancesKR) !== JSON.stringify(idea.advances_key_results || [])) update.advances_key_results = editAdvancesKR;
+      if (Object.keys(update).length > 0) {
+        const updated = await ideasApi.update(slug, idea.id, update);
+        setIdea({ ...idea, ...updated });
+      }
+      setEditing(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!idea) return;
+    setDeleting(true);
+    try {
+      await ideasApi.remove(slug, idea.id);
+      router.push(`/projects/${slug}/ideas`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const launchResearchSession = () => {
     useChatStore.getState().startConversation("idea", id, slug);
     useChatStore.getState().setPendingSessionMeta({
@@ -125,7 +192,7 @@ export default function IdeaDetailPage() {
   });
 
   if (loading) return <p className="text-sm text-gray-400">Loading idea...</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error && !idea) return <p className="text-sm text-red-600">{error}</p>;
   if (!idea) return <p className="text-sm text-gray-400">Idea not found</p>;
 
   const transitions = STATUS_TRANSITIONS[idea.status] || [];
@@ -160,13 +227,21 @@ export default function IdeaDetailPage() {
             )}
           </div>
           <div className="flex gap-2">
+            {!editing && (
+              <>
+                <Button variant="secondary" size="sm" onClick={startEdit}>Edit</Button>
+                {idea.status !== "COMMITTED" && (
+                  <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>Delete</Button>
+                )}
+              </>
+            )}
             <button
               onClick={launchResearchSession}
               className="px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
             >
               Research with AI
             </button>
-            {transitions.map((t) => (
+            {!editing && transitions.map((t) => (
               <button
                 key={t.target}
                 onClick={() => handleStatusChange(t.target)}
@@ -187,13 +262,156 @@ export default function IdeaDetailPage() {
         )}
       </div>
 
-      {/* Description */}
-      {idea.description && (
-        <section className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
-          <p className="text-sm text-gray-600 whitespace-pre-wrap">{idea.description}</p>
-        </section>
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
+          <p className="text-sm text-red-600">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-red-400 hover:text-red-600">Dismiss</button>
+        </div>
       )}
+
+      {editing ? (
+        <div className="space-y-4 border rounded-lg p-5 bg-gray-50 mb-6">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Title *</label>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full rounded-md border px-3 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={4}
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value as IdeaCategory)}
+                className="w-full rounded-md border px-3 py-1.5 text-sm"
+              >
+                {["feature", "improvement", "experiment", "migration", "refactor", "infrastructure", "business-opportunity", "research"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+              <select
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")}
+                className="w-full rounded-md border px-3 py-1.5 text-sm"
+              >
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Tags ({editTags.length})
+            </label>
+            {editTags.map((tag, i) => (
+              <div key={i} className="flex items-center gap-2 mb-1">
+                <input
+                  value={tag}
+                  onChange={(e) => { const next = [...editTags]; next[i] = e.target.value; setEditTags(next); }}
+                  className="flex-1 rounded-md border px-2 py-1 text-xs"
+                />
+                <button
+                  onClick={() => setEditTags(editTags.filter((_, j) => j !== i))}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditTags([...editTags, ""])}
+              className="text-xs text-forge-600 hover:underline mt-1"
+            >
+              + Add tag
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Scopes ({editScopes.length})
+            </label>
+            {editScopes.map((scope, i) => (
+              <div key={i} className="flex items-center gap-2 mb-1">
+                <input
+                  value={scope}
+                  onChange={(e) => { const next = [...editScopes]; next[i] = e.target.value; setEditScopes(next); }}
+                  className="flex-1 rounded-md border px-2 py-1 text-xs"
+                />
+                <button
+                  onClick={() => setEditScopes(editScopes.filter((_, j) => j !== i))}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditScopes([...editScopes, ""])}
+              className="text-xs text-forge-600 hover:underline mt-1"
+            >
+              + Add scope
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Advances Key Results ({editAdvancesKR.length})
+            </label>
+            {editAdvancesKR.map((kr, i) => (
+              <div key={i} className="flex items-center gap-2 mb-1">
+                <input
+                  value={kr}
+                  onChange={(e) => { const next = [...editAdvancesKR]; next[i] = e.target.value; setEditAdvancesKR(next); }}
+                  placeholder="O-001/KR-1"
+                  className="flex-1 rounded-md border px-2 py-1 text-xs"
+                />
+                <button
+                  onClick={() => setEditAdvancesKR(editAdvancesKR.filter((_, j) => j !== i))}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditAdvancesKR([...editAdvancesKR, ""])}
+              className="text-xs text-forge-600 hover:underline mt-1"
+            >
+              + Add key result
+            </button>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button onClick={handleSave} disabled={saving} size="sm">
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Description */}
+          {idea.description && (
+            <section className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
+              <p className="text-sm text-gray-600 whitespace-pre-wrap">{idea.description}</p>
+            </section>
+          )}
 
       {/* Linked KRs with Objective Progress */}
       {linkedObjectives.length > 0 && (
@@ -340,6 +558,17 @@ export default function IdeaDetailPage() {
           ))}
         </div>
       )}
+        </>
+      )}
+
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${idea.id}?`}
+        description="This action cannot be undone. The idea and all its data will be permanently removed."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
     </div>
   );
 }

@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
     check_project_exists,
+    emit_event,
     find_item_or_404,
     load_entity,
     next_id,
@@ -139,3 +140,17 @@ async def update_guideline(slug: str, guideline_id: str, body: GuidelineUpdate, 
             guideline[k] = v
         await save_entity(storage, slug, "guidelines", data)
     return guideline
+
+
+@router.delete("/{guideline_id}")
+async def remove_guideline(slug: str, guideline_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "guidelines"):
+        data = await load_entity(storage, slug, "guidelines")
+        guidelines = data.get("guidelines", [])
+        guideline = find_item_or_404(guidelines, guideline_id, "Guideline")
+        guidelines.remove(guideline)
+        data["guidelines"] = guidelines
+        await save_entity(storage, slug, "guidelines", data)
+    await emit_event(request, slug, "guideline.removed", {"id": guideline_id})
+    return {"removed": guideline_id}

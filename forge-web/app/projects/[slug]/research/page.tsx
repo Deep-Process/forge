@@ -7,6 +7,9 @@ import { ResearchCard } from "@/components/entities/ResearchCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { ResearchForm } from "@/components/forms/ResearchForm";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { research as researchApi } from "@/lib/api";
 import type { Research } from "@/lib/types";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPERSEDED", "ARCHIVED"];
@@ -22,6 +25,14 @@ export default function ResearchPage() {
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingResearch, setEditingResearch] = useState<Research | undefined>();
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => researchApi.remove(slug, id)));
+    fetchAll(slug);
+  };
 
   useEffect(() => {
     fetchAll(slug);
@@ -140,6 +151,7 @@ export default function ResearchPage() {
         />
       </div>
 
+      <BulkActionBar count={selectionCount} entityLabel="research items" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       {filtered.length === 0 ? (
         <p className="text-sm text-gray-400">
           {count === 0
@@ -154,6 +166,8 @@ export default function ResearchPage() {
               research={r}
               slug={slug}
               onEdit={(research) => { setEditingResearch(research); setFormOpen(true); }}
+              selected={isSelected(r.id)}
+              onSelect={() => toggle(r.id)}
             />
           ))}
         </div>

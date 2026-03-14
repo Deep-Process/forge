@@ -7,6 +7,9 @@ import { useDecisionStore, updateDecision as updateDecisionAction } from "@/stor
 import { DecisionCard } from "@/components/entities/DecisionCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { DecisionForm } from "@/components/forms/DecisionForm";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { decisions as decisionsApi } from "@/lib/api";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Decision } from "@/lib/types";
 
@@ -18,6 +21,14 @@ export default function DecisionsPage() {
   const saving = useDecisionStore((s) => s.saving);
   const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => decisionsApi.remove(slug, id)));
+    mutate();
+  };
 
   const decisions = items;
   const filtered = statusFilter
@@ -123,9 +134,10 @@ export default function DecisionsPage() {
       </div>
       {isLoading && <p className="text-sm text-gray-400">Loading...</p>}
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="decisions" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((d) => (
-          <DecisionCard key={d.id} decision={d} slug={slug} onStatusChange={handleStatusChange} />
+          <DecisionCard key={d.id} decision={d} slug={slug} onStatusChange={handleStatusChange} selected={isSelected(d.id)} onSelect={() => toggle(d.id)} />
         ))}
         {!isLoading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No decisions{statusFilter ? ` with status ${statusFilter}` : ""}</p>

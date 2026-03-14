@@ -7,6 +7,8 @@ import { ACTemplateCard } from "@/components/entities/ACTemplateCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { acTemplates as acTemplatesApi } from "@/lib/api";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import type { ACTemplate, ACTemplateCreate, ACTemplateCategory } from "@/lib/types";
 
 const STATUSES = ["ACTIVE", "DEPRECATED"];
@@ -35,7 +37,7 @@ interface ParamDef {
 
 export default function ACTemplatesPage() {
   const { slug } = useParams() as { slug: string };
-  const { slices, fetchEntities, createACTemplate, updateACTemplate } = useEntityStore();
+  const { slices, fetchEntities, createACTemplate } = useEntityStore();
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -44,7 +46,14 @@ export default function ACTemplatesPage() {
   const [tagInput, setTagInput] = useState("");
   const [scopeInput, setScopeInput] = useState("");
   const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => acTemplatesApi.remove(slug, id)));
+    fetchEntities(slug, "acTemplates");
+  };
 
   // Instantiate state
   const [instantiateId, setInstantiateId] = useState<string | null>(null);
@@ -457,19 +466,16 @@ export default function ACTemplatesPage() {
 
       {slices.acTemplates.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.acTemplates.error && <p className="text-sm text-red-600 mb-2">{slices.acTemplates.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="templates" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((t) => (
           <ACTemplateCard
             key={t.id}
             template={t}
-            editing={editingId === t.id}
-            onEditToggle={() => setEditingId(editingId === t.id ? null : t.id)}
-            onSave={async (data) => {
-              await updateACTemplate(slug, t.id, data);
-              setEditingId(null);
-              await fetchEntities(slug, "acTemplates");
-            }}
+            slug={slug}
             onInstantiate={handleOpenInstantiate}
+            selected={isSelected(t.id)}
+            onSelect={() => toggle(t.id)}
           />
         ))}
         {!slices.acTemplates.loading && filtered.length === 0 && (

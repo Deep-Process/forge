@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { tasks as tasksApi, decisions as decisionsApi, changes as changesApi, guidelines as guidelinesApi, knowledge as knowledgeApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useChatStore } from "@/stores/chatStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
-import type { Task, Decision, ChangeRecord, TaskContext, ContextSection, Guideline, Knowledge } from "@/lib/types";
+import type { Task, TaskUpdate, Decision, ChangeRecord, TaskContext, ContextSection, Guideline, Knowledge } from "@/lib/types";
 
 type Tab = "overview" | "dependencies" | "decisions" | "changes" | "context";
 
@@ -37,6 +39,17 @@ export default function TaskDetailPage() {
   const [scopedGuidelines, setScopedGuidelines] = useState<{ must: Guideline[]; should: Guideline[]; may: Guideline[] } | null>(null);
   const [linkedKnowledge, setLinkedKnowledge] = useState<Knowledge[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
+
+  // Edit mode state
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editInstruction, setEditInstruction] = useState("");
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchTask = useCallback(async () => {
     setLoading(true);
@@ -111,6 +124,51 @@ export default function TaskDetailPage() {
     useSidebarStore.getState().setActiveTab("chat");
   };
 
+  const canEdit = task?.status === "TODO" || task?.status === "FAILED";
+  const canDelete = task?.status === "TODO";
+
+  const startEdit = () => {
+    if (!task) return;
+    setEditName(task.name);
+    setEditDescription(task.description || "");
+    setEditInstruction(task.instruction || "");
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!task) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const update: TaskUpdate = {};
+      if (editName !== task.name) update.name = editName;
+      if (editDescription !== (task.description || "")) update.description = editDescription;
+      if (editInstruction !== (task.instruction || "")) update.instruction = editInstruction;
+      if (Object.keys(update).length > 0) {
+        const updated = await tasksApi.update(slug, task.id, update);
+        setTask(updated);
+      }
+      setEditing(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!task) return;
+    setDeleting(true);
+    try {
+      await tasksApi.remove(slug, task.id);
+      router.push(`/projects/${slug}/tasks`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // --- AI Annotations (must be before early returns) ---
   useAIPage({
     id: "task-detail",
@@ -154,7 +212,7 @@ export default function TaskDetailPage() {
   });
 
   if (loading) return <p className="text-sm text-gray-400">Loading task...</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (error && !task) return <p className="text-sm text-red-600">{error}</p>;
   if (!task) return <p className="text-sm text-gray-400">Task not found</p>;
 
   return (
@@ -176,6 +234,12 @@ export default function TaskDetailPage() {
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
+              {!editing && canEdit && (
+                <Button variant="secondary" size="sm" onClick={startEdit}>Edit</Button>
+              )}
+              {!editing && canDelete && (
+                <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>Delete</Button>
+              )}
               <button
                 onClick={() => launchSession("execute")}
                 className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
@@ -224,12 +288,68 @@ export default function TaskDetailPage() {
 
       {relatedLoading && <p className="text-xs text-gray-400 mb-2">Loading...</p>}
 
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
+          <p className="text-sm text-red-600">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-red-400 hover:text-red-600">Dismiss</button>
+        </div>
+      )}
+
       {/* Tab Content */}
-      {tab === "overview" && <OverviewTab task={task} slug={slug} guidelines={scopedGuidelines} knowledge={linkedKnowledge} />}
+      {tab === "overview" && editing ? (
+        <div className="space-y-4 border rounded-lg p-5 bg-gray-50">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full rounded-md border px-3 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={4}
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Instruction</label>
+            <textarea
+              value={editInstruction}
+              onChange={(e) => setEditInstruction(e.target.value)}
+              rows={6}
+              className="w-full rounded-md border px-3 py-2 text-sm font-mono"
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button onClick={handleSave} disabled={saving} size="sm">
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : tab === "overview" ? (
+        <OverviewTab task={task} slug={slug} guidelines={scopedGuidelines} knowledge={linkedKnowledge} />
+      ) : null}
       {tab === "dependencies" && <DependenciesTab task={task} depTasks={depTasks} slug={slug} />}
       {tab === "decisions" && <DecisionsTab decisions={linkedDecisions} slug={slug} />}
       {tab === "changes" && <ChangesTab changes={taskChanges} />}
       {tab === "context" && <ContextTab context={taskContext} />}
+
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${task.id}?`}
+        description="This action cannot be undone. Only TODO tasks with no dependents can be deleted."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
     </div>
   );
 }

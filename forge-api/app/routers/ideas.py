@@ -170,3 +170,19 @@ async def commit_idea(slug: str, idea_id: str, request: Request, storage=Depends
         "idea_id": idea_id, "old_status": "APPROVED", "new_status": "COMMITTED",
     })
     return idea
+
+
+@router.delete("/{idea_id}")
+async def remove_idea(slug: str, idea_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "ideas"):
+        data = await load_entity(storage, slug, "ideas")
+        ideas = data.get("ideas", [])
+        idea = find_item_or_404(ideas, idea_id, "Idea")
+        if idea.get("status") == "COMMITTED":
+            raise HTTPException(422, f"Cannot delete COMMITTED idea '{idea_id}'")
+        ideas.remove(idea)
+        data["ideas"] = ideas
+        await save_entity(storage, slug, "ideas", data)
+    await emit_event(request, slug, "idea.removed", {"id": idea_id})
+    return {"removed": idea_id}

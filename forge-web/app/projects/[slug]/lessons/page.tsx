@@ -7,6 +7,9 @@ import { LessonCard } from "@/components/entities/LessonCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { LessonForm } from "@/components/forms/LessonForm";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { lessons as lessonsApi } from "@/lib/api";
 import type { Lesson } from "@/lib/types";
 
 const CATEGORIES = [
@@ -20,6 +23,14 @@ export default function LessonsPage() {
   const { slices, fetchEntities } = useEntityStore();
   const [categoryFilter, setCategoryFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => lessonsApi.remove(slug, id)));
+    fetchEntities(slug, "lessons");
+  };
 
   useEffect(() => {
     fetchEntities(slug, "lessons");
@@ -106,9 +117,10 @@ export default function LessonsPage() {
       </div>
       {slices.lessons.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.lessons.error && <p className="text-sm text-red-600 mb-2">{slices.lessons.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="lessons" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((l) => (
-          <LessonCard key={l.id} lesson={l} slug={slug} onPromoted={handleFormSuccess} />
+          <LessonCard key={l.id} lesson={l} slug={slug} onPromoted={handleFormSuccess} selected={isSelected(l.id)} onSelect={() => toggle(l.id)} />
         ))}
         {!slices.lessons.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No lessons{categoryFilter ? ` in category ${categoryFilter}` : ""}</p>

@@ -325,6 +325,8 @@ export const decisions = {
     get<Decision>(projectPath(slug, "decisions", id)),
   update: (slug: string, id: string, data: DecisionUpdate) =>
     update<Decision>(projectPath(slug, "decisions", id), data),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "decisions", id)),
 };
 
 // -- Objectives --
@@ -339,6 +341,8 @@ export const objectives = {
     update<Objective>(projectPath(slug, "objectives", id), data),
   status: (slug: string) =>
     get<{ objectives: Objective[]; count: number }>(projectPath(slug, "objectives") + "/status"),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "objectives", id)),
 };
 
 // -- Ideas --
@@ -353,6 +357,8 @@ export const ideas = {
     update<Idea>(projectPath(slug, "ideas", id), data),
   commit: (slug: string, id: string) =>
     create<Idea>(projectPath(slug, "ideas", id) + "/commit", {}),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "ideas", id)),
 };
 
 // -- Changes --
@@ -382,6 +388,8 @@ export const guidelines = {
     get<{ must: Guideline[]; should: Guideline[]; may: Guideline[]; total: number }>(
       projectPath(slug, "guidelines") + "/context" + (scopes ? `?scopes=${scopes}` : ""),
     ),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "guidelines", id)),
 };
 
 // -- Knowledge --
@@ -407,6 +415,8 @@ export const knowledge = {
     create<Record<string, unknown>>(projectPath(slug, "knowledge", id) + "/link", data),
   unlink: (slug: string, id: string, linkId: number) =>
     remove<{ removed: number }>(projectPath(slug, "knowledge", id) + `/link/${linkId}`),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "knowledge", id)),
 };
 
 // -- Knowledge Maintenance --
@@ -438,6 +448,8 @@ export const research = {
   context: (slug: string, entity: string) =>
     get<{ research: Research[]; count: number; entity: string }>(
       projectPath(slug, "research") + `/context?entity=${entity}`),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "research", id)),
 };
 
 // -- Lessons --
@@ -451,6 +463,10 @@ export const lessons = {
   promote: (slug: string, id: string, data: LessonPromote) =>
     create<{ promoted_to: string; guideline_id?: string; knowledge_id?: string }>(
       projectPath(slug, "lessons", id) + "/promote", data),
+  update: (slug: string, id: string, data: Partial<Lesson>) =>
+    update<Lesson>(projectPath(slug, "lessons", id), data),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "lessons", id)),
 };
 
 // -- AC Templates --
@@ -466,6 +482,8 @@ export const acTemplates = {
   instantiate: (slug: string, id: string, params?: Record<string, string | number | boolean>) =>
     create<{ template_id: string; criterion: string }>(
       projectPath(slug, "ac-templates", id) + "/instantiate", { params: params ?? {} }),
+  remove: (slug: string, id: string) =>
+    remove<{ removed: string }>(projectPath(slug, "ac-templates", id)),
 };
 
 // -- Gates --
@@ -672,10 +690,11 @@ export const llm = {
   getPages: () =>
     get<{ pages: Array<{ id: string; title: string; description: string; route: string; last_seen: string }>; count: number }>("/llm/pages"),
   // App Context preview
-  getAppContext: (scopes?: string[], project?: string) => {
+  getAppContext: (scopes?: string[], project?: string, disabledTools?: string[]) => {
     const params = new URLSearchParams();
     if (scopes?.length) params.set("scopes", scopes.join(","));
     if (project) params.set("project", project);
+    if (disabledTools?.length) params.set("disabled_tools", disabledTools.join(","));
     const qs = params.toString();
     return get<{ text: string; length: number; scopes: string[] }>(
       "/llm/app-context" + (qs ? `?${qs}` : ""),

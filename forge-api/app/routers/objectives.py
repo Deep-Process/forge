@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
     check_project_exists,
+    emit_event,
     find_item_or_404,
     load_entity,
     next_id,
@@ -310,3 +311,17 @@ async def update_objective(slug: str, obj_id: str, body: ObjectiveUpdate, storag
     if warnings:
         result["warnings"] = warnings
     return result
+
+
+@router.delete("/{obj_id}")
+async def remove_objective(slug: str, obj_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "objectives"):
+        data = await load_entity(storage, slug, "objectives")
+        objectives = data.get("objectives", [])
+        obj = find_item_or_404(objectives, obj_id, "Objective")
+        objectives.remove(obj)
+        data["objectives"] = objectives
+        await save_entity(storage, slug, "objectives", data)
+    await emit_event(request, slug, "objective.removed", {"id": obj_id})
+    return {"removed": obj_id}

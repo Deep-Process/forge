@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.dependencies import get_storage
 from app.routers._helpers import (
     _get_lock,
     check_project_exists,
+    emit_event,
     find_item_or_404,
     load_entity,
     next_id,
@@ -172,3 +173,40 @@ async def promote_lesson(
         return {"promoted_to": "knowledge", "knowledge_id": k_id}
 
     raise HTTPException(422, f"Invalid target '{target}', use 'guideline' or 'knowledge'")
+
+
+class LessonUpdate(BaseModel):
+    title: str | None = None
+    detail: str | None = None
+    category: LESSON_CATEGORIES | None = None
+    severity: Literal["critical", "important", "minor"] | None = None
+    applies_to: str | None = None
+    tags: list[str] | None = None
+
+
+@router.patch("/{lesson_id}")
+async def update_lesson(slug: str, lesson_id: str, body: LessonUpdate, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "lessons"):
+        data = await load_entity(storage, slug, "lessons")
+        lessons = data.get("lessons", [])
+        lesson = find_item_or_404(lessons, lesson_id, "Lesson")
+        updates = body.model_dump(exclude_none=True)
+        lesson.update(updates)
+        await save_entity(storage, slug, "lessons", data)
+    await emit_event(request, slug, "lesson.updated", {"id": lesson_id})
+    return lesson
+
+
+@router.delete("/{lesson_id}")
+async def remove_lesson(slug: str, lesson_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "lessons"):
+        data = await load_entity(storage, slug, "lessons")
+        lessons = data.get("lessons", [])
+        lesson = find_item_or_404(lessons, lesson_id, "Lesson")
+        lessons.remove(lesson)
+        data["lessons"] = lessons
+        await save_entity(storage, slug, "lessons", data)
+    await emit_event(request, slug, "lesson.removed", {"id": lesson_id})
+    return {"removed": lesson_id}

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { guidelines as guidelinesApi } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Guideline, GuidelineUpdate } from "@/lib/types";
@@ -22,6 +24,10 @@ export default function GuidelineDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState("");
@@ -84,6 +90,19 @@ export default function GuidelineDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!guideline) return;
+    setDeleting(true);
+    try {
+      await guidelinesApi.remove(slug, guideline.id);
+      router.push(`/projects/${slug}/guidelines`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // --- AI Annotations ---
   useAIPage({
     id: "guideline-detail",
@@ -110,7 +129,7 @@ export default function GuidelineDetailPage() {
   });
 
   if (loading) return <p className="p-6 text-sm text-gray-400">Loading guideline...</p>;
-  if (error) return <p className="p-6 text-sm text-red-600">{error}</p>;
+  if (error && !guideline) return <p className="p-6 text-sm text-red-600">{error}</p>;
   if (!guideline) return <p className="p-6 text-sm text-gray-400">Guideline not found</p>;
 
   return (
@@ -137,14 +156,20 @@ export default function GuidelineDetailPage() {
           )}
         </div>
         {!editing && (
-          <button
-            onClick={startEdit}
-            className="px-3 py-1.5 text-xs font-medium text-forge-700 border border-forge-300 rounded hover:bg-forge-50"
-          >
-            Edit
-          </button>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={startEdit}>Edit</Button>
+            <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>Delete</Button>
+          </div>
         )}
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
+          <p className="text-sm text-red-600">{error}</p>
+          <button onClick={() => setError(null)} className="text-xs text-red-400 hover:text-red-600">Dismiss</button>
+        </div>
+      )}
 
       {editing ? (
         /* Edit mode */
@@ -323,6 +348,15 @@ export default function GuidelineDetailPage() {
           </section>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${guideline.id}?`}
+        description="This action cannot be undone. The guideline will be permanently removed."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
     </div>
   );
 }

@@ -8,7 +8,9 @@ import { useExecutionStore } from "@/stores/executionStore";
 import { tasks as tasksApi } from "@/lib/api";
 import { TaskCard } from "@/components/entities/TaskCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
-import { SuggestionPanel } from "@/components/ai/SuggestionPanel";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+
 import { TaskForm } from "@/components/forms/TaskForm";
 import { DraftPlanView } from "@/components/planning/DraftPlanView";
 import { ActiveTasksDashboard } from "@/components/execution/ActiveTasksDashboard";
@@ -25,7 +27,7 @@ export default function TasksPage() {
   const { items, count, isLoading, error, mutate } = useEntityData<Task>(slug, "tasks");
   const saving = useTaskStore((s) => s.saving);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [draft, setDraft] = useState<DraftPlan | null>(null);
@@ -44,6 +46,14 @@ export default function TasksPage() {
   useEffect(() => {
     tasksApi.getDraft(slug).then(setDraft).catch(() => setDraft(null));
   }, [slug]);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount, hasSelection } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => tasksApi.remove(slug, id)));
+    mutate();
+  };
 
   const tasks = items;
   const filtered = statusFilter
@@ -211,10 +221,6 @@ export default function TasksPage() {
     updateTaskAction(slug, id, { status: status as Task["status"] });
   };
 
-  const handleTaskSelect = (id: string) => {
-    setSelectedTaskId((prev) => (prev === id ? null : id));
-  };
-
   const handleEdit = (task: Task) => {
     setEditingTask(task);
     setFormOpen(true);
@@ -300,39 +306,25 @@ export default function TasksPage() {
       {error && (
         <p className="text-sm text-red-600 mb-2">{error}</p>
       )}
+      <BulkActionBar count={selectionCount} entityLabel="tasks" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((task) => (
-          <div
+          <TaskCard
             key={task.id}
-            onClick={() => handleTaskSelect(task.id)}
-            className={`cursor-pointer rounded-lg transition-shadow ${
-              selectedTaskId === task.id
-                ? "ring-2 ring-forge-500 shadow-md"
-                : ""
-            }`}
-          >
-            <TaskCard
-              task={task}
-              slug={slug}
-              onStatusChange={handleStatusChange}
-              onEdit={handleEdit}
-              onClaim={handleClaimSpecific}
-              claiming={claimingTaskId === task.id}
-            />
-          </div>
+            task={task}
+            slug={slug}
+            onStatusChange={handleStatusChange}
+            onEdit={handleEdit}
+            onClaim={handleClaimSpecific}
+            claiming={claimingTaskId === task.id}
+            selected={isSelected(task.id)}
+            onSelect={() => toggle(task.id)}
+          />
         ))}
         {!isLoading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No tasks{statusFilter ? ` with status ${statusFilter}` : ""}</p>
         )}
       </div>
-
-      {selectedTaskId && (
-        <SuggestionPanel
-          entityType="task"
-          entityId={selectedTaskId}
-          suggestionTypes={["knowledge", "guidelines", "ac"]}
-        />
-      )}
 
       <TaskForm
         slug={slug}

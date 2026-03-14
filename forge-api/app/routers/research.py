@@ -263,3 +263,17 @@ async def update_research(
         )
 
     return entry
+
+
+@router.delete("/{research_id}")
+async def remove_research(slug: str, research_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "research"):
+        data = await load_entity(storage, slug, "research")
+        entries = data.get("research", [])
+        entry = find_item_or_404(entries, research_id, "Research")
+        entries.remove(entry)
+        data["research"] = entries
+        await save_entity(storage, slug, "research", data)
+    await emit_event(request, slug, "research.removed", {"id": research_id})
+    return {"removed": research_id}

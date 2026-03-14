@@ -10,6 +10,8 @@ interface LessonCardProps {
   lesson: Lesson;
   slug: string;
   onPromoted?: () => void;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 const severityVariant = {
@@ -18,7 +20,7 @@ const severityVariant = {
   minor: "default" as const,
 };
 
-export function LessonCard({ lesson, slug, onPromoted }: LessonCardProps) {
+export function LessonCard({ lesson, slug, onPromoted, selected, onSelect }: LessonCardProps) {
   const [promoting, setPromoting] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
 
@@ -39,6 +41,17 @@ export function LessonCard({ lesson, slug, onPromoted }: LessonCardProps) {
 
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+            onChange={() => {}}
+            className="mt-1 shrink-0 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+          />
+        )}
+        <div className="flex-1 min-w-0">
       <div className="flex items-start justify-between">
         <Link href={`/projects/${slug}/lessons/${lesson.id}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -97,6 +110,8 @@ export function LessonCard({ lesson, slug, onPromoted }: LessonCardProps) {
         {lesson.tags.length > 0 && lesson.tags.map((t) => (
           <span key={t} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{t}</span>
         ))}
+      </div>
+        </div>
       </div>
     </div>
   );

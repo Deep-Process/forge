@@ -174,3 +174,17 @@ async def update_decision(request: Request, slug: str, decision_id: str, body: D
             "decision_id": decision_id, "fields": list(updates.keys()),
         })
     return decision
+
+
+@router.delete("/{decision_id}")
+async def remove_decision(slug: str, decision_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "decisions"):
+        data = await load_entity(storage, slug, "decisions")
+        decisions = data.get("decisions", [])
+        decision = find_item_or_404(decisions, decision_id, "Decision")
+        decisions.remove(decision)
+        data["decisions"] = decisions
+        await save_entity(storage, slug, "decisions", data)
+    await emit_event(request, slug, "decision.removed", {"id": decision_id})
+    return {"removed": decision_id}

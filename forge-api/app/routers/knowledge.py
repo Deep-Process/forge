@@ -288,3 +288,17 @@ async def unlink_entity(slug: str, k_id: str, link_id: int, storage=Depends(get_
                 return {"removed": link_id}
 
     raise HTTPException(404, f"Link {link_id} not found")
+
+
+@router.delete("/{k_id}")
+async def remove_knowledge(slug: str, k_id: str, request: Request, storage=Depends(get_storage)):
+    await check_project_exists(storage, slug)
+    async with _get_lock(slug, "knowledge"):
+        data = await load_entity(storage, slug, "knowledge")
+        entries = data.get("knowledge", [])
+        entry = find_item_or_404(entries, k_id, "Knowledge")
+        entries.remove(entry)
+        data["knowledge"] = entries
+        await save_entity(storage, slug, "knowledge", data)
+    await emit_event(request, slug, "knowledge.removed", {"id": k_id})
+    return {"removed": k_id}

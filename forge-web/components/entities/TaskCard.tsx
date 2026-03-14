@@ -9,6 +9,8 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onClaim?: (task: Task) => void;
   claiming?: boolean;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; className: string }>> = {
@@ -25,12 +27,22 @@ const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; clas
   ],
 };
 
-export function TaskCard({ task, slug, onStatusChange, onEdit, onClaim, claiming }: TaskCardProps) {
+export function TaskCard({ task, slug, onStatusChange, onEdit, onClaim, claiming, selected, onSelect }: TaskCardProps) {
   const actions = STATUS_ACTIONS[task.status] || [];
 
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+            onChange={() => {}}
+            className="mt-1 shrink-0 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+          />
+        )}
+        <div className="flex-1 min-w-0 flex items-start justify-between">
         <Link href={`/projects/${slug}/tasks/${task.id}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs text-gray-400">{task.id}</span>
@@ -69,6 +81,7 @@ export function TaskCard({ task, slug, onStatusChange, onEdit, onClaim, claiming
               {action.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
       <div className="flex flex-wrap gap-1 mt-2">

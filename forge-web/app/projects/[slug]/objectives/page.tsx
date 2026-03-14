@@ -8,6 +8,9 @@ import { StatusFilter } from "@/components/shared/StatusFilter";
 import { ObjectiveForm } from "@/components/forms/ObjectiveForm";
 import { CoverageDashboard } from "@/components/objectives/CoverageDashboard";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { objectives as objectivesApi } from "@/lib/api";
 import type { Objective } from "@/lib/types";
 
 const STATUSES = ["ACTIVE", "ACHIEVED", "ABANDONED", "PAUSED"];
@@ -23,6 +26,14 @@ export default function ObjectivesPage() {
   useEffect(() => {
     fetchEntities(slug, "objectives");
   }, [slug, fetchEntities]);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => objectivesApi.remove(slug, id)));
+    fetchEntities(slug, "objectives");
+  };
 
   const objectives = slices.objectives.items as Objective[];
   const filtered = statusFilter
@@ -126,9 +137,10 @@ export default function ObjectivesPage() {
       )}
       {slices.objectives.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.objectives.error && <p className="text-sm text-red-600 mb-2">{slices.objectives.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="objectives" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((o) => (
-          <ObjectiveCard key={o.id} objective={o} slug={slug} onEdit={(obj) => { setEditingObj(obj); setFormOpen(true); }} />
+          <ObjectiveCard key={o.id} objective={o} slug={slug} onEdit={(obj) => { setEditingObj(obj); setFormOpen(true); }} selected={isSelected(o.id)} onSelect={() => toggle(o.id)} />
         ))}
         {!slices.objectives.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No objectives{statusFilter ? ` with status ${statusFilter}` : ""}</p>

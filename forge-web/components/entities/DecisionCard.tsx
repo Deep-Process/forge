@@ -6,6 +6,8 @@ interface DecisionCardProps {
   decision: Decision;
   slug: string;
   onStatusChange?: (id: string, status: string) => void;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; className: string }>> = {
@@ -23,11 +25,22 @@ const STATUS_ACTIONS: Record<string, Array<{ label: string; status: string; clas
   ],
 };
 
-export function DecisionCard({ decision, slug, onStatusChange }: DecisionCardProps) {
+export function DecisionCard({ decision, slug, onStatusChange, selected, onSelect }: DecisionCardProps) {
   const actions = STATUS_ACTIONS[decision.status] || [];
 
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+            onChange={() => {}}
+            className="mt-1 shrink-0 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+          />
+        )}
+        <div className="flex-1 min-w-0">
       <div className="flex items-start justify-between">
         <Link href={`/projects/${slug}/decisions/${decision.id}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -60,6 +73,8 @@ export function DecisionCard({ decision, slug, onStatusChange }: DecisionCardPro
           ))}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

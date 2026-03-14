@@ -6,11 +6,24 @@ interface ObjectiveCardProps {
   objective: Objective;
   slug: string;
   onEdit?: (objective: Objective) => void;
+  selected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
-export function ObjectiveCard({ objective, slug, onEdit }: ObjectiveCardProps) {
+export function ObjectiveCard({ objective, slug, onEdit, selected, onSelect }: ObjectiveCardProps) {
   return (
     <div className="rounded-lg border bg-white p-4 hover:border-forge-300 transition-colors">
+      <div className="flex items-start gap-3">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+            onChange={() => {}}
+            className="mt-1 shrink-0 rounded border-gray-300 text-forge-600 focus:ring-forge-500"
+          />
+        )}
+        <div className="flex-1 min-w-0">
       <div className="flex items-start justify-between mb-1">
         <Link href={`/projects/${slug}/objectives/${objective.id}`} className="flex items-center gap-2">
           <span className="text-xs text-gray-400">{objective.id}</span>
@@ -58,6 +71,8 @@ export function ObjectiveCard({ objective, slug, onEdit }: ObjectiveCardProps) {
           })}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

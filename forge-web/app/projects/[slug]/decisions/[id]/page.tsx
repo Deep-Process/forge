@@ -11,6 +11,8 @@ import {
   llm,
 } from "@/lib/api";
 import { Badge, statusVariant } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { EntityLink } from "@/components/shared/EntityLink";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
 import type { Decision, DecisionUpdate, DecisionStatus, Task, Idea, Guideline, ChatSession } from "@/lib/types";
@@ -67,6 +69,10 @@ export default function DecisionDetailPage() {
   const [editExplorationType, setEditExplorationType] = useState("");
   const [editOpenQuestions, setEditOpenQuestions] = useState<string[]>([]);
   const [editBlockers, setEditBlockers] = useState<string[]>([]);
+
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchDecision = useCallback(async () => {
     setLoading(true);
@@ -188,6 +194,19 @@ export default function DecisionDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!decision) return;
+    setDeleting(true);
+    try {
+      await decisionsApi.remove(slug, decision.id);
+      router.push(`/projects/${slug}/decisions`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <p className="text-sm text-gray-400">Loading decision...</p>;
   if (error && !decision) return <p className="text-sm text-red-600">{error}</p>;
   if (!decision) return <p className="text-sm text-gray-400">Decision not found</p>;
@@ -227,12 +246,10 @@ export default function DecisionDetailPage() {
             </div>
             <div className="flex items-center gap-3">
               {!editing && (
-                <button
-                  onClick={startEdit}
-                  className="px-3 py-1.5 text-xs font-medium text-forge-700 border border-forge-300 rounded hover:bg-forge-50"
-                >
-                  Edit
-                </button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={startEdit}>Edit</Button>
+                  <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>Delete</Button>
+                </div>
               )}
               <div className="text-xs text-gray-400 text-right">
                 <div>By: {decision.decided_by}</div>
@@ -616,6 +633,15 @@ export default function DecisionDetailPage() {
 
       {/* Context sidebar — visible in both read and edit mode */}
       <ContextSidebar slug={slug} decision={decision} />
+
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        title={`Delete ${decision.id}?`}
+        description="This action cannot be undone. The decision and all its data will be permanently removed."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
     </div>
   );
 }

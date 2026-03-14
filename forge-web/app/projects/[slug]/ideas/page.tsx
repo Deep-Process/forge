@@ -7,6 +7,9 @@ import { IdeaCard } from "@/components/entities/IdeaCard";
 import { StatusFilter } from "@/components/shared/StatusFilter";
 import { IdeaForm } from "@/components/forms/IdeaForm";
 import { useAIPage, useAIElement } from "@/lib/ai-context";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { ideas as ideasApi } from "@/lib/api";
 import type { Idea } from "@/lib/types";
 
 const STATUSES = ["DRAFT", "EXPLORING", "APPROVED", "REJECTED", "COMMITTED"];
@@ -21,6 +24,14 @@ export default function IdeasPage() {
   useEffect(() => {
     fetchEntities(slug, "ideas");
   }, [slug, fetchEntities]);
+
+  const { selectedIds, isSelected, toggle, deselectAll, count: selectionCount } = useMultiSelect();
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => ideasApi.remove(slug, id)));
+    fetchEntities(slug, "ideas");
+  };
 
   const ideas = slices.ideas.items as Idea[];
   const filtered = statusFilter
@@ -112,9 +123,10 @@ export default function IdeasPage() {
       </div>
       {slices.ideas.loading && <p className="text-sm text-gray-400">Loading...</p>}
       {slices.ideas.error && <p className="text-sm text-red-600 mb-2">{slices.ideas.error}</p>}
+      <BulkActionBar count={selectionCount} entityLabel="ideas" onDelete={handleBulkDelete} onDeselectAll={deselectAll} />
       <div className="space-y-3">
         {filtered.map((idea) => (
-          <IdeaCard key={idea.id} idea={idea} slug={slug} onEdit={(i) => { setEditingIdea(i); setFormOpen(true); }} />
+          <IdeaCard key={idea.id} idea={idea} slug={slug} onEdit={(i) => { setEditingIdea(i); setFormOpen(true); }} selected={isSelected(idea.id)} onSelect={() => toggle(idea.id)} />
         ))}
         {!slices.ideas.loading && filtered.length === 0 && (
           <p className="text-sm text-gray-400">No ideas{statusFilter ? ` with status ${statusFilter}` : ""}</p>
