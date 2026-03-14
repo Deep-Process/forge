@@ -21,27 +21,34 @@ If no project exists, create one:
 python -m core.pipeline init {slug} --goal "Project workspace"
 ```
 
-2. **Align** (medium alignment per `skills/deep-align/SKILL.md`):
+2. **MANDATORY: Read `skills/deep-align/SKILL.md` and apply its full procedure** (Steps 1-3: restate, find the walls, alignment contract). This is NOT optional — objectives set direction for everything downstream. A bad objective produces bad ideas, bad plans, bad tasks.
 
    a. **Restate** the user's objective: "You want to achieve X because Y."
       Get confirmation before proceeding.
 
-   b. **Ask 2-4 targeted questions** to define measurable key results:
+   b. **Have opinions. Push back.** Before asking questions, state your honest assessment of the objective:
+      - Is it too vague? Say so: "This is too broad — it could mean 5 different things. I'd narrow it to X."
+      - Is it unrealistic? Say so: "This is a 3-month project disguised as a week of work."
+      - Is it a bad idea? Say so: "I'd advise against this because X. Consider Y instead."
+      - Is it well-defined? Say so: "This is clear and well-scoped, I'd keep it as-is."
+      Don't be polite at the expense of clarity. The user explicitly wants honest pushback.
+
+   c. **Ask 2-4 targeted questions** (group in one message):
       - "How will you know this is achieved? What metric(s) change?"
       - "Where are you now on that metric? Where do you want to be?"
-      - "How much effort are you willing to invest? (days/weeks/months)"
+      - "What is explicitly NOT in scope?"
       - "What assumptions must hold for this to make sense?"
 
-      Only ask what you genuinely don't know. If the user gave metrics
-      in the title/description, don't re-ask.
+      Only ask what you genuinely don't know.
 
-   c. **Constraint-frame the description** — add 1-3 short constraints: what sources to use, what NOT to do, what to do when blocked. Keep it tight — one sentence per constraint, not a paragraph.
+   d. **Constraint-frame the description** — before saving, add 1-3 short constraints to the description:
+      - What sources/inputs to use (ONLY X)
+      - What NOT to do (don't assume, don't expand scope)
+      - What to do when blocked (report gap, don't guess)
 
-      **Push back on bad ideas.** If the objective is vague, unrealistic, or poorly scoped — say so directly. Don't just ask polite questions. Express your opinion: "This is too broad because X", "I'd cut Y because Z", "This will fail without W". Influence the user toward a better objective before locking it in.
+      Present the framed description to the user for confirmation.
 
-      Skip framing for objectives that are already specific.
-
-   d. If `--quick` — skip alignment, infer reasonable defaults, flag assumptions.
+   e. If `--quick` — skip alignment, infer reasonable defaults, flag assumptions.
 
 3. Check the contract:
 ```bash
