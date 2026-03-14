@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
-import { dispatchWsEvent, setLastEventTimestamp } from "@/stores/wsDispatcher";
+import { dispatchWsEvent, setLastEventTimestamp, fetchUnreadOnReconnect } from "@/stores/wsDispatcher";
 import { DebugToggle } from "@/components/debug/DebugToggle";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -70,6 +70,18 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
   // Register ProjectSidebar in the LeftPanel
   useLeftPanel(<ProjectSidebar slug={slug} />);
+
+  // Reconnect-fetch: when WS reconnects, fetch missed unread notifications (D-013)
+  const prevConnected = useRef(false);
+  useEffect(() => {
+    if (connected && !prevConnected.current && slug) {
+      // Skip initial connect (lastEventTime null = first connection)
+      if (lastEventTime !== null) {
+        fetchUnreadOnReconnect(slug);
+      }
+    }
+    prevConnected.current = connected;
+  }, [connected, slug, lastEventTime]);
 
   // Forward all WebSocket events to per-entity stores + count events + track timestamps
   useEffect(() => {

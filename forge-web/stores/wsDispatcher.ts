@@ -24,6 +24,8 @@ import { llm } from "@/lib/api";
 import { useToastStore } from "./toastStore";
 import { useActivityStore } from "./activityStore";
 import { useNotificationStore } from "./notificationStore";
+import { useNotificationEntityStore } from "./notificationEntityStore";
+import { notifications as notificationsApi } from "@/lib/api";
 
 /** All stores that handle WS events, in dispatch order. */
 const stores = [
@@ -39,6 +41,7 @@ const stores = [
   useGateStore,
   useResearchStore,
   useSkillStore,
+  useNotificationEntityStore,
 ] as const;
 
 /** Maps WS event prefixes to API entity paths for SWR revalidation. */
@@ -55,6 +58,7 @@ const EVENT_TO_ENTITY: Record<string, string> = {
   gate: "gates",
   research: "research",
   skill: "skills",
+  notification: "notifications",
 };
 
 /** Global entities use /{path} instead of /projects/{slug}/{path}. */
@@ -238,6 +242,21 @@ export function dispatchWsEvent(event: ForgeEvent): void {
     });
   }
 
+  // Notification created with critical/high priority → persistent popup
+  if (event.event === "notification.created") {
+    const payload = event.payload as Record<string, unknown>;
+    const priority = (payload.priority as string) ?? "normal";
+    if (priority === "critical" || priority === "high") {
+      useNotificationStore.getState().addDecision({
+        decisionId: (payload.notification_id ?? "") as string,
+        type: (payload.notification_type ?? "alert") as string,
+        issue: (payload.title ?? "") as string,
+        severity: priority,
+        project: event.project,
+      });
+    }
+  }
+
   // Decision closed → auto-resume any paused session waiting for this decision
   if (event.event === "decision.closed" || event.event === "decision.status_changed") {
     const payload = event.payload as Record<string, unknown>;
@@ -356,4 +375,21 @@ export function getLastEventTimestamp(): string | null {
 
 export function setLastEventTimestamp(ts: string): void {
   _lastEventTimestamp = ts;
+}
+
+/**
+ * Fetch unread notifications on WS reconnect (D-013 mitigation).
+ * Ensures zero missed notifications during connection gaps.
+ */
+export async function fetchUnreadOnReconnect(slug: string): Promise<void> {
+  try {
+    const res = await notificationsApi.list(slug, { status: "UNREAD" });
+    const items = res.notifications ?? [];
+    if (items.length > 0) {
+      // Merge into entity store
+      useNotificationEntityStore.getState().fetchAll(slug, { status: "UNREAD" });
+    }
+  } catch {
+    // Best-effort: don't crash on reconnect fetch
+  }
 }
