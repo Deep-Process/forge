@@ -28,6 +28,7 @@ export interface ChatConversation {
   estimatedCost: number;
   model: string;
   workflowState?: WorkflowState | null;
+  contextBudgetPct: number;
 }
 
 /** Summary for session list (no full messages). */
@@ -156,6 +157,7 @@ function getOrCreateConversation(
     totalTokensOut: 0,
     estimatedCost: 0,
     model: "",
+    contextBudgetPct: 0,
   };
 }
 
@@ -325,6 +327,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
               totalTokensOut: conv.totalTokensOut + response.total_output_tokens,
               model: response.model,
               workflowState: response.workflow_state ?? conv.workflowState,
+              contextBudgetPct: response.context_budget_pct ?? conv.contextBudgetPct,
             },
           },
         };

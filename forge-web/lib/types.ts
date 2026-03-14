@@ -1191,6 +1191,7 @@ export interface ChatSendResponse {
   total_input_tokens: number;
   total_output_tokens: number;
   stop_reason: string;
+  context_budget_pct: number;
   workflow_state?: WorkflowState | null;
 }
 

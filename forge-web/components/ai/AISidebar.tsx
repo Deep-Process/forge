@@ -9,6 +9,7 @@ import { useChatStore } from "@/stores/chatStore";
 import type { LLMConfig } from "@/lib/types";
 import LLMChat from "./LLMChat";
 import WorkflowProgress from "./WorkflowProgress";
+import TokenCounter from "./TokenCounter";
 import { useStreamDebug, subscribeToStreamEvents } from "@/lib/hooks/useStreamDebug";
 import { StreamView } from "./stream/StreamView";
 import useSWR from "swr";
@@ -714,6 +715,7 @@ export default function AISidebar() {
               pageContext={pageContextText}
               className="flex-1 min-h-0"
             />
+            <TokenCounter />
           </div>
         )}
 
