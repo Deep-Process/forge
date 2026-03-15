@@ -119,6 +119,7 @@ class ChatRequest(BaseModel):
     session_type: str | None = Field(default=None, description="Session type: chat, plan, execute, verify, compound")
     target_entity_type: str | None = Field(default=None, description="Entity type being worked on (objective, task, idea)")
     target_entity_id: str | None = Field(default=None, description="Target entity ID (e.g., O-001, T-003)")
+    additional_contexts: list[dict[str, str]] | None = Field(default=None, max_length=5, description="Extra entities to load context for: [{type, id}]")
 
 
 class ChatResponse(BaseModel):
@@ -389,6 +390,29 @@ async def chat(
     entity_context = context_payload.to_system_prompt()
     if entity_context:
         system_prompt += f"\n\n## Working Context\n\n{entity_context}"
+
+    # 2b. Additional entity contexts (user-pinned via Add Context button)
+    if body.additional_contexts:
+        extra_parts: list[str] = []
+        for ac in body.additional_contexts[:5]:
+            ac_type = ac.get("type", "")
+            ac_id = ac.get("id", "")
+            if not ac_type or not ac_id:
+                continue
+            try:
+                ac_payload = await resolver.resolve(
+                    context_type=ac_type,
+                    context_id=ac_id,
+                    project=body.project,
+                    scopes=session.scopes if session.scopes else body.scopes,
+                )
+                ac_text = ac_payload.to_system_prompt()
+                if ac_text:
+                    extra_parts.append(f"### {ac_type.title()} {ac_id}\n\n{ac_text}")
+            except Exception as e:
+                logger.warning("Failed to resolve additional context %s %s: %s", ac_type, ac_id, e)
+        if extra_parts:
+            system_prompt += "\n\n## Additional Context\n\n" + "\n\n".join(extra_parts)
 
     # 3. Page context from UI annotations (what user sees on screen)
     if body.page_context:

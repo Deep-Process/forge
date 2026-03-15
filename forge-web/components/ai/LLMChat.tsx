@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chatStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import { parseSlashCommand } from "@/lib/ai-context/slashCommandRouter";
 import Message from "./Message";
 import ChatInput from "./ChatInput";
@@ -103,7 +104,13 @@ export default function LLMChat({
         }
       }
 
-      sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId, skillNames);
+      // Gather additional contexts from sidebar store
+      const ctxs = useSidebarStore.getState().additionalContexts;
+      const additionalContexts = ctxs.length > 0
+        ? ctxs.map((c) => ({ type: c.type, id: c.id }))
+        : undefined;
+
+      sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId, skillNames, additionalContexts);
     },
     [contextType, contextId, slug, sendMessage, clearError, scopes, disabledCapabilities, pageContext, targetEntityType, targetEntityId],
   );

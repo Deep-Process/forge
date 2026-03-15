@@ -12,6 +12,7 @@ import type { LLMConfig } from "@/lib/types";
 import LLMChat from "./LLMChat";
 import WorkflowProgress from "./WorkflowProgress";
 import TokenCounter from "./TokenCounter";
+import { AddContextButton } from "./AddContextButton";
 import { useStreamDebug, subscribeToStreamEvents } from "@/lib/hooks/useStreamDebug";
 import { StreamView } from "./stream/StreamView";
 import useSWR from "swr";
@@ -660,6 +661,40 @@ function DebugTab({
 }
 
 // ---------------------------------------------------------------------------
+// Additional context chips
+// ---------------------------------------------------------------------------
+
+function AdditionalContextChips({ slug }: { slug: string }) {
+  const additionalContexts = useSidebarStore((s) => s.additionalContexts);
+  const removeContext = useSidebarStore((s) => s.removeContext);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 border-b">
+      {additionalContexts.map((ctx, i) => (
+        <span
+          key={`${ctx.type}-${ctx.id}`}
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+          style={{ backgroundColor: ENTITY_TYPE_COLORS[ctx.type] ?? "#94A3B8" }}
+        >
+          <span className="uppercase text-[8px] opacity-80">{ctx.type.slice(0, 3)}</span>
+          <span className="truncate max-w-[80px]" title={`${ctx.id}: ${ctx.label}`}>{ctx.id}</span>
+          <button
+            onClick={() => removeContext(i)}
+            className="ml-0.5 rounded-full hover:bg-white/20 transition-colors"
+            title={`Remove ${ctx.id}`}
+          >
+            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
+      ))}
+      <AddContextButton slug={slug} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main AISidebar
 // ---------------------------------------------------------------------------
 
@@ -843,6 +878,9 @@ export default function AISidebar() {
           </button>
         </div>
       )}
+
+      {/* Additional context chips + add button */}
+      <AdditionalContextChips slug={projectSlug ?? ""} />
 
       {/* Scope chips */}
       <ScopeChips scopes={scopes} onRemove={removeScope} />

@@ -24,6 +24,14 @@ export interface TargetEntity {
   label: string;  // Display name
 }
 
+export interface AdditionalContext {
+  type: string;   // entity type
+  id: string;     // entity ID
+  label: string;  // display name
+}
+
+export const MAX_ADDITIONAL_CONTEXTS = 5;
+
 interface SidebarState {
   /** Extra scopes added by user (beyond auto-detected). */
   addedScopes: string[];
@@ -41,6 +49,8 @@ interface SidebarState {
   targetEntity: TargetEntity | null;
   /** Default scopes from entity_type_defaults config (auto-applied when entity bound). */
   entityDefaultScopes: string[];
+  /** Additional entity contexts injected into system prompt (max 5). */
+  additionalContexts: AdditionalContext[];
   /** Whether localStorage has been read. */
   _hydrated: boolean;
 }
@@ -60,6 +70,9 @@ interface SidebarActions {
   setTargetEntity: (entity: TargetEntity | null) => void;
   clearTargetEntity: () => void;
   setEntityDefaultScopes: (scopes: string[]) => void;
+  addContext: (entity: AdditionalContext) => void;
+  removeContext: (index: number) => void;
+  clearContexts: () => void;
 }
 
 function persist(state: SidebarState) {
@@ -89,6 +102,7 @@ export const useSidebarStore = create<SidebarState & SidebarActions>((set, get) 
   attachedSkills: [],
   targetEntity: null,
   entityDefaultScopes: [],
+  additionalContexts: [],
   _hydrated: false,
 
   hydrate: () => {
@@ -220,5 +234,23 @@ export const useSidebarStore = create<SidebarState & SidebarActions>((set, get) 
 
   setEntityDefaultScopes: (scopes) => {
     set({ entityDefaultScopes: scopes });
+  },
+
+  addContext: (entity) => {
+    set((s) => {
+      if (s.additionalContexts.length >= MAX_ADDITIONAL_CONTEXTS) return s;
+      if (s.additionalContexts.some((c) => c.type === entity.type && c.id === entity.id)) return s;
+      return { additionalContexts: [...s.additionalContexts, entity] };
+    });
+  },
+
+  removeContext: (index) => {
+    set((s) => ({
+      additionalContexts: s.additionalContexts.filter((_, i) => i !== index),
+    }));
+  },
+
+  clearContexts: () => {
+    set({ additionalContexts: [] });
   },
 }));

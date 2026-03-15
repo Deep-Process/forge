@@ -1170,6 +1170,7 @@ export interface ChatSendRequest {
   target_entity_type?: string;
   target_entity_id?: string;
   skill_names?: string[];
+  additional_contexts?: { type: string; id: string }[];
 }
 
 export interface WorkflowStep {
