@@ -66,6 +66,15 @@ python -m core.ideas show {project} {origin_id}
 - Open and read every file mentioned in the instruction
 - Understand the existing code patterns before changing anything
 
+For complex feature tasks, optionally load domain execution guidance:
+
+```bash
+python -m core.domain_modules for-scopes --scopes "{task.scopes}" --phase execution --task-type {task.type}
+```
+
+Follow domain-specific checklist and produce micro-review after completion.
+Bug/chore tasks are auto-skipped by the complexity gate.
+
 > **Advanced**: `pipeline next` and `pipeline context` are still available as separate commands if needed.
 
 ---

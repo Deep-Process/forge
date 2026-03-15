@@ -224,6 +224,19 @@ python -m core.knowledge contract add                              Show add cont
 - Tasks and ideas can reference knowledge via `knowledge_ids: ["K-001"]`
 - Lessons can be promoted to knowledge via `lessons promote-knowledge`
 
+### Domain Modules (domain-specific guidance)
+```
+python -m core.domain_modules list                                               Available modules + scopes
+python -m core.domain_modules get {module} --phase {phase}                       Specific phase from module
+python -m core.domain_modules for-scopes --scopes "a,b" --phase {phase} [--task-type {type}]  Matching modules for scopes
+python -m core.domain_modules deps {module1} {module2}                           Cross-module dependencies
+```
+
+Available modules: `ux` (frontend/ui/components), `backend` (api/server), `data` (database/schema/migration), `process` (workflow/state-machine).
+Phases: `vision` (during /discover), `research` (during /discover), `planning` (during /plan), `execution` (during /next).
+Complexity gate: bug/chore tasks auto-skipped via `--task-type`.
+Phase content is ~35 lines per module (not full 175-line file).
+
 ### Research (structured analysis output — R-NNN)
 ```
 python -m core.research add {project} --data '[...]'                      Add research objects

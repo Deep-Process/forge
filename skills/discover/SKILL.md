@@ -35,6 +35,7 @@ description: "Discovery phase — explore options, assess feasibility, analyze r
 | R14 | `python -m core.lessons contract` | Contract for recording lessons | Step 6 — before recording |
 | R15 | `python -m core.research contract add` | Contract for recording research | Step 5 — before recording |
 | R16 | `python -m core.research contract update` | Contract for updating research | Step 6 — before updating |
+| R17 | `python -m core.domain_modules for-scopes --scopes "{s}" --phase vision` | Domain-specific questions | Step 2.5 — after alignment |
 
 ## Write Commands
 
@@ -114,6 +115,20 @@ Group questions in one message (1-3 questions max). If exploring a specific idea
 (`/discover I-001`), the idea's description provides most context — ask fewer questions.
 
 **c. If user says "just explore"** — proceed but focus on the broadest applicable scope.
+
+---
+
+### Step 2.5 — Load Domain Questions
+
+After alignment, load domain-specific vision questions:
+
+```bash
+python -m core.domain_modules for-scopes --scopes "{scopes}" --phase vision
+```
+
+Ask domain-specific questions from the output alongside generic alignment questions.
+Cap at 6-8 questions total across generic + domain-specific. If entity has no scopes
+yet, determine them from the description (see scope discovery in `skills/domain-modules/SKILL.md`).
 
 ---
 

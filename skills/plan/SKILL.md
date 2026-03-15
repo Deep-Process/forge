@@ -30,6 +30,7 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 | R9 | `python -m core.knowledge read {project}` | Available knowledge objects | Step 2 — for task knowledge assignment |
 | R10 | `python -m core.guidelines scopes {project}` | Available guideline scopes | Step 2 — for task scope assignment |
 | R11 | `python -m core.decisions read {project} --type risk` | Active risk decisions | Step 6 — inform task structure and AC |
+| R12 | `python -m core.domain_modules for-scopes --scopes "{s}" --phase planning` | Domain decomposition rules | Step 4.5 — if Standard/Complex |
 
 ## Write Commands
 
@@ -257,6 +258,23 @@ Estimated tasks: N
 ```
 
 Ask user to confirm before proceeding.
+
+---
+
+### Step 4.5 — Load Domain Guidance (Standard/Complex only)
+
+If the plan involves specific technical domains (not Quick track), load domain-specific
+decomposition rules before generating tasks:
+
+```bash
+python -m core.domain_modules for-scopes --scopes "{scopes}" --phase planning
+```
+
+Apply the domain module's decomposition strategy, AC format, and exclusion patterns
+when generating tasks in Step 6. If no scopes are known yet, determine them from the
+goal description (see scope discovery in `skills/domain-modules/SKILL.md`).
+
+Skip for Quick track or when no scopes match any domain module.
 
 ---
 
