@@ -348,6 +348,15 @@ When adding tasks, each task supports:
 - `origin` — where this task came from (idea ID like `I-001`, or free text)
 - `knowledge_ids` — list of Knowledge IDs (K-001, etc.) that provide context for this task. Loaded by `pipeline context`.
 - `test_requirements` — dict with `unit`, `integration`, `e2e` booleans indicating required test types.
+- `alignment` — dict with `{goal, boundaries: {must, must_not, not_in_scope}, success}` — persisted alignment contract from planning. Displayed in `pipeline context` and `print_task_detail`. Derive AC from `alignment.success`.
+
+### Plan Validation
+
+At `approve-plan`, the following gates apply:
+- **AC hard gate**: feature/bug tasks MUST have `acceptance_criteria`. Chore/investigation tasks are exempt.
+- **Reference warnings** (advisory): invalid `origin` (I-/O- not found), unknown `scopes`, missing `knowledge_ids` are reported.
+- **AC reasoning validation** (advisory): at `complete`, `--ac-reasoning` is checked for per-criterion coverage and PASS/FAIL verdicts.
+- **KR reminder**: after `complete`, if the task traces to an objective, KR progress is displayed.
 
 ### Temporary IDs (concurrent-safe planning)
 

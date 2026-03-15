@@ -143,13 +143,16 @@ If deep-verify finds issues:
 
 **c. Acceptance Criteria checklist:**
 
-If the task has `acceptance_criteria`, go through each criterion explicitly:
+If the task has `acceptance_criteria`, go through each criterion explicitly.
+
+If the task also has an `alignment` contract, first verify that the AC collectively satisfy the alignment's `success` criteria. If not, note the gap and address it before proceeding.
 
 ```
 AC Verification for {task_id}:
 1. [criterion text] — [PASS/FAIL: brief evidence]
 2. [criterion text] — [PASS/FAIL: brief evidence]
 ...
+Alignment check: [success criteria] — [SATISFIED/GAP: explanation]
 ```
 
 All criteria must PASS before proceeding. If any criterion FAILS:
@@ -184,10 +187,11 @@ git add -A && git commit -m "descriptive message"
 ### Step 6 — Complete
 
 ```bash
-python -m core.pipeline complete {project} {task_id} --reasoning "What was done and why" --ac-reasoning "AC verification: 1. [criterion]: met because [evidence]. 2. ..."
+python -m core.pipeline complete {project} {task_id} --reasoning "What was done and why" --ac-reasoning "AC 1: [criterion] — PASS: [evidence]. AC 2: [criterion] — PASS: [evidence]. ..."
 ```
 
 If the task has acceptance criteria, `--ac-reasoning` is required (from Step 4c).
+Use the structured format `AC N: [criterion] — PASS|FAIL: [evidence]` — the pipeline validates that each criterion is addressed.
 
 This auto-records any unrecorded git changes (committed + uncommitted since task start).
 

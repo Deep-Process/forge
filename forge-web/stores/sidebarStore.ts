@@ -51,6 +51,10 @@ interface SidebarState {
   entityDefaultScopes: string[];
   /** Additional entity contexts injected into system prompt (max 5). */
   additionalContexts: AdditionalContext[];
+  /** Skill names pending user pick (>1 skills for entity type). null = no pick needed. */
+  pendingSkillPick: string[] | null;
+  /** When true, include all entity skills in next message and let LLM choose. */
+  aiChooseSkill: boolean;
   /** Whether localStorage has been read. */
   _hydrated: boolean;
 }

@@ -37,6 +37,11 @@ from pipeline import (
     cmd_complete_subtask,
     _has_conflict,
     _blocked_by_open_decisions,
+    _build_task_entry,
+    _warn_ac_quality,
+    _validate_plan_references,
+    _validate_ac_reasoning,
+    _print_kr_reminder,
 )
 from contracts import validate_contract, atomic_write_json
 from conftest import make_task
@@ -651,8 +656,10 @@ class TestDraftPlan:
                 "source_idea_id": None,
                 "created": "2025-01-01T00:00:00Z",
                 "tasks": [
-                    {"id": "T-001", "name": "first"},
-                    {"id": "T-002", "name": "second", "depends_on": ["T-001"]},
+                    {"id": "T-001", "name": "first",
+                     "acceptance_criteria": ["first task done"]},
+                    {"id": "T-002", "name": "second", "depends_on": ["T-001"],
+                     "acceptance_criteria": ["second task done"]},
                 ],
             },
         }
@@ -806,3 +813,202 @@ class TestSubtasks:
         s1 = parent["subtasks"][0]
         assert s1["status"] == "DONE"
         assert s1["completed_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Alignment contract persistence
+# ---------------------------------------------------------------------------
+
+class TestAlignmentField:
+    """Tests for alignment contract field on tasks."""
+
+    def test_alignment_field_accepted_in_contract(self):
+        """Alignment dict passes contract validation."""
+        data = [{"id": "T-001", "name": "x", "alignment": {
+            "goal": "Reduce API latency",
+            "boundaries": {"must": ["use Redis"], "must_not": ["change DB schema"]},
+            "success": "p95 < 200ms"
+        }}]
+        errors = validate_contract(CONTRACTS["add-tasks"], data)
+        assert errors == []
+
+    def test_alignment_wrong_type_rejected(self):
+        """Alignment must be a dict, not a string."""
+        data = [{"id": "T-001", "name": "x", "alignment": "not a dict"}]
+        errors = validate_contract(CONTRACTS["add-tasks"], data)
+        assert any("alignment" in e.lower() or "dict" in e for e in errors)
+
+    def test_build_task_entry_preserves_alignment(self):
+        """_build_task_entry passes through alignment field."""
+        alignment = {"goal": "test", "success": "it works"}
+        entry = _build_task_entry({"id": "T-001", "name": "x", "alignment": alignment})
+        assert entry["alignment"] == alignment
+
+    def test_build_task_entry_none_without_alignment(self):
+        """_build_task_entry sets alignment to None when not provided."""
+        entry = _build_task_entry({"id": "T-001", "name": "x"})
+        assert entry["alignment"] is None
+
+
+# ---------------------------------------------------------------------------
+# AC hard gate (feature/bug without AC)
+# ---------------------------------------------------------------------------
+
+class TestACHardGate:
+    """Tests for feature/bug tasks requiring acceptance criteria."""
+
+    def test_feature_without_ac_returns_error(self):
+        """_warn_ac_quality returns True for feature without AC."""
+        tasks = [{"id": "T-001", "name": "x", "type": "feature"}]
+        assert _warn_ac_quality(tasks) is True
+
+    def test_bug_without_ac_returns_error(self):
+        """_warn_ac_quality returns True for bug without AC."""
+        tasks = [{"id": "T-001", "name": "x", "type": "bug"}]
+        assert _warn_ac_quality(tasks) is True
+
+    def test_chore_without_ac_ok(self):
+        """_warn_ac_quality returns False for chore without AC."""
+        tasks = [{"id": "T-001", "name": "x", "type": "chore"}]
+        assert _warn_ac_quality(tasks) is False
+
+    def test_investigation_without_ac_ok(self):
+        """_warn_ac_quality returns False for investigation without AC."""
+        tasks = [{"id": "T-001", "name": "x", "type": "investigation"}]
+        assert _warn_ac_quality(tasks) is False
+
+    def test_feature_with_ac_ok(self):
+        """_warn_ac_quality returns False for feature with AC."""
+        tasks = [{"id": "T-001", "name": "x", "type": "feature",
+                  "acceptance_criteria": ["endpoint returns 200"]}]
+        assert _warn_ac_quality(tasks) is False
+
+    def test_vague_ac_warns_but_no_error(self):
+        """Vague AC triggers warning but not error (returns False)."""
+        tasks = [{"id": "T-001", "name": "x", "type": "feature",
+                  "acceptance_criteria": ["error handling works correctly"]}]
+        assert _warn_ac_quality(tasks) is False
+
+    def test_approve_plan_rejects_feature_without_ac(self, forge_env, project_name):
+        """approve-plan blocks when feature task has no acceptance criteria."""
+        tracker = {
+            "project": project_name,
+            "goal": "Test",
+            "created": "2025-01-01T00:00:00Z",
+            "updated": "2025-01-01T00:00:00Z",
+            "tasks": [],
+            "draft_plan": {
+                "source_idea_id": None,
+                "created": "2025-01-01T00:00:00Z",
+                "tasks": [{"id": "T-001", "name": "no-ac-feature", "type": "feature"}],
+            },
+        }
+        save_tracker(project_name, tracker)
+
+        args = SimpleNamespace(project=project_name)
+        with pytest.raises(SystemExit):
+            cmd_approve_plan(args)
+
+    def test_approve_plan_accepts_chore_without_ac(self, forge_env, project_name):
+        """approve-plan allows chore task without AC."""
+        tracker = {
+            "project": project_name,
+            "goal": "Test",
+            "created": "2025-01-01T00:00:00Z",
+            "updated": "2025-01-01T00:00:00Z",
+            "tasks": [],
+            "draft_plan": {
+                "source_idea_id": None,
+                "created": "2025-01-01T00:00:00Z",
+                "tasks": [{"id": "T-001", "name": "setup-chore", "type": "chore"}],
+            },
+        }
+        save_tracker(project_name, tracker)
+
+        args = SimpleNamespace(project=project_name)
+        cmd_approve_plan(args)
+
+        reloaded = load_tracker(project_name)
+        assert len(reloaded["tasks"]) == 1
+        assert reloaded["tasks"][0]["status"] == "TODO"
+
+
+# ---------------------------------------------------------------------------
+# Reference validation
+# ---------------------------------------------------------------------------
+
+class TestReferenceValidation:
+    """Tests for _validate_plan_references — origin, scope, knowledge checks."""
+
+    def test_valid_references_no_warnings(self, forge_env, project_name):
+        """No warnings when all references are valid."""
+        entries = [{"id": "T-001", "origin": "", "scopes": [], "knowledge_ids": []}]
+        warnings = _validate_plan_references(entries, project_name)
+        assert warnings == []
+
+    def test_invalid_idea_origin(self, forge_env, project_name):
+        """Warns when origin references nonexistent idea."""
+        entries = [{"id": "T-001", "origin": "I-999", "scopes": [], "knowledge_ids": []}]
+        warnings = _validate_plan_references(entries, project_name)
+        assert any("I-999" in w and "idea not found" in w for w in warnings)
+
+    def test_invalid_objective_origin(self, forge_env, project_name):
+        """Warns when origin references nonexistent objective."""
+        entries = [{"id": "T-001", "origin": "O-999", "scopes": [], "knowledge_ids": []}]
+        warnings = _validate_plan_references(entries, project_name)
+        assert any("O-999" in w and "objective not found" in w for w in warnings)
+
+    def test_invalid_knowledge_id(self, forge_env, project_name):
+        """Warns when knowledge_ids references nonexistent knowledge."""
+        entries = [{"id": "T-001", "origin": "", "scopes": [], "knowledge_ids": ["K-999"]}]
+        warnings = _validate_plan_references(entries, project_name)
+        assert any("K-999" in w for w in warnings)
+
+    def test_free_text_origin_no_warning(self, forge_env, project_name):
+        """Free-text origin (not I-/O-) produces no warning."""
+        entries = [{"id": "T-001", "origin": "manual request", "scopes": [], "knowledge_ids": []}]
+        warnings = _validate_plan_references(entries, project_name)
+        assert warnings == []
+
+
+# ---------------------------------------------------------------------------
+# AC reasoning validation
+# ---------------------------------------------------------------------------
+
+class TestACReasoningValidation:
+    """Tests for _validate_ac_reasoning — structured reasoning checks."""
+
+    def test_good_reasoning_no_warnings(self):
+        """Well-structured reasoning produces no warnings."""
+        ac = ["endpoint returns 200", "error returns 400"]
+        reasoning = "AC 1: endpoint returns 200 — PASS: tested with curl. AC 2: error returns 400 — PASS: tested with invalid input."
+        warnings = _validate_ac_reasoning(reasoning, ac)
+        assert warnings == []
+
+    def test_missing_criterion_warns(self):
+        """Warns when a criterion is not addressed."""
+        ac = ["endpoint returns 200", "error returns 400", "logs written"]
+        reasoning = "1. endpoint returns 200 — PASS. 2. error returns 400 — PASS."
+        warnings = _validate_ac_reasoning(reasoning, ac)
+        assert any("AC 3" in w for w in warnings)
+
+    def test_no_verdict_warns(self):
+        """Warns when no PASS/met keyword found."""
+        ac = ["endpoint returns 200"]
+        reasoning = "1. endpoint returns 200 — looks good"
+        warnings = _validate_ac_reasoning(reasoning, ac)
+        assert any("PASS" in w or "verdict" in w for w in warnings)
+
+    def test_text_fragment_matching(self):
+        """Recognizes criterion by text fragment even without numbered format."""
+        ac = ["endpoint returns 200 for valid requests"]
+        reasoning = "endpoint returns 200 for valid requests — confirmed via integration test, PASS"
+        warnings = _validate_ac_reasoning(reasoning, ac)
+        assert warnings == []
+
+    def test_structured_ac_handled(self):
+        """Handles structured AC format (dict with text key)."""
+        ac = [{"text": "response time under 200ms", "from_template": "AC-001"}]
+        reasoning = "AC 1: response time under 200ms — PASS: k6 shows p95=180ms"
+        warnings = _validate_ac_reasoning(reasoning, ac)
+        assert warnings == []

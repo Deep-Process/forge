@@ -187,7 +187,7 @@ CONTRACTS = {
         "optional": ["description", "instruction", "depends_on", "parallel",
                       "conflicts_with", "skill", "acceptance_criteria",
                       "type", "blocked_by_decisions", "scopes", "origin",
-                      "knowledge_ids", "test_requirements"],
+                      "knowledge_ids", "test_requirements", "alignment"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -200,6 +200,7 @@ CONTRACTS = {
             "scopes": list,
             "knowledge_ids": list,
             "test_requirements": dict,
+            "alignment": dict,
         },
         "invariant_texts": [
             "id: task identifier — use temporary IDs (_1, _2, ...) for auto-assignment, or explicit T-NNN. Temp IDs are remapped to T-NNN at materialize time.",
@@ -216,6 +217,7 @@ CONTRACTS = {
             "origin: source of this task — idea ID (I-001) or free text tracing where this task came from",
             "knowledge_ids: list of Knowledge IDs (K-001, etc.) linked to this task for context assembly",
             "test_requirements: {unit: bool, integration: bool, e2e: bool, description: str} — what testing is needed",
+            "alignment: dict with {goal, boundaries: {must, must_not, not_in_scope}, success} — persisted alignment contract from planning",
             "Batch format: --data '{\"new_tasks\": [...], \"update_tasks\": [...]}' — atomically adds new tasks and updates existing tasks. update_tasks can reference temp IDs from new_tasks in depends_on/conflicts_with.",
         ],
         "example": [
@@ -255,7 +257,7 @@ CONTRACTS = {
         "optional": ["name", "description", "instruction", "depends_on",
                       "conflicts_with", "skill", "acceptance_criteria",
                       "type", "blocked_by_decisions", "scopes", "origin",
-                      "knowledge_ids", "test_requirements"],
+                      "knowledge_ids", "test_requirements", "alignment"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -267,6 +269,7 @@ CONTRACTS = {
             "scopes": list,
             "knowledge_ids": list,
             "test_requirements": dict,
+            "alignment": dict,
         },
         "invariant_texts": [
             "id: existing task ID to update",
@@ -442,6 +445,7 @@ def _build_task_entry(t: dict, source_idea_id: str = None, source_objective_id: 
         "scopes": t.get("scopes", []),
         "origin": t.get("origin", source_idea_id or source_objective_id or ""),
         "knowledge_ids": t.get("knowledge_ids", []),
+        "alignment": t.get("alignment"),
         "status": "TODO",
         "started_at": None,
         "completed_at": None,
@@ -1071,6 +1075,14 @@ def cmd_complete(args):
                       f"or --force to bypass.", file=sys.stderr)
                 sys.exit(1)
             task["ac_reasoning"] = ac_reasoning
+            # Validate AC reasoning quality (advisory)
+            ac_warnings = _validate_ac_reasoning(ac_reasoning, ac)
+            if ac_warnings:
+                print(f"**AC REASONING WARNINGS** ({len(ac_warnings)}):", file=sys.stderr)
+                for w in ac_warnings:
+                    print(w, file=sys.stderr)
+                print("Tip: address each criterion with 'AC N: [criterion] — PASS|FAIL: [evidence]'",
+                      file=sys.stderr)
 
     # Git workflow: push + PR + cleanup
     git_result = _apply_git_workflow_complete(args.project, tracker, task)
@@ -1084,6 +1096,42 @@ def cmd_complete(args):
     done_count = sum(1 for t in tracker["tasks"] if t["status"] in ("DONE", "SKIPPED"))
     total = len(tracker["tasks"])
     print(f"Task {args.task_id} ({task['name']}): -> DONE  [{done_count}/{total}]")
+
+    # KR progress reminder: trace task → origin → objective
+    _print_kr_reminder(args.project, task)
+
+
+def _print_kr_reminder(project: str, task: dict):
+    """Print KR progress reminder after task completion."""
+    origin = task.get("origin", "")
+    _s = _get_storage()
+    obj_ids = set()
+
+    if origin.startswith("O-"):
+        obj_ids.add(origin)
+    elif origin.startswith("I-"):
+        if _s.exists(project, 'ideas'):
+            ideas_data = _s.load_data(project, 'ideas')
+            for idea in ideas_data.get("ideas", []):
+                if idea["id"] == origin:
+                    obj_ids = {kr.split("/")[0] for kr in idea.get("advances_key_results", []) if "/" in kr}
+                    break
+
+    if not obj_ids or not _s.exists(project, 'objectives'):
+        return
+
+    obj_data = _s.load_data(project, 'objectives')
+    for obj in obj_data.get("objectives", []):
+        if obj["id"] in obj_ids and obj.get("status") == "ACTIVE":
+            print(f"\n  Objective {obj['id']}: {obj['title']}")
+            for kr in obj.get("key_results", []):
+                target = kr.get("target")
+                if target is not None:
+                    baseline = kr.get("baseline", 0)
+                    current = kr.get("current", baseline)
+                    pct = _objective_kr_pct(baseline, target, current)
+                    print(f"    {kr['id']}: {current}/{target} ({pct}%)")
+            print(f"  Consider updating KR progress: /objectives {obj['id']} update")
 
 
 def cmd_fail(args):
@@ -1621,6 +1669,22 @@ def print_task_detail(task: dict):
     if k_ids:
         print(f"**Knowledge**: {', '.join(k_ids)}")
 
+    alignment = task.get("alignment")
+    if alignment:
+        print(f"")
+        print(f"**Alignment Contract**:")
+        if alignment.get("goal"):
+            print(f"  Goal: {alignment['goal']}")
+        bounds = alignment.get("boundaries", {})
+        if bounds.get("must"):
+            for m in bounds["must"]:
+                print(f"  Must: {m}")
+        if bounds.get("must_not"):
+            for m in bounds["must_not"]:
+                print(f"  Must not: {m}")
+        if alignment.get("success"):
+            print(f"  Success: {alignment['success']}")
+
     test_req = task.get("test_requirements")
     if test_req:
         parts = []
@@ -1699,6 +1763,30 @@ def cmd_context(args):
     if task.get("instruction"):
         print(f"**Instruction**: {task['instruction']}")
     print()
+
+    # Alignment contract (persisted from planning)
+    alignment = task.get("alignment")
+    if alignment:
+        print("### Alignment Contract")
+        print()
+        if alignment.get("goal"):
+            print(f"**Goal**: {alignment['goal']}")
+        bounds = alignment.get("boundaries", {})
+        if bounds.get("must"):
+            print("**Must**:")
+            for m in bounds["must"]:
+                print(f"  - {m}")
+        if bounds.get("must_not"):
+            print("**Must not**:")
+            for m in bounds["must_not"]:
+                print(f"  - {m}")
+        if bounds.get("not_in_scope"):
+            print("**Not in scope**:")
+            for m in bounds["not_in_scope"]:
+                print(f"  - {m}")
+        if alignment.get("success"):
+            print(f"**Success criteria**: {alignment['success']}")
+        print()
 
     # Dependency context
     deps = task.get("depends_on", [])
@@ -2060,6 +2148,84 @@ def cmd_config(args):
             print(f"  {k}: {v}")
 
 
+# -- Plan Validation --
+
+
+def _validate_plan_references(entries: list, project: str) -> list:
+    """Validate origin, scopes, knowledge_ids references. Returns list of warning strings."""
+    warnings = []
+    _s = _get_storage()
+
+    # Collect valid IDs for batch checking
+    valid_idea_ids = set()
+    valid_obj_ids = set()
+    valid_k_ids = set()
+    valid_scopes = set()
+
+    if _s.exists(project, 'ideas'):
+        ideas = _s.load_data(project, 'ideas').get("ideas", [])
+        valid_idea_ids = {i["id"] for i in ideas}
+    if _s.exists(project, 'objectives'):
+        objs = _s.load_data(project, 'objectives').get("objectives", [])
+        valid_obj_ids = {o["id"] for o in objs}
+    if _s.exists(project, 'knowledge'):
+        k_data = _s.load_data(project, 'knowledge').get("knowledge", [])
+        valid_k_ids = {k["id"] for k in k_data if k.get("status") == "ACTIVE"}
+    if _s.exists(project, 'guidelines'):
+        g_data = _s.load_data(project, 'guidelines').get("guidelines", [])
+        valid_scopes = {g["scope"] for g in g_data if g.get("scope") and g.get("status") == "ACTIVE"}
+        valid_scopes.add("general")
+
+    for t in entries:
+        tid = t.get("id", "?")
+
+        # Origin validation
+        origin = t.get("origin", "")
+        if origin:
+            if origin.startswith("I-") and origin not in valid_idea_ids:
+                warnings.append(f"  {tid}: origin '{origin}' — idea not found")
+            elif origin.startswith("O-") and origin not in valid_obj_ids:
+                warnings.append(f"  {tid}: origin '{origin}' — objective not found")
+
+        # Scope validation (only warn if guidelines exist for the project)
+        for scope in t.get("scopes", []):
+            if valid_scopes and scope != "general" and scope not in valid_scopes:
+                warnings.append(f"  {tid}: scope '{scope}' — no guidelines with this scope")
+
+        # Knowledge validation
+        for kid in t.get("knowledge_ids", []):
+            if kid not in valid_k_ids:
+                warnings.append(f"  {tid}: knowledge '{kid}' — not found or not ACTIVE")
+
+    return warnings
+
+
+def _validate_ac_reasoning(ac_reasoning: str, ac_list: list) -> list:
+    """Validate that AC reasoning addresses each criterion. Returns list of warning strings."""
+    warnings = []
+    reasoning_lower = ac_reasoning.lower()
+
+    # Check that reasoning mentions each AC (by number or text fragment)
+    for i, criterion in enumerate(ac_list, 1):
+        text = criterion if isinstance(criterion, str) else criterion.get("text", "")
+        # Look for "AC-{i}:" or "AC{i}:" or "{i}." or "{i}:" patterns
+        markers = [f"ac-{i}:", f"ac{i}:", f"ac {i}:", f"{i}.", f"{i}:"]
+        # Also check if a significant fragment of the AC text appears
+        text_fragment = text[:30].lower().strip()
+
+        found = any(m in reasoning_lower for m in markers) or (
+            len(text_fragment) > 10 and text_fragment in reasoning_lower
+        )
+        if not found:
+            warnings.append(f"  AC {i} not addressed: \"{text[:60]}\"")
+
+    # Check for PASS/FAIL keywords
+    if "pass" not in reasoning_lower and "met" not in reasoning_lower:
+        warnings.append("  No PASS/met verdict found in reasoning")
+
+    return warnings
+
+
 # -- AC Quality --
 
 _VAGUE_AC_WORDS = {"handle", "handles", "ensure", "ensures", "properly", "robust",
@@ -2067,9 +2233,13 @@ _VAGUE_AC_WORDS = {"handle", "handles", "ensure", "ensures", "properly", "robust
                    "should work", "as expected", "as needed"}
 
 
-def _warn_ac_quality(tasks: list):
-    """Print warnings for missing or vague acceptance criteria (non-blocking)."""
+def _warn_ac_quality(tasks: list) -> bool:
+    """Print warnings for missing or vague acceptance criteria.
+
+    Returns True if there are BLOCKING issues (feature/bug without AC).
+    """
     warnings = []
+    errors = []
     for t in tasks:
         tid = t.get("id", "?")
         ttype = t.get("type", "feature")
@@ -2079,7 +2249,7 @@ def _warn_ac_quality(tasks: list):
             continue
 
         if not ac:
-            warnings.append(f"  {tid} ({t.get('name', '?')}): no acceptance criteria")
+            errors.append(f"  {tid} ({t.get('name', '?')}): feature/bug task has no acceptance criteria")
             continue
 
         for criterion in ac:
@@ -2091,6 +2261,14 @@ def _warn_ac_quality(tasks: list):
                     f"  {tid}: vague AC \"{text[:60]}\" — contains: {', '.join(found)}"
                 )
 
+    if errors:
+        print()
+        print(f"**AC ERRORS** ({len(errors)}) — must fix before approving:")
+        for e in errors:
+            print(e)
+        print("Add acceptance_criteria to feature/bug tasks, or set type to 'chore'/'investigation'.")
+        print()
+
     if warnings:
         print()
         print(f"**AC QUALITY WARNINGS** ({len(warnings)}):")
@@ -2099,6 +2277,8 @@ def _warn_ac_quality(tasks: list):
         print("Tip: rewrite vague AC as observable outcomes. "
               "E.g., 'handles errors' → 'returns 400 with {error} body for invalid input'")
         print()
+
+    return len(errors) > 0
 
 
 # -- CLI --
@@ -2135,8 +2315,18 @@ def cmd_draft_plan(args):
 
     save_tracker(args.project, tracker)
 
-    # AC quality warnings (non-blocking)
+    # AC quality warnings (non-blocking at draft time — shows errors for user to fix)
     _warn_ac_quality(draft_tasks)
+
+    # Reference validation (non-blocking at draft time)
+    ref_warnings = _validate_plan_references(draft_tasks, args.project)
+    if ref_warnings:
+        print()
+        print(f"**REFERENCE WARNINGS** ({len(ref_warnings)}):")
+        for w in ref_warnings:
+            print(w)
+        print("Tip: fix invalid origins/scopes/knowledge_ids before approving.")
+        print()
 
     print(f"## Draft Plan: {args.project}")
     if tracker["draft_plan"]["source_idea_id"]:
@@ -2216,6 +2406,20 @@ def cmd_approve_plan(args):
             entry = _build_task_entry(t, source_idea_id=source_idea_id,
                                       source_objective_id=source_objective_id)
             entries.append(entry)
+
+        # AC hard gate: feature/bug tasks must have acceptance criteria
+        has_ac_errors = _warn_ac_quality(entries)
+        if has_ac_errors:
+            print("ERROR: Cannot approve plan — feature/bug tasks without acceptance criteria.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        # Reference validation (non-blocking warnings)
+        ref_warnings = _validate_plan_references(entries, args.project)
+        if ref_warnings:
+            print(f"**REFERENCE WARNINGS** ({len(ref_warnings)}):", file=sys.stderr)
+            for w in ref_warnings:
+                print(w, file=sys.stderr)
 
         # Validate DAG
         all_tasks = tracker["tasks"] + entries

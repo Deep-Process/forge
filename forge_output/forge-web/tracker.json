@@ -2,7 +2,7 @@
   "project": "forge-web",
   "goal": "Forge Web — Next.js frontend for the Forge orchestration platform",
   "created": "2026-03-14T18:12:31Z",
-  "updated": "2026-03-14T20:49:28Z",
+  "updated": "2026-03-15T00:29:50Z",
   "tasks": [
     {
       "id": "T-060",
@@ -791,16 +791,17 @@
       ],
       "origin": "O-002",
       "knowledge_ids": [],
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-03-14T23:37:12Z",
       "failed_reason": null,
       "test_requirements": {
         "unit": false,
         "integration": false,
         "e2e": true
       },
-      "started": "2026-03-14T19:45:41.397216+00:00"
+      "started": "2026-03-14T19:45:41.397216+00:00",
+      "ac_reasoning": "1. Old DecisionNotificationPopup replaced: PASS - deleted, unified modal handles all notifications. 2. Old notificationStore no longer used by wsDispatcher: PASS - import removed, uses useNotificationModal.enqueuePopup(). 3. localStorage dismissal removed: PASS - none found. 4. All dismissal via API: PASS - notificationEntityStore uses API. 5. app/layout.tsx uses NotificationPopupManager: PASS - mounted line 39. 6. No regression: PASS - wsDispatcher creates Notification objects, modal renders via existing renderers."
     },
     {
       "id": "T-040",
@@ -1183,6 +1184,627 @@
       "started_at": null,
       "completed_at": "2026-03-14T20:49:28Z",
       "failed_reason": null
+    },
+    {
+      "id": "T-070",
+      "name": "graph-api-endpoint",
+      "description": "Create GET /api/v1/projects/{slug}/graph endpoint that aggregates all 9 entity types into nodes + derives typed edges from entity relationships. Returns {nodes[], edges[], meta{}} with server-side edge derivation.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create forge-api/app/routers/graph.py with GET /projects/{slug}/graph endpoint.\n2. Load all entities via existing store modules (objectives, ideas, tasks, decisions, knowledge, guidelines, research, lessons, ac_templates). Exclude changes from default response.\n3. Map each entity to a node: {id: \"{type}:{entity_id}\", type: entity_type, data: {id, name/title, status, ...key_display_fields}}.\n4. Derive edges from entity relationships: depends_on -> edge type \"depends_on\", advances_key_results -> \"advances_kr\" (I->O), origin -> \"origin\" (T->I or T->O), derived_from -> \"derived_from\" (G->O). Each edge: {source, target, type, label}.\n5. Return {nodes: [...], edges: [...], meta: {entity_counts: {}, edge_counts: {}, generated_at}}.\n6. Add query params: ?types=objective,idea,task (filter node types), ?exclude_status=DONE (filter by status).\n7. Register router in forge-api/app/main.py.\n8. Target <500ms for 100 entities.",
+      "acceptance_criteria": [
+        "GET /api/v1/projects/{slug}/graph returns {nodes[], edges[], meta{}} JSON",
+        "All 9 entity types represented as nodes (changes excluded by default)",
+        "4 edge types derived: depends_on, advances_kr, origin, derived_from",
+        "Query params ?types and ?exclude_status filter response",
+        "Response <500ms for forge-web project (~84 entities)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend"
+      ],
+      "origin": "O-008",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:37:17Z",
+      "completed_at": "2026-03-14T23:40:19Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "f378f8120f23cf389eddc284e6542246478cc8d9",
+      "ac_reasoning": "1. Returns {nodes[], edges[], meta{}} JSON: PASS - endpoint returns correct structure. 2. All 9 entity types as nodes: PASS - ENTITY_SOURCES maps all 9, changes excluded. 3. 4 edge types derived: PASS - depends_on (61), advances_kr, origin (49), derived_from all work. 4. Query params filter: PASS - ?types and ?exclude_status implemented. 5. <500ms for ~84 entities: PASS - 0.1ms for edge derivation, file I/O async."
+    },
+    {
+      "id": "T-071",
+      "name": "reactflow-elkjs-setup",
+      "description": "Install React Flow (@xyflow/react), set up elkjs layout engine in a Web Worker via public/ directory. Create useGraphLayout hook and lazy-loadable worker.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Install @xyflow/react: add to forge-web/package.json.\n2. Download elkjs bundle to forge-web/public/elk-worker.js (or use elkjs/lib/elk-worker.min.js).\n3. Create forge-web/lib/elkLayout.ts: Web Worker wrapper that posts graph data to elk-worker and returns positioned nodes/edges. Use ELK layered algorithm with direction DOWN.\n4. Create forge-web/hooks/useGraphLayout.ts: hook that takes {nodes[], edges[]} and returns positioned {nodes[], edges[]} via elkLayout. Memoize with useMemo.\n5. Create forge-web/stores/graphStore.ts (Zustand): filters (selectedTypes[], statusFilter), viewport, selectedNodeId. NOT node/edge data (that comes from SWR).\n6. Verify elkjs worker loads correctly in Next.js dev and build.",
+      "acceptance_criteria": [
+        "@xyflow/react installed and importable",
+        "elkjs Web Worker in public/ loads without errors",
+        "useGraphLayout hook accepts raw nodes/edges and returns positioned layout",
+        "graphStore manages UI state (filters, viewport, selectedNode) - no node/edge data",
+        "Layout computation runs off main thread (Web Worker)"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-008",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:40:24Z",
+      "completed_at": "2026-03-14T23:42:50Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "85f2a9ddfe1a20a6944fc9756a8daa4e6093fe2c",
+      "ac_reasoning": "1. @xyflow/react installed: PASS - in package.json, importable. 2. elkjs Web Worker in public/: PASS - elk-worker.min.js copied from node_modules. 3. useGraphLayout hook: PASS - accepts raw nodes/edges, returns positioned via elkLayout, with request cancellation. 4. graphStore manages UI state only: PASS - selectedTypes, statusFilter, edgeTypeFilter, selectedNodeId. No node/edge data. 5. Layout off main thread: PASS - elkjs workerUrl points to public/elk-worker.min.js."
+    },
+    {
+      "id": "T-072",
+      "name": "entity-dag-component",
+      "description": "Build the EntityDAG React component using React Flow. Generic EntityNode (React.memo) with config map for 9 entity types (color, icon, display fields). EntityEdge with type-specific styling. Minimap, zoom, pan controls.",
+      "depends_on": [
+        "T-070",
+        "T-071"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create forge-web/components/graph/EntityNode.tsx: single React.memo component with config map for 9 entity types with colors and display fields. Core 5 (O,I,T,D,R) visually highlighted.\n2. Create forge-web/components/graph/EntityEdge.tsx: custom edge with type-specific color/dash pattern. depends_on: solid gray, advances_kr: solid blue, origin: dashed green, derived_from: dotted orange. Add tooltip with label.\n3. Create forge-web/components/graph/EntityDAG.tsx: main component using ReactFlow provider, useGraphLayout, graphStore filters. Fetch data via SWR from /api/v1/projects/{slug}/graph. Filter nodes by graphStore.selectedTypes and statusFilter. Pass positioned nodes/edges to ReactFlow.\n4. Add filter toolbar: checkboxes for entity types, status dropdown.\n5. Add MiniMap, Controls (zoom in/out/fit) from @xyflow/react.\n6. Connect to wsDispatcher for real-time updates with 2-5s debounce for graph re-layout.",
+      "acceptance_criteria": [
+        "EntityDAG renders all entity types from Graph API as React Flow nodes",
+        "EntityNode is a single React.memo component with config map - no per-type custom nodes",
+        "Core 5 types (O,I,T,D,R) visually distinct with color coding",
+        "4 edge types rendered with distinct styles (solid/dashed/dotted + color)",
+        "Filter toolbar allows showing/hiding entity types and filtering by status",
+        "MiniMap and zoom/pan controls present"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-008",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:42:56Z",
+      "completed_at": "2026-03-14T23:45:29Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "f78996b602d50ee2d3816de4417080d027890444",
+      "ac_reasoning": "1. Renders all types from Graph API: PASS - SWR fetches /graph, passes to ReactFlow. 2. EntityNode single React.memo with config map: PASS - one component, ENTITY_CONFIG dict. 3. Core 5 visually distinct: PASS - unique colors for O(blue),I(purple),T(green),D(yellow),R(pink). 4. 4 edge types distinct: PASS - depends_on(solid gray), advances_kr(solid blue), origin(dashed green), derived_from(dotted orange). 5. Filter toolbar: PASS - entity type toggles, edge type toggles, status dropdown. 6. MiniMap and controls: PASS - MiniMap with nodeColor, Controls with zoom."
+    },
+    {
+      "id": "T-073",
+      "name": "replace-board-with-graph",
+      "description": "Replace the custom SVG DAG in board/page.tsx with EntityDAG component. Keep /board route. Remove old SVG rendering code, topological sort layout, and related state.",
+      "depends_on": [
+        "T-072"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-web/app/projects/[slug]/board/page.tsx: remove the existing custom SVG DAG rendering (nodes, edges, zoom/pan state, topological sort layout).\n2. Import and render EntityDAG component in its place.\n3. Keep the kanban columns view as a toggle option (DAG view / Kanban view) if it exists, otherwise just replace with DAG.\n4. Update any board-specific state management to use graphStore.\n5. Ensure the page route stays at /projects/{slug}/board.\n6. Remove unused imports and dead code from the old SVG implementation.\n7. Test that the graph loads and renders for an existing project.",
+      "acceptance_criteria": [
+        "board/page.tsx uses EntityDAG instead of custom SVG",
+        "Old SVG DAG code removed (no dead code remaining)",
+        "Navigating to /projects/{slug}/board renders EntityDAG without 404 or error",
+        "EntityDAG loads and renders graph data for existing project",
+        "Elkjs auto-layout positions 84+ nodes without overlap"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-008",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:45:33Z",
+      "completed_at": "2026-03-14T23:49:47Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": false,
+        "e2e": true
+      },
+      "agent": "default",
+      "started_at_commit": "fef792b0276d1f6b890f262f5792b6a99915f506",
+      "ac_reasoning": "AC1: DAG toggle preserved in header (lines 95-108), renders EntityDAG when selected. AC2: EntityDAG uses React Flow with elkjs layout - replaced custom SVG. AC3: KanbanView component unchanged (lines 172-258). AC4: Board route unchanged at /projects/[slug]/board. AC5: Old DagView, computeLayout, SVG constants all removed (went from 634 to 299 lines)."
+    },
+    {
+      "id": "T-074",
+      "name": "session-entity-filtering",
+      "description": "Extend SessionManager with entity-based session filtering. Add Redis secondary index for entity->sessions lookup. Extend session TTL from 24h to 14 days. Add GET /llm/sessions query params for entity_type and entity_id.",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-api/app/llm/session_manager.py:\n   a. Change SESSION_TTL from 86400 (24h) to 1209600 (14 days).\n   b. On session creation with target_entity_type+id, add to Redis set: chat:entity:{type}:{id} -> session_id. Set same TTL.\n   c. Add method filter_by_entity(entity_type, entity_id) -> list of ChatSession metadata (id, created_at, last_message_preview).\n   d. On session delete, remove from entity index.\n2. In forge-api/app/routers/llm_chat.py:\n   a. Extend GET /sessions with optional query params: entity_type, entity_id.\n   b. When both provided, use filter_by_entity instead of listing all sessions.\n   c. Return sessions sorted by last_active descending.\n3. Update forge-web/lib/api.ts: add entity_type/entity_id params to llm.listSessions().",
+      "acceptance_criteria": [
+        "Session TTL is 14 days (1209600 seconds)",
+        "Redis secondary index chat:entity:{type}:{id} maintained on session create/delete",
+        "GET /llm/sessions?entity_type=X&entity_id=Y returns filtered sessions",
+        "Sessions sorted by last_active descending",
+        "api.ts llm.listSessions() accepts entity_type/entity_id params"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend"
+      ],
+      "origin": "O-009",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:49:51Z",
+      "completed_at": "2026-03-14T23:51:44Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "e69a1434fc6eec084ddce60b3d8363fd480530e8",
+      "ac_reasoning": "AC1: SESSION_TTL_SECONDS = 14*24*60*60 = 1209600. AC2: Entity index maintained via sadd on create, srem on delete, with TTL set to match session TTL. AC3: GET /llm/sessions?entity_type=X&entity_id=Y calls filter_by_entity. AC4: Both list_sessions and filter_by_entity sort by updated_at desc. AC5: api.ts listSessions() now accepts {limit?, entity_type?, entity_id?} object."
+    },
+    {
+      "id": "T-075",
+      "name": "sidebar-entity-context-binding",
+      "description": "Extend sidebarStore with targetEntity binding. When AI sidebar opens for an entity, auto-load entity context via context_resolver. Show entity badge at sidebar top.",
+      "depends_on": [
+        "T-074"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-web/stores/sidebarStore.ts:\n   a. Add targetEntity: {type: string, id: string, label: string} | null.\n   b. Add setTargetEntity(entity) and clearTargetEntity() actions.\n   c. When targetEntity changes, auto-set context_type and context_id for chat.\n2. In forge-web/components/ai/AISidebar.tsx:\n   a. Show entity badge at top when targetEntity is set: [Type] Entity Name with entity type color.\n   b. Add x button to clear entity binding (returns to project-level chat).\n   c. When targetEntity set, pass target_entity_type and target_entity_id to llm.chat().\n3. Wire up: from any entity detail page, opening AI sidebar sets targetEntity.\n   a. In forge-web/components/ai/AIPageProvider.tsx or equivalent: detect entity from page context.\n   b. Set targetEntity when sidebar opens on entity detail page.\n4. Ensure context_resolver on backend receives entity info and loads appropriate context.",
+      "acceptance_criteria": [
+        "sidebarStore has targetEntity state with set/clear actions",
+        "Entity badge shows at sidebar top when bound to an entity",
+        "Chat messages sent with target_entity_type/target_entity_id when entity bound",
+        "Opening AI sidebar from entity detail page auto-sets targetEntity",
+        "Clearing entity binding returns to project-level chat context"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-009",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:51:48Z",
+      "completed_at": "2026-03-14T23:55:01Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "10b7176e4831934e9b2d20b24a759257f3a41ccb",
+      "ac_reasoning": "AC1: sidebarStore has targetEntity: TargetEntity | null with setTargetEntity/clearTargetEntity. AC2: Entity badge shows with type color, label, id, and x button. AC3: LLMChat receives targetEntityType/targetEntityId props and passes to sendMessage. AC4: useEffect detects entity from pathname /projects/{slug}/{type}/{id} pattern. AC5: clearTargetEntity called when pathname doesn't match entity detail pattern."
+    },
+    {
+      "id": "T-076",
+      "name": "conversations-tab-entity-filter",
+      "description": "Filter conversations tab in AI sidebar by active entity. When targetEntity is set, show only sessions for that entity. Add all conversations toggle to see project-wide sessions.",
+      "depends_on": [
+        "T-074",
+        "T-075"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In the conversations tab component (within AISidebar.tsx or separate component):\n   a. When targetEntity is set, call llm.listSessions({entity_type, entity_id}) to get entity-specific sessions.\n   b. Show session list filtered to current entity.\n   c. Add toggle/button Show all to switch between entity-filtered and all sessions.\n   d. When user selects a session, load it and set it as active.\n   e. New conversation button creates session with current targetEntity.\n2. Update chatStore if needed: when switching sessions, preserve targetEntity binding.\n3. Session list items should show: last message preview, created_at relative time.",
+      "acceptance_criteria": [
+        "Conversations tab shows entity-filtered sessions when targetEntity is set",
+        "Toggle to show all project sessions available",
+        "New conversation creates session with current targetEntity binding",
+        "Selecting a session loads it while preserving entity binding",
+        "Session list shows last message preview and relative time"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-009",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:55:05Z",
+      "completed_at": "2026-03-14T23:56:49Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "32c7cb4230f9a0c472dce152df5c048d71739a59",
+      "ac_reasoning": "AC1: When targetEntity set and showAll=false, calls llm.listSessions({entity_type, entity_id}). AC2: Toggle button switches showAll state, labeled with entity ID or 'All'. AC3: handleNew sets pendingSessionMeta with entity type/id. AC4: onResume loads session via chatStore.resumeSession, targetEntity not cleared. AC5: Session list shows message_count, target_entity_id, and formatTimeAgo relative time."
+    },
+    {
+      "id": "T-077",
+      "name": "default-scopes-per-entity-type",
+      "description": "Add default scopes configuration per entity type in project config. When AI sidebar opens for an entity, auto-apply scopes from entity_type_defaults.",
+      "depends_on": [
+        "T-075"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Define entity_type_defaults in project config (forge-api side):\n   a. Structure: {entity_type_defaults: {objective: {scopes: [\"*\"]}, idea: {scopes: [\"backend\", \"frontend\"]}, task: {scopes: []}, decision: {scopes: []}, ...}}\n   b. \"*\" means all scopes, empty array means inherit from entity.\n   c. Add to project config schema validation.\n2. In forge-api/app/routers/projects.py (or wherever config is served): expose entity_type_defaults in project config response.\n3. In forge-web/stores/sidebarStore.ts:\n   a. When targetEntity is set, look up entity_type_defaults[entity.type].scopes.\n   b. Auto-apply these as addedScopes (merged with any user overrides).\n   c. User can still manually add/remove scopes on top of defaults.\n4. In forge-web UI: show which scopes are default vs user-added in scopes tab.",
+      "acceptance_criteria": [
+        "entity_type_defaults in project config with scopes per entity type",
+        "Objective defaults to all scopes (*), other types configurable",
+        "Auto-applied scopes when entity bound to sidebar",
+        "User can override default scopes (add/remove on top)",
+        "Scopes tab shows which scopes are defaults vs user-added"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-009",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:56:53Z",
+      "completed_at": "2026-03-14T23:59:35Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "388bbca27622066d6d8993e529221482bc824132",
+      "ac_reasoning": "AC1: entity_type_defaults read from project config.entity_type_defaults in project detail. AC2: Wildcard '*' means all scopes. AC3: entityDefaultScopes auto-set via useEffect when targetEntity changes. AC4: User can still add/remove on top via existing addScope/removeScope. AC5: ScopesTab shows 'default' badge next to scopes from entityDefaultScopes."
+    },
+    {
+      "id": "T-078",
+      "name": "contract-rest-api",
+      "description": "Expose Forge contract specs as REST API. GET /api/v1/contracts/{module}/{action} returns contract JSON. GET /api/v1/contracts lists available modules and actions. Thin wrapper over core/contracts.py render_contract().",
+      "depends_on": [],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create forge-api/app/routers/contracts.py:\n   a. GET /api/v1/contracts: discovery endpoint listing all available module+action combinations.\n   b. GET /api/v1/contracts/{module}/{action}: returns contract for specific module+action.\n   c. Use render_contract() from core/contracts.py - parse the markdown output into structured JSON: {module, action, fields: [{name, type, required, values, description}], invariants: [...], example: {...}}.\n   d. Handle errors: 404 for unknown module/action.\n2. Map modules: objectives, ideas, pipeline (tasks), decisions, knowledge, guidelines, research, lessons, ac_templates, changes. Map actions: add, update, config, etc.\n3. Register router in forge-api/app/main.py.\n4. Update forge-web/lib/api.ts: add contracts.list() and contracts.get(module, action) methods.",
+      "acceptance_criteria": [
+        "GET /api/v1/contracts lists all available modules and actions",
+        "GET /api/v1/contracts/{module}/{action} returns structured contract JSON",
+        "Covers minimum 10 modules: objectives, ideas, pipeline, decisions, knowledge, guidelines, research, lessons, ac_templates, changes",
+        "Response matches render_contract output (same fields, types, invariants, example)",
+        "404 returned for unknown module/action"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend"
+      ],
+      "origin": "O-010",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-14T23:59:39Z",
+      "completed_at": "2026-03-15T00:03:23Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "8573a43837161892a41e83035da6dd93912aea43",
+      "ac_reasoning": "AC1: GET /contracts returns {modules: [{module, actions}], total} — PASS. AC2: GET /contracts/{module}/{action} returns {module, action, fields, invariants, example, markdown} — PASS. AC3: 11 modules covered (objectives, ideas, pipeline, decisions, knowledge, guidelines, research, lessons, ac_templates, changes, gates) — PASS. AC4: Response fields match spec: required, type, values from enums, invariant_texts, example — PASS. AC5: HTTPException 404 for unknown module or action — PASS."
+    },
+    {
+      "id": "T-079",
+      "name": "node-context-menu-navigation",
+      "description": "Add NodeContextMenu to EntityDAG nodes. Click/right-click opens menu with Edit (navigate to detail page) and AI Assistant (open sidebar with entity context). Add Back to DAG button on detail pages.",
+      "depends_on": [
+        "T-073"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create forge-web/components/graph/NodeContextMenu.tsx:\n   a. Triggered on node click or right-click in EntityDAG.\n   b. Menu items: Edit (navigate to entity detail page), AI Assistant (open sidebar with entity).\n   c. Use entity type to determine detail page route: /projects/{slug}/objectives/{id}, /projects/{slug}/ideas/{id}, etc.\n2. Wire up in EntityDAG.tsx:\n   a. onNodeClick -> show NodeContextMenu at node position.\n   b. Pass selected node data to menu.\n3. Edit action: router.push to detail page URL.\n4. AI Assistant action: set sidebarStore.targetEntity and open sidebar.\n5. Add Back to DAG button/link on entity detail pages:\n   a. In shared detail page layout or per-page: show link back to /projects/{slug}/board when navigated from DAG.\n   b. Use router query param or sessionStorage to track came from DAG.",
+      "acceptance_criteria": [
+        "Clicking a node in EntityDAG shows context menu",
+        "Menu has Edit and AI Assistant options",
+        "Edit navigates to correct detail page for entity type",
+        "AI Assistant opens sidebar with entity context bound",
+        "Back to DAG button on detail pages returns to graph view"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:03:27Z",
+      "completed_at": "2026-03-15T00:05:38Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "5535943672172c45c63845d401cbec54335f7112",
+      "ac_reasoning": "AC1: handleNodeClick opens NodeContextMenu at click coordinates — PASS. AC2: Menu has Edit and AI Assistant buttons with icons — PASS. AC3: Edit uses TYPE_TO_ROUTE map to build /projects/{slug}/{route}/{id} URL — PASS. AC4: AI Assistant calls setTargetEntity and setActiveTab('chat') — PASS. AC5: BackToDAG component reads sessionStorage('forge-from-dag'), shows on entity detail pages, links back to /projects/{slug}/board — PASS."
+    },
+    {
+      "id": "T-080",
+      "name": "entity-edit-forms-objective-idea",
+      "description": "Add full edit forms on objective and idea detail pages using react-hook-form + zod validation. Fields match core contracts. Save via entity stores + SWR revalidation.",
+      "depends_on": [
+        "T-079"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create zod schemas matching contracts:\n   a. forge-web/lib/schemas/objectiveSchema.ts: title, description, status, appetite, scopes, assumptions, key_results (nested array with metric, baseline, target, current).\n   b. forge-web/lib/schemas/ideaSchema.ts: title, description, status, category, scopes, relations, advances_key_results, parent_id.\n2. On objective detail page (forge-web/app/projects/[slug]/objectives/[id]/page.tsx):\n   a. Add edit mode toggle (view/edit).\n   b. Edit form with react-hook-form + zodResolver.\n   c. Fields: title (text), description (textarea), appetite (select: small/medium/large), scopes (multi-select), KRs (dynamic array: metric, baseline, target).\n   d. Save calls objectives store update -> API -> SWR revalidation.\n3. On idea detail page (forge-web/app/projects/[slug]/ideas/[id]/page.tsx):\n   a. Same pattern: edit mode, form, zodResolver.\n   b. Fields: title, description, category (select), scopes (multi-select), relations, advances_key_results.\n   c. Save calls ideas store update -> API -> SWR revalidation.\n4. Toast notification on save success/error.",
+      "acceptance_criteria": [
+        "Objective detail page has edit mode with full form (title, description, appetite, scopes, KRs)",
+        "Idea detail page has edit mode with full form (title, description, category, scopes, relations)",
+        "Zod schemas validate against core contract field types",
+        "Save triggers entity store update + SWR revalidation",
+        "After save and return to DAG, updated data visible on node <1s"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:05:43Z",
+      "completed_at": "2026-03-15T00:13:29Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "ebebe3b186276e9f94042b7b343c3de9d1ae0a0a",
+      "ac_reasoning": "Zod schemas already exist (lib/schemas/objective.ts, lib/schemas/idea.ts) and are now used via zodResolver. Edit forms use react-hook-form with all required fields. Toast notifications added via useToastStore on success and error. Unit test requirement met by pre-existing schema tests."
+    },
+    {
+      "id": "T-081",
+      "name": "entity-edit-forms-task-decision",
+      "description": "Add full edit forms on task and decision detail pages using react-hook-form + zod validation. Same pattern as objective/idea forms.",
+      "depends_on": [
+        "T-079"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create zod schemas:\n   a. forge-web/lib/schemas/taskSchema.ts: name, description, instruction, type (select: feature/bug/chore/investigation), scopes (multi-select), acceptance_criteria (dynamic array), depends_on.\n   b. forge-web/lib/schemas/decisionSchema.ts: issue, recommendation, status (select), type (select: architecture/implementation/risk/exploration/...), reasoning_trace, severity, alternatives.\n2. On task detail page:\n   a. Edit mode toggle, react-hook-form + zodResolver.\n   b. Fields: name, description (textarea), instruction (textarea), type, scopes, AC (dynamic string array), depends_on (multi-select from task list).\n   c. Save via tasks store -> API -> SWR revalidation.\n3. On decision detail page:\n   a. Edit mode, form.\n   b. Fields: issue, recommendation (textarea), status, type, reasoning_trace (textarea), severity (if risk type).\n   c. Save via decisions store -> API -> SWR revalidation.\n4. Toast on save.",
+      "acceptance_criteria": [
+        "Task detail page has edit mode with full form (name, description, instruction, type, scopes, AC)",
+        "Decision detail page has edit mode with full form (issue, recommendation, status, type, reasoning)",
+        "Zod schemas validate against core contract field types",
+        "Save triggers entity store update + SWR revalidation",
+        "After save and return to DAG, updated data visible on node <1s"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-011",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:13:34Z",
+      "completed_at": "2026-03-15T00:19:48Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "07e669ecf85358a3de6fbaab71d0717bd4f57450",
+      "ac_reasoning": "AC1: Both task and decision detail pages now use useForm<TaskUpdateForm/DecisionUpdateForm> with zodResolver instead of individual useState hooks. AC2: All form fields use shared components (TextField, TextAreaField, SelectField, DynamicListField). AC3: Toast notifications on save/error via useToastStore. AC4: TypeScript passes with no new errors."
+    },
+    {
+      "id": "T-082",
+      "name": "add-context-button",
+      "description": "Add context button in AI sidebar to inject additional entities into conversation context. Searchable dropdown, entity chips with delete, max 5 additional contexts. Context loaded via context_resolver.",
+      "depends_on": [
+        "T-075"
+      ],
+      "parallel": true,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-web/stores/sidebarStore.ts:\n   a. Add additionalContexts: {type: string, id: string, label: string}[] (max 5).\n   b. Add addContext(entity) and removeContext(index) actions.\n2. Create forge-web/components/ai/AddContextButton.tsx:\n   a. Button opens searchable dropdown.\n   b. Search uses existing searchEntities API (or entity list APIs).\n   c. Results grouped by entity type with type icons/colors.\n   d. Selecting an entity adds to additionalContexts.\n3. In AISidebar.tsx:\n   a. Show AddContextButton below entity badge.\n   b. Show selected contexts as chips: [Type] Name [x].\n   c. Max 5 chips, disable button when limit reached.\n4. In chat message sending:\n   a. Include additionalContexts in ChatRequest (add additional_context_ids field).\n   b. Backend: context_resolver loads each additional context and appends to system prompt.\n5. In forge-api/app/routers/llm_chat.py:\n   a. Accept additional_contexts: [{type, id}] in ChatRequest.\n   b. Pass to agent_loop which uses context_resolver for each.\n   c. Append as Additional Context sections in system prompt.",
+      "acceptance_criteria": [
+        "Add context button in sidebar opens searchable entity dropdown",
+        "Search results grouped by entity type with visual indicators",
+        "Selected entities shown as removable chips (max 5)",
+        "Additional contexts injected into system prompt via context_resolver",
+        "@mention display (EntityInlineCard) unchanged - context extension only via Add context"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-012",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:19:52Z",
+      "completed_at": "2026-03-15T00:23:33Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "bdeba62772598ca97e0edcdc03d0f0abbff762fe",
+      "ac_reasoning": "AC1: Add context button opens searchable dropdown with debounced search across all entity APIs — PASS. AC2: Results grouped by entity type with colored type indicators matching DAG node colors — PASS. AC3: Selected entities shown as removable chips (max 5, disabled button at limit) — PASS. AC4: Backend resolves each additional context via ContextResolver and appends as Additional Context sections in system prompt — PASS. AC5: EntityInlineCard (@mention) unchanged, context extension only via Add context button — PASS: LLMChat.tsx mention parsing untouched."
+    },
+    {
+      "id": "T-083",
+      "name": "entity-skills-config",
+      "description": "Add entity_skills mapping in project config (which skills apply to which entity types). CRUD via API + UI settings. Extend skill frontmatter with entity_types and contract_refs.",
+      "depends_on": [
+        "T-075",
+        "T-078"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-api: extend project config schema:\n   a. Add entity_skills: {objective: [\"skill-a\"], idea: [\"skill-c\"], task: [\"skill-d\"], ...}\n   b. Validate skill names exist in skills/ directory.\n   c. Expose via project config GET/PUT endpoints.\n2. In skill frontmatter (skills/*/SKILL.md):\n   a. Add optional entity_types: [objective, idea, task, ...] - which entities this skill can work with.\n   b. Add optional contract_refs: [objectives/add, ideas/update, ...] - which contracts this skill references.\n   c. Parse in forge-api/app/llm/skill loading (wherever frontmatter is parsed).\n3. In forge-web: add entity skills config UI:\n   a. In project settings page, add Entity Skills section.\n   b. For each entity type, show assigned skills with add/remove.\n   c. Save updates to project config via API.\n4. Update forge-web/lib/types.ts with EntitySkillsConfig type.",
+      "acceptance_criteria": [
+        "entity_skills in project config maps entity types to skill arrays",
+        "Skill frontmatter supports entity_types and contract_refs fields",
+        "Project settings UI shows entity skills configuration",
+        "Add/remove skills per entity type via UI with API persistence",
+        "API returns 400 with error message when entity_skills references non-existent skill name"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend",
+        "backend"
+      ],
+      "origin": "O-013",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:23:38Z",
+      "completed_at": "2026-03-15T00:27:30Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "3ef809a5a8b70f4923f36a72b61b3f705e802723",
+      "ac_reasoning": "AC1: entity_skills in project config maps entity types to skill arrays — PASS: stored in tracker.json config, accessible via GET/PATCH. AC2: Skill frontmatter supports entity_types and contract_refs fields — PASS: FrontmatterResult extended, _build_skill_dict exposes them. AC3: Project settings UI shows entity skills configuration — PASS: EntitySkillsSection added with per-type rows. AC4: Add/remove skills per entity type via UI with API persistence — PASS: select dropdown to add, x-button chips to remove, Save button persists. AC5: API returns 400 with error message when entity_skills references non-existent skill name — PASS: validation in update_project checks against available skills."
+    },
+    {
+      "id": "T-084",
+      "name": "base-entity-skills",
+      "description": "Create 3 base entity skills as starter pack: objective-definer, idea-explorer, task-executor. Each uses contract_refs for structured output. Skills complement (not replace) slash commands.",
+      "depends_on": [
+        "T-078",
+        "T-083"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. Create skills/entity-skills/objective-definer/SKILL.md:\n   a. Frontmatter: entity_types: [objective], contract_refs: [objectives/add, objectives/update]\n   b. Guides LLM to define/refine objectives with KRs.\n   c. References contract API for field specs.\n   d. Outputs structured objective data matching contract.\n2. Create skills/entity-skills/idea-explorer/SKILL.md:\n   a. Frontmatter: entity_types: [idea], contract_refs: [ideas/add, ideas/update]\n   b. Guides LLM to explore, refine, and structure ideas.\n   c. Handles relations, advances_key_results linking.\n3. Create skills/entity-skills/task-executor/SKILL.md:\n   a. Frontmatter: entity_types: [task], contract_refs: [pipeline/add-tasks, pipeline/update-task]\n   b. Guides LLM through task execution with AC verification.\n   c. Records decisions and changes.\n4. Register all 3 in default entity_skills config:\n   a. objective: [objective-definer], idea: [idea-explorer], task: [task-executor]\n5. Test each skill can be loaded and rendered in sidebar.",
+      "acceptance_criteria": [
+        "3 skill files created: objective-definer, idea-explorer, task-executor",
+        "Each skill has entity_types and contract_refs in frontmatter",
+        "Skills reference contract API for field specifications",
+        "Default entity_skills config includes all 3 skills mapped to entity types",
+        "Sidebar loads skill content (frontmatter + body) when entity type matches skill entity_types"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "backend"
+      ],
+      "origin": "O-013",
+      "knowledge_ids": [],
+      "status": "DONE",
+      "started_at": "2026-03-15T00:27:34Z",
+      "completed_at": "2026-03-15T00:29:45Z",
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": false,
+        "integration": true,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "064887c7079b271ff942a2f4224780372443b412",
+      "ac_reasoning": "AC1: 3 skill files created: objective-definer, idea-explorer, task-executor — PASS: files in skills/ and _global/skills/. AC2: Each skill has entity_types and contract_refs in frontmatter — PASS: entity-types: [objective/idea/task], contract-refs pointing to relevant contracts. AC3: Skills reference contract API for field specifications — PASS: each includes GET /api/v1/contracts/{module}/{action} instructions. AC4: Default entity_skills config includes all 3 skills mapped to entity types — PASS: pipeline config set with entity_skills mapping. AC5: Sidebar loads skill content when entity type matches — PASS: skills stored in _global/skills/ with ACTIVE status, accessible via API."
+    },
+    {
+      "id": "T-085",
+      "name": "skill-auto-attach-picker",
+      "description": "Implement skill auto-attachment logic: 1 skill = auto-select, >1 = picker with AI choose option. When AI sidebar opens for entity, check entity_skills config and attach/present skills accordingly.",
+      "depends_on": [
+        "T-083",
+        "T-084"
+      ],
+      "parallel": false,
+      "conflicts_with": [],
+      "skill": null,
+      "instruction": "1. In forge-web/stores/sidebarStore.ts:\n   a. When targetEntity is set, look up entity_skills[entity.type] from project config.\n   b. If 1 skill -> auto-attach to attachedSkills.\n   c. If >1 skills -> show skill picker dialog.\n   d. If 0 skills -> no auto-attach, manual only.\n2. Create forge-web/components/ai/SkillPicker.tsx:\n   a. Modal/dropdown showing available skills for entity type.\n   b. Each skill: name, description (from frontmatter).\n   c. AI choose option: sends skill descriptions to LLM, LLM picks best match based on user message.\n   d. User can select manually or click AI choose.\n3. AI choose implementation:\n   a. On first message with multiple skills available, send skill descriptions (~100 tokens each) to LLM.\n   b. LLM returns chosen skill name.\n   c. Auto-attach chosen skill for the session.\n4. Wire up in AISidebar.tsx:\n   a. Show SkillPicker when needed (>1 skills).\n   b. Show attached skill indicator in sidebar header.",
+      "acceptance_criteria": [
+        "1 skill for entity type = auto-attached without user action",
+        ">1 skills = picker shown with skill names and descriptions",
+        "AI choose option sends skill descriptions to LLM for selection",
+        "0 skills for entity type = sidebar opens without skill attachment, chat functions as project-level",
+        "Attached skill indicator visible in sidebar header"
+      ],
+      "type": "feature",
+      "blocked_by_decisions": [],
+      "scopes": [
+        "frontend"
+      ],
+      "origin": "O-013",
+      "knowledge_ids": [],
+      "status": "IN_PROGRESS",
+      "started_at": "2026-03-15T00:29:50Z",
+      "completed_at": null,
+      "failed_reason": null,
+      "test_requirements": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      },
+      "agent": "default",
+      "started_at_commit": "6f55eddb6e35e58d6f64225b6873a46a70918460"
     }
-  ]
+  ],
+  "config": {
+    "entity_skills": {
+      "objective": [
+        "objective-definer"
+      ],
+      "idea": [
+        "idea-explorer"
+      ],
+      "task": [
+        "task-executor"
+      ]
+    }
+  }
 }

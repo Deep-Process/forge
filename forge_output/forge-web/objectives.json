@@ -1,6 +1,6 @@
 {
   "project": "forge-web",
-  "updated": "2026-03-14T22:18:27Z",
+  "updated": "2026-03-14T22:50:42Z",
   "objectives": [
     {
       "id": "O-001",
@@ -424,7 +424,7 @@
     {
       "id": "O-008",
       "title": "Multi-Entity Graph API & DAG Visualization",
-      "description": "Zastapic task-only board (kanban+dag) pelnym grafem encji projektu opartym na React Flow z elkjs layout engine. Backend: Graph API endpoint (GET /projects/{slug}/graph) agreguje wszystkie encje (O, I, T, R, K, D, G, AC) i ich relacje, zwraca nodes[] + edges[] z typed edge derivation server-side. Frontend: React Flow renderuje DAG z typowanymi nodami (kolor, ikona per entity type). elkjs uruchamiany w Web Worker (z public/ directory, bypass Next.js webpack). SWR jest jedynym zrodlem prawdy danych grafu — React Flow jako derived read-only view. Edge types fazowane: faza 1 = 4 core (depends_on, advances_kr, origin, derived_from), faza 2 = blocked_by, parent_child, linked_entity, knowledge_ref. Changes i Lessons wykluczone z default view (przytlaczaja layout). Nowy graphStore (Zustand) tylko na UI prefs (filtry, viewport, selected node). WS debounce graph-specific 2-5s (nie 300ms jak entity stores). Zastepuje obecny custom SVG DAG w board/page.tsx.",
+      "description": "Zastapic task-only board pelnym grafem encji projektu opartym na React Flow z elkjs layout engine. Wszystkie 9 typow encji widoczne domyslnie (core 5: O, I, T, D, R wyroznionych wizualnie, reszta filtrowalna). Backend: Graph API endpoint (GET /projects/{slug}/graph) agreguje encje i relacje server-side, zwraca nodes[] + edges[]. Frontend: React Flow z elkjs auto-layout (layered, direction DOWN). Priorytet: czytelnosc grafu nad kompletnoscia relacji — 4 core edge types domyslnie, reszta filtrowalna. Auto-layout only (v1) — brak drag nodes, brak persist pozycji. SWR jako jedyne zrodlo prawdy danych grafu, React Flow jako derived read-only view. graphStore (Zustand) tylko na UI prefs (filtry, viewport, selected node). WS debounce graph-specific 2-5s. Zastepuje obecny custom SVG DAG w board/page.tsx (kanban usuniety lub ukryty).",
       "key_results": [
         {
           "id": "KR-1",
@@ -433,28 +433,27 @@
         },
         {
           "id": "KR-2",
-          "description": "React Flow DAG renderuje poprawnie min. 7 typow encji (O, I, T, D, K, R, G) z wizualnie odroznialnymi nodami (kolor + ikona per type) — elkjs layout w Web Worker",
+          "description": "React Flow DAG renderuje wszystkie 9 typow encji z wizualnie odroznialnymi nodami (core 5: O,I,T,D,R wyroznionych kolorem i ikona; reszta filtrowalna)",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-3",
-          "description": "4 core edge types wizualnie rozroznialne (depends_on, advances_kr, origin, derived_from) z labeled tooltipami i odrebnymi stylami (kolor, dash pattern)",
+          "description": "4 core edge types (depends_on, advances_kr, origin, derived_from) wizualnie rozroznialne z labeled tooltipami i odrebnymi stylami. Reszta jako filtrowalne opcje",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-4",
-          "description": "Zoom, pan, minimap, filtrowanie po entity type i status, elkjs layered auto-layout dla 100+ nodes bez freeze UI (Web Worker)",
+          "description": "Zoom, pan, minimap, filtrowanie po entity type i status, elkjs layered auto-layout dla 100+ nodes. Auto-layout only — brak drag/persist",
           "status": "NOT_STARTED"
         }
       ],
       "appetite": "medium",
       "scope": "project",
       "assumptions": [
-        "React Flow (xyflow) z memoizacja (React.memo) obsluzy 100+ nodes bez problemow wydajnosciowych",
-        "elkjs w Web Worker (public/ static file) oblicza layout 100 nodes w <2s",
-        "SWR jako jedyne zrodlo prawdy eliminuje three-way state sync problem (per L-018, D-036)",
-        "Istniejace JSON storage wystarczy jako zrodlo danych dla Graph API",
-        "4 core edge types pokrywaja glowna strukture DAG (hierarchy + dependencies)"
+        "React Flow (xyflow) z memoizacja (React.memo) obsluzy 100+ nodes",
+        "elkjs oblicza layout 100 nodes w <2s (main thread lub Web Worker zalezne od Next.js)",
+        "SWR jako jedyne zrodlo prawdy eliminuje three-way state sync problem (D-036)",
+        "4 core edge types pokrywaja glowna strukture DAG — czytelnosc nad kompletnoscia"
       ],
       "tags": [
         "dag",
@@ -481,47 +480,48 @@
       ],
       "status": "ACTIVE",
       "created": "2026-03-14T20:56:14Z",
-      "updated": "2026-03-14T22:15:34Z"
+      "updated": "2026-03-14T22:49:58Z"
     },
     {
       "id": "O-009",
       "title": "Entity-Scoped AI Conversations",
-      "description": "Kazdy node na DAG ma opcje AI Assistant (via NodeContextMenu z O-008) - klikniecie otwiera sidebar z kontekstem tej encji. target_entity_type + target_entity_id auto-set na ChatRequest/ChatSession (pola juz istnieja w backendzie). Istniejacy context_resolver.py buduje kontekst per entity type - trzeba go uzyc jako initial context. Konwersacje AI przypisane do konkretnych encji. SessionManager (Redis) wymaga rozszerzenia o filtrowanie po entity_type/entity_id. UI sidebar (istniejacy, 5 zakladek) wymaga rozbudowy: zakladka Conversations filtrowana po aktywnej encji, opcja wznowienia poprzedniej lub rozpoczecia nowej konwersacji. Sidebar otwiera sie z pre-loaded entity context i auto-ustawionym target.",
+      "description": "Kazdy node na DAG i kazda strona detail entity ma opcje AI Assistant — klikniecie otwiera sidebar z kontekstem tej encji. target_entity_type + target_entity_id auto-set (pola juz istnieja w backendzie). Dziala zarowno z DAG nodes (NodeContextMenu) jak i ze stron detail pages — NIE blokowany przez O-008. Konwersacje persisted w Redis z dluzszym TTL (7-30 dni zamiast 24h). SessionManager rozszerzony o filtrowanie po entity. Zakladka Conversations filtrowana po aktywnej encji. Dodatkowo: domyslne scopes per entity type — objective otwiera AI z all scopes, task z task-specific (przeniesione z O-012).",
       "key_results": [
         {
           "id": "KR-1",
-          "description": "Klikniecie AI w NodeContextMenu na DAG node otwiera sidebar z entity context auto-loaded (context_resolver dostarcza pelna tresc encji, ID, typ, powiazania) i target_entity ustawionym na ChatRequest",
+          "description": "Klikniecie AI na DAG node (NodeContextMenu) LUB na detail page otwiera sidebar z entity context auto-loaded via context_resolver i target_entity ustawionym",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-2",
-          "description": "SessionManager rozszerzony o filtrowanie: GET /llm/sessions?entity_type=X&entity_id=Y zwraca konwersacje powiazane z encja (Redis index)",
+          "description": "SessionManager: Redis TTL 7-30 dni, filtrowanie GET /llm/sessions?entity_type=X&entity_id=Y, secondary index po entity",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-3",
-          "description": "Zakladka Conversations w sidebar filtrowana po aktywnej encji - gdy otwarta z DAG node widac tylko konwersacje z danym obiektem, z opcja przelaczenia na all",
+          "description": "Zakladka Conversations w sidebar filtrowana po aktywnej encji (z opcja all). Wznowienie poprzedniej lub nowa konwersacja per entity",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-4",
-          "description": "Opcje w sidebar: wznow poprzednia konwersacje (pelna historia) lub rozpocznij nowa - obie z entity context auto-loaded",
+          "description": "Domyslne scopes per entity type w project config — objective = all scopes, task = task-specific. Rozszerzenie sidebarStore o defaults",
           "status": "NOT_STARTED"
         }
       ],
       "appetite": "medium",
       "scope": "project",
       "assumptions": [
-        "Istniejace pola target_entity_type/id na ChatSession i ChatRequest wystarczaja jako binding - nie trzeba nowego modelu",
-        "Redis sorted set (chat:sessions) mozna rozszerzyc o secondary index po entity bez migracji",
-        "context_resolver.py pokrywa wszystkie 9 entity types (lub mozna latwo rozszerzyc)",
-        "Istniejacy sidebar UI (AISidebar.tsx, 753 LOC) mozna rozbudowac bez refaktoru"
+        "O-009 NIE zalezy od O-008 — moze dzialac z detail pages niezaleznie od DAG",
+        "Redis TTL 7-30 dni wystarczy — pelna PostgreSQL migracja sesji w przyszlosci jesli nie",
+        "context_resolver.py pokrywa budowanie kontekstu dla wszystkich entity types",
+        "sidebarStore (addedScopes/removedScopes) moze byc rozszerzony o entity type defaults"
       ],
       "tags": [
         "ai-sidebar",
         "conversations",
         "entity-binding",
-        "context"
+        "context",
+        "scopes"
       ],
       "scopes": [
         "frontend",
@@ -534,11 +534,6 @@
       "guideline_ids": [],
       "relations": [
         {
-          "type": "depends_on",
-          "target_id": "O-008",
-          "notes": "Wymaga DAG z nodami do klikniecia"
-        },
-        {
           "type": "supersedes",
           "target_id": "O-003",
           "notes": "Zastepuje ogolny O-003 bardziej konkretnym podejsciem entity-scoped"
@@ -546,54 +541,49 @@
       ],
       "status": "ACTIVE",
       "created": "2026-03-14T20:56:14Z",
-      "updated": "2026-03-14T22:16:19Z"
+      "updated": "2026-03-14T22:49:58Z"
     },
     {
       "id": "O-010",
-      "title": "Entity Skill Configuration & Contract API",
-      "description": "Skille przypisane do typow encji w konfiguracji projektu. Infrastruktura skilli juz istnieje: storage per-skill directory, frontmatter (name, id, description, allowed-tools), _config.json (categories, scopes, status), injection do system prompt (max 5, 30k chars). Brakuje: (1) entity_skills mapping w project config, (2) entity_types w skill metadata/frontmatter, (3) auto-attachment skilla gdy AI otwiera sie dla danego entity type, (4) picker UI gdy wiecej niz 1 skill. Contract API: getToolContract juz istnieje jako LLM tool, core/contracts.py ma render_contract() — potrzebny REST endpoint wystawiajacy to samo dla UI i skilli. Skille powinny moc referencowac kontrakty (jakie operacje moga wykonac), a LLM powinien otrzymac kontrakt w kontekscie sesji automatycznie gdy skill jest attached.",
+      "title": "Contract REST API",
+      "description": "Wystawic istniejace core contracts (render_contract z core/contracts.py) jako REST endpoint dla UI, skilli i LLM. Thin wrapper nad istniejacym render_contract — nie modyfikuje core. GET /api/v1/contracts/{module}/{action} zwraca JSON schema + example + notes identycznie z py -m core.{module} contract {action}. Pokrywa wszystkie moduly (objectives, ideas, tasks, decisions, knowledge, guidelines, research, lessons, ac_templates, changes, gates). Ulatwia: (1) skill referencje do kontraktow, (2) frontend form validation (zod schema generation), (3) LLM on-demand contract access bez CLI.",
       "key_results": [
         {
           "id": "KR-1",
-          "description": "Project config (pipeline config) obsluguje entity_skills: {objective: [...], idea: [...], task: [...]} — walidacja czy skill istnieje, CRUD przez UI settings",
+          "description": "GET /api/v1/contracts/{module}/{action} zwraca JSON schema + example + notes dla kazdego modulu i akcji (add, update)",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-2",
-          "description": "Auto-attach: 1 domyslny skill = auto-attach w sidebar gdy AI otwiera sie dla entity type. >1 = picker z opcja 'let AI choose' (AI dobiera po opisie skilla). 0 = brak auto-attach",
+          "description": "Pokrywa min. 10 modulow: objectives, ideas, tasks, decisions, knowledge, guidelines, research, lessons, ac_templates, changes",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-3",
-          "description": "REST contract API: GET /api/v1/contracts/{module}/{action} zwraca JSON schema + example + notes (wystawia istniejacy render_contract z core/contracts.py)",
+          "description": "Response zgodny z output render_contract — te same pola required/optional, enums, types, invariants, example",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-4",
-          "description": "Skill frontmatter rozszerzony o entity_types i contract_refs — LLM automatycznie otrzymuje referencyjne kontrakty w kontekscie sesji gdy skill jest attached",
+          "description": "GET /api/v1/contracts — lista dostepnych modulow i akcji (discovery endpoint)",
           "status": "NOT_STARTED"
         }
       ],
-      "appetite": "medium",
+      "appetite": "small",
       "scope": "project",
       "assumptions": [
-        "Istniejacy render_contract (core/contracts.py) moze byc wystawiony jako REST endpoint bez modyfikacji core",
-        "Skill frontmatter moze byc rozszerzony o entity_types i contract_refs bez breaking changes",
-        "getToolContract (istniejacy LLM tool) pokrywa potrzeby LLM on-demand — REST endpoint jest dla UI i skilli",
-        "LLM poprawnie interpretuje kontrakty i generuje poprawne wywolania narzedzi"
+        "render_contract (core/contracts.py) moze byc wywolany programowo bez modyfikacji core",
+        "Istniejace contract specs sa stabilne i nie wymagaja zmian",
+        "Thin wrapper (1 router, 1 helper) wystarczy — nie trzeba nowego serwisu"
       ],
       "tags": [
-        "skills",
         "contracts",
-        "entity-skills",
-        "configuration"
+        "api",
+        "rest",
+        "schema"
       ],
       "scopes": [
-        "frontend",
-        "backend",
-        "ai",
-        "llm",
-        "skills"
+        "backend"
       ],
       "derived_guidelines": [],
       "knowledge_ids": [],
@@ -607,41 +597,40 @@
       ],
       "status": "ACTIVE",
       "created": "2026-03-14T20:56:14Z",
-      "updated": "2026-03-14T22:16:59Z"
+      "updated": "2026-03-14T22:50:38Z"
     },
     {
       "id": "O-011",
       "title": "Inline Entity Editing from DAG",
-      "description": "Klikniecie node na DAG (via NodeContextMenu z O-008) daje opcje 'Edit' i 'AI'. Edit otwiera panel edycji w prawym panelu (zamienia sidebar na czas edycji, lub overlay). Kazdy entity type ma formularz oparty na react-hook-form + zod (oba juz zainstalowane). Formularze korzystaja z istniejacych entity stores (update methods) i API client (lib/api.ts update()). Zmiany zapisuja sie przez API, SWR revalidation odswierza DAG node reaktywnie. Walidacja zod schemas powinna byc zgodna z kontraktami core (wymagane pola, enums, typy). Priorytet: 4 najwazniejsze entity types (objective, idea, task, decision) — reszta moze byc dodana pozniej.",
+      "description": "Klikniecie Edit na DAG node (NodeContextMenu) nawiguje do istniejacej strony detail entity (np. /projects/{slug}/objectives/O-001). Strony detail musza miec pelne formularze edycji dla min. 4 typow encji (objective, idea, task, decision). Formularze oparte na react-hook-form + zod (juz zainstalowane). Save przez istniejace entity stores + API client, SWR revalidation odswierza dane. Nie budujemy nowego panelu edycji — korzystamy z istniejacych stron detail. Przycisk 'Back to DAG' na stronie detail.",
       "key_results": [
         {
           "id": "KR-1",
-          "description": "NodeContextMenu 'Edit' otwiera panel edycji z formularzem specyficznym dla entity type — min. objective, idea, task, decision (4 formularze)",
+          "description": "NodeContextMenu Edit nawiguje do detail page entity (router.push). Przycisk 'Back to DAG' na stronie detail wraca do grafu",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-2",
-          "description": "Formularze obsluguja kluczowe pola: objective (title, description, KRs, appetite, scopes), idea (title, description, category, relations), task (name, description, AC, scopes, type), decision (issue, recommendation, status, type)",
+          "description": "Pelne formularze edycji na detail pages: objective (title, description, KRs, appetite, scopes), idea (title, description, category, relations), task (name, description, AC, scopes, type), decision (issue, recommendation, status, type)",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-3",
-          "description": "Save wywoluje entity store update (istniejace metody) + SWR revalidation, DAG node update reaktywny w <1s",
+          "description": "Save przez entity store update + SWR revalidation. Po powrocie do DAG node pokazuje zaktualizowane dane w <1s",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-4",
-          "description": "Zod schemas per entity type zgodne z kontraktami core — walidacja client-side przed wyslaniem do API",
+          "description": "Zod schemas per entity type zgodne z kontraktami core — walidacja client-side przed API call",
           "status": "NOT_STARTED"
         }
       ],
       "appetite": "small",
       "scope": "project",
       "assumptions": [
-        "react-hook-form (v7.71.2) + zod (v4.3.6) juz zainstalowane — nie trzeba nowych deps",
-        "Istniejace entity stores z SWR daja reaktywnosc DAG node bez dodatkowej pracy",
-        "4 formularze (objective, idea, task, decision) pokrywaja 80% use cases — reszta w kolejnej iteracji",
-        "Panel edycji moze zastapic sidebar tymczasowo (prawy panel) bez konfliktu UX"
+        "react-hook-form (v7.71.2) + zod (v4.3.6) juz zainstalowane",
+        "Istniejace detail pages maja wystarczajaca strukture do dodania formularzy (lub mozna rozszerzyc)",
+        "Nawigacja DAG -> detail -> DAG jest akceptowalnym UX (nie inline editing)"
       ],
       "tags": [
         "editing",
@@ -664,47 +653,46 @@
       ],
       "status": "ACTIVE",
       "created": "2026-03-14T20:56:14Z",
-      "updated": "2026-03-14T22:17:39Z"
+      "updated": "2026-03-14T22:49:58Z"
     },
     {
       "id": "O-012",
-      "title": "Chat Context Extension & Scope Management",
-      "description": "Rozszerzanie kontekstu konwersacji AI poza aktywna encje. Istniejace mechanizmy: @mentions (MentionDropdown) — inline referencje display-only, / slash commands (SlashCommandDropdown) — routuje do skilli, sidebarStore ma addedScopes/removedScopes. NOWE: mozliwosc dodania pelnego kontekstu dowolnej encji do system prompt konwersacji. Trigger: rozszerzenie istniejacego @mention (np. @O-001) lub dedykowany UI w sidebar (przycisk 'Add context'). Dodana encja laduje pelne dane via context_resolver i wstrzykuje do system prompt (obok page_context). Domyslne scopes per entity type konfigurowane w project config (obiektyw = all scopes, task = task-specific). Token budget (context_window_manager) musi byc respektowany — max 3-5 dodatkowych encji.",
+      "title": "Chat Context Extension",
+      "description": "Dodawanie dodatkowych encji do kontekstu konwersacji AI przez dedykowany 'Add context' button w sidebar. Wybrana encja laduje pelny kontekst via context_resolver i wstrzykuje do system prompt (jako additional_contexts). Dodane konteksty widoczne jako chips z opcja usuniecia. Max 3-5 dodatkowych encji respektujac token budget (context_window_manager). Nie modyfikuje @mention (zostaje display-only). searchEntities reuzywany jako backend search.",
       "key_results": [
         {
           "id": "KR-1",
-          "description": "Rozszerzenie @mention lub dedykowany 'Add context' w sidebar pozwala wyszukac encje po ID lub nazwie — wyniki pogrupowane po typie, searchEntities reuzywany jako backend",
+          "description": "Add context button w sidebar otwiera searchable dropdown — wyszukiwanie po ID lub nazwie, wyniki pogrupowane po entity type (reuse searchEntities)",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-2",
-          "description": "Wybrana encja laduje pelny kontekst via context_resolver i wstrzykuje do system prompt (jako additional_contexts obok page_context) — respektuje token budget",
+          "description": "Wybrana encja laduje kontekst via context_resolver i wstrzykuje do system prompt jako additional_contexts — respektuje token budget",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-3",
-          "description": "Domyslne scopes per entity type w project config — rozszerzenie istniejacego sidebarStore (addedScopes/removedScopes) o defaults per entity type",
+          "description": "Dodane konteksty widoczne jako chips w sidebar z opcja usuniecia — max 5 dodatkowych encji",
           "status": "NOT_STARTED"
         },
         {
           "id": "KR-4",
-          "description": "Dodane konteksty widoczne jako chips w sidebar (obok scope chips) z opcja usuniecia — max 5 dodatkowych encji",
+          "description": "@mention zachowany jako display-only (EntityInlineCard) — nie zmieniony. Context extension tylko przez Add context button",
           "status": "NOT_STARTED"
         }
       ],
       "appetite": "small",
       "scope": "project",
       "assumptions": [
-        "searchEntities tool (backend) moze byc reuzywany jako endpoint dla frontend search UI",
-        "Token budget (context_window_manager) wystarczy na kontekst 3-5 dodatkowych encji bez przekroczenia limitu",
-        "context_resolver.py pokrywa budowanie kontekstu dla wszystkich entity types",
-        "Rozszerzenie @mention nie zlamie istniejacego MentionDropdown — backward compatible"
+        "searchEntities (backend) moze byc reuzywany jako endpoint dla frontend search UI",
+        "Token budget wystarczy na kontekst 3-5 dodatkowych encji (context_resolver ~500 tokenow per entity)",
+        "additional_contexts jako nowe pole na ChatRequest/system prompt integruje sie z istniejacym page_context"
       ],
       "tags": [
         "context",
-        "scopes",
         "chat-extension",
-        "search"
+        "search",
+        "add-context"
       ],
       "scopes": [
         "frontend",
@@ -723,7 +711,74 @@
       ],
       "status": "ACTIVE",
       "created": "2026-03-14T20:56:14Z",
-      "updated": "2026-03-14T22:18:27Z"
+      "updated": "2026-03-14T22:49:58Z"
+    },
+    {
+      "id": "O-013",
+      "title": "Entity Skill Config, Auto-Attach & Base Skills",
+      "description": "Skille przypisane do typow encji w project config z auto-attachment w sidebar. Infrastruktura: entity_skills mapping w project config, entity_types w skill frontmatter, auto-select gdy 1 skill, picker gdy >1 (z opcja 'AI choose' — LLM dostaje opisy skilli i wybiera). Bazowe skille: min. 3 starter-pack (objective-definer, idea-explorer, task-executor) ktore korzystaja z contract_refs do kontraktow z O-010. Skille NIE zastepuja istniejacych slash commands (/objective, /idea, /plan) — sa komplementarne, uzytkowane w sidebar AI.",
+      "key_results": [
+        {
+          "id": "KR-1",
+          "description": "entity_skills w project config: {objective: [...], idea: [...], task: [...]} z walidacja czy skill istnieje. CRUD przez UI settings",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-2",
+          "description": "Auto-attach: 1 skill per entity type = auto. >1 = picker z opcja 'AI choose' (LLM dobiera po opisie). 0 = brak auto-attach",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-3",
+          "description": "Skill frontmatter rozszerzony o entity_types i contract_refs — skill wie jakie encje obsluguje i jakie kontrakty referencuje",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "KR-4",
+          "description": "Min. 3 bazowe skille (objective-definer, idea-explorer, task-executor) jako starter pack — dzialajace end-to-end z kontraktami",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "appetite": "medium",
+      "scope": "project",
+      "assumptions": [
+        "Skill frontmatter moze byc rozszerzony o entity_types i contract_refs bez breaking changes",
+        "AI choose: LLM moze wybrac skill z listy po opisie (opis ~100 tokenow per skill, max 10 skilli = 1000 tokenow)",
+        "3 bazowe skille pokrywaja najczestsze use cases — reszta tworzona przez uzytkownika",
+        "Contract REST API (O-010) jest dostepny jako zrodlo kontraktow dla skilli"
+      ],
+      "tags": [
+        "skills",
+        "entity-skills",
+        "auto-attach",
+        "configuration",
+        "starter-pack"
+      ],
+      "scopes": [
+        "frontend",
+        "backend",
+        "ai",
+        "llm",
+        "skills"
+      ],
+      "derived_guidelines": [],
+      "knowledge_ids": [],
+      "guideline_ids": [],
+      "relations": [
+        {
+          "type": "depends_on",
+          "target_id": "O-009",
+          "notes": "Wymaga entity-scoped AI conversations jako podstawy"
+        },
+        {
+          "type": "depends_on",
+          "target_id": "O-010",
+          "notes": "Skille referencuja kontrakty z Contract REST API"
+        }
+      ],
+      "status": "ACTIVE",
+      "created": "2026-03-14T22:50:42Z",
+      "updated": "2026-03-14T22:50:42Z"
     }
   ]
 }

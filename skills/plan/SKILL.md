@@ -223,6 +223,20 @@ and prioritization between KRs.
 **d. If user says "just plan it"** — proceed but flag your top 2 assumptions
 in planning decisions (Step 6).
 
+**f. Capture alignment contract** — after alignment, persist the contract as structured data:
+```json
+{
+  "goal": "single sentence goal from restatement",
+  "boundaries": {
+    "must": ["non-negotiable requirement 1"],
+    "must_not": ["explicit exclusion 1"],
+    "not_in_scope": ["not covered 1"]
+  },
+  "success": "how user will judge if this is right — what they can test, observe, or verify"
+}
+```
+This will be stored on each task as the `alignment` field in Step 6. All tasks in the plan share the same top-level alignment, but `success` may be narrowed per task if they cover different aspects of the goal.
+
 ---
 
 ### Step 4 — Assess Complexity
@@ -295,11 +309,13 @@ For each task, specify:
 - `scopes`: list of guideline scopes this task relates to (e.g., `["backend", "database"]`). **Only use scopes that exist in the project** (loaded via R10 in Step 2). Inherit from idea/objective scopes but narrow per task — a backend-only task should NOT get frontend scopes. `general` is always included automatically during execution.
 - `knowledge_ids`: list of Knowledge IDs (K-001, etc.) that provide context for this task. **Only assign knowledge relevant to the task** — if K-001 is about API patterns and the task is pure CSS, don't assign K-001. Inherit from source idea/objective but distribute selectively. Loaded by `pipeline context` for LLM assembly.
 - `test_requirements`: dict with boolean keys `unit`, `integration`, `e2e` indicating which test types this task needs.
+- `alignment`: the alignment contract from Step 3 (dict with `goal`, `boundaries`, `success`). All tasks share the same plan-level alignment. Required for feature/bug tasks planned via `/plan`. Narrowing `success` per task is encouraged when tasks cover different aspects of the goal.
 - `acceptance_criteria`: list of concrete, verifiable conditions for DONE (2-5 per task). Generate from these sources:
-  1. **User's answer** to "what does done look like?" / "how will you verify?" (Step 3)
-  2. **Task output** — what artifact exists after? (file created, endpoint responding, test passing)
-  3. **Integration point** — how does this connect to the next task? (data format, API contract, import path)
-  4. **Boundary** — "Does NOT {thing}" when the scope edge is ambiguous
+  1. **Alignment success criteria** — from the alignment contract captured in Step 3. The `success` field defines what the user will test/observe. Derive at least one AC per task from this.
+  2. **User's answer** to "what does done look like?" / "how will you verify?" (Step 3)
+  3. **Task output** — what artifact exists after? (file created, endpoint responding, test passing)
+  4. **Integration point** — how does this connect to the next task? (data format, API contract, import path)
+  5. **Boundary** — "Does NOT {thing}" when the scope edge is ambiguous
 
   Anti-patterns (these trigger warnings in `draft-plan`):
   | Vague (reject) | Specific (good) |
