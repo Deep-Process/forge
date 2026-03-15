@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useProjectStore } from "@/stores/projectStore";
 import { useWebSocket } from "@/lib/hooks/useWebSocket";
 import { dispatchWsEvent, setLastEventTimestamp, fetchUnreadOnReconnect } from "@/stores/wsDispatcher";
@@ -139,6 +139,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <Breadcrumb />
+        <BackToDAG slug={slug} />
         {children}
       </div>
 
@@ -153,4 +154,38 @@ function formatTimeAgo(timestamp: number): string {
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ago`;
+}
+
+/** Show "Back to DAG" link when user navigated from the graph view. */
+function BackToDAG({ slug }: { slug: string }) {
+  const pathname = usePathname();
+  const [fromDag, setFromDag] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("forge-from-dag");
+      // Show only on entity detail pages, not on the board page itself
+      const isDetailPage = /\/projects\/[^/]+\/(objectives|ideas|tasks|decisions|research|knowledge|guidelines|lessons|ac-templates)\/[^/]+$/.test(pathname ?? "");
+      setFromDag(stored === slug && isDetailPage);
+    } catch {
+      setFromDag(false);
+    }
+  }, [slug, pathname]);
+
+  if (!fromDag) return null;
+
+  return (
+    <div className="mb-3">
+      <Link
+        href={`/projects/${slug}/board`}
+        onClick={() => { try { sessionStorage.removeItem("forge-from-dag"); } catch {} }}
+        className="inline-flex items-center gap-1.5 text-xs text-forge-600 hover:text-forge-800"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to DAG
+      </Link>
+    </div>
+  );
 }

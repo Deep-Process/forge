@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ReactFlow,
   MiniMap,
@@ -15,6 +15,7 @@ import useSWR from "swr";
 import { EntityNode, ENTITY_CONFIG } from "./EntityNode";
 import { EntityEdge } from "./EntityEdge";
 import { GraphFilterToolbar } from "./GraphFilterToolbar";
+import { NodeContextMenu } from "./NodeContextMenu";
 import { useGraphLayout } from "@/hooks/useGraphLayout";
 import { useGraphStore, type EntityType } from "@/stores/graphStore";
 import type { GraphNode, GraphEdge } from "@/lib/elkLayout";
@@ -59,7 +60,16 @@ interface EntityDAGProps {
 /** Graph-specific SWR revalidation debounce (2-5s per D-034) */
 const GRAPH_REVALIDATION_MS = 3000;
 
+interface ContextMenuState {
+  x: number;
+  y: number;
+  entityType: string;
+  entityId: string;
+  label: string;
+}
+
 export function EntityDAG({ slug, onNodeClick }: EntityDAGProps) {
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const selectedTypes = useGraphStore((s) => s.selectedTypes);
   const statusFilter = useGraphStore((s) => s.statusFilter);
   const edgeTypeFilter = useGraphStore((s) => s.edgeTypeFilter);
@@ -133,19 +143,32 @@ export function EntityDAG({ slug, onNodeClick }: EntityDAGProps) {
     [filteredEdges],
   );
 
-  // Handle node click
+  // Handle node click — open context menu
   const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node) => {
       setSelectedNode(node.id);
+      // node.id is "entityType:entityId"
+      const [entityType, ...rest] = node.id.split(":");
+      const entityId = rest.join(":");
+      const label = (node.data as Record<string, unknown>)?.label as string ?? entityId;
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        entityType,
+        entityId,
+        label,
+      });
       if (onNodeClick) {
-        // node.id is "entityType:entityId"
-        const [entityType, ...rest] = node.id.split(":");
-        const entityId = rest.join(":");
         onNodeClick(node.id, entityType, entityId);
       }
     },
     [onNodeClick, setSelectedNode],
   );
+
+  // Close context menu on pane click
+  const handlePaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   // MiniMap node color
   const miniMapNodeColor = useCallback((node: Node) => {
@@ -191,6 +214,7 @@ export function EntityDAG({ slug, onNodeClick }: EntityDAGProps) {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
           fitView
           minZoom={0.1}
           maxZoom={2}
@@ -206,6 +230,17 @@ export function EntityDAG({ slug, onNodeClick }: EntityDAGProps) {
             style={{ width: 150, height: 100 }}
           />
         </ReactFlow>
+        {contextMenu && (
+          <NodeContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            entityType={contextMenu.entityType}
+            entityId={contextMenu.entityId}
+            label={contextMenu.label}
+            slug={slug}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
       </div>
     </div>
   );
