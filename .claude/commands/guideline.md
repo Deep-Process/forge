@@ -19,12 +19,7 @@ ls forge_output/ 2>/dev/null
 
 If no project exists, ask user to create one first with `/plan`.
 
-2. Check the contract:
-```bash
-python -m core.guidelines contract add
-```
-
-3. Parse the user's input to extract:
+2. Parse the user's input to extract:
    - **title**: concise name
    - **scope**: infer from content (e.g., SQL → database, API → api, general if unclear). Ask if ambiguous.
    - **content**: the full guideline text (expand from the user's shorthand if needed)

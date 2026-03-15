@@ -22,7 +22,6 @@ description: "Decompose a high-level goal into a tracked, dependency-aware task 
 | R1 | `python -m core.pipeline status {project}` | Current pipeline state (if project exists) | Step 1 — check existing state |
 | R2 | `python -m core.lessons read-all` | Lessons from past projects | Step 2 — learn from history |
 | R3 | `python -m core.guidelines read {project} --weight must` | Must-follow project guidelines | Step 2 — inform decomposition |
-| R4 | `python -m core.decisions contract add` | Contract for recording decisions | Step 4 — before recording planning decisions |
 | R5 | `python -m core.changes contract` | Contract for recording changes | Reference only |
 | R6 | `skills/deep-align/SKILL.md` | Alignment procedure | Step 3 — before decomposition |
 | R7 | `python -m core.research context {project} --entity {id}` | Research linked to entity | Step 2 — load research context |
@@ -195,56 +194,38 @@ The gate BLOCKS on unready explorations but only WARNS on unmitigated HIGH risks
 
 ---
 
-### Step 3 — Align on Goal (medium alignment per `skills/deep-align/SKILL.md`)
+### Step 3 — Align on Goal
 
-Before decomposing, build shared understanding of the goal:
+**If planning from idea/objective** (`/plan I-001` or `/plan O-001`): alignment already exists
+from /objective or /discover. Read it — don't re-do it:
+```bash
+python -m core.ideas show {project} {idea_id}       # has description, scopes, discovery context
+python -m core.objectives show {project} {obj_id}   # has KRs, description, scopes
+```
+Ask only about implementation gaps (quality level, priorities between KRs, verification approach).
 
-**a. Restate** the goal in one sentence: "You want X so that Y."
-Get confirmation. If the restatement is wrong, the entire plan will be wrong.
+**If planning directly** (`/plan {goal text}`): this IS the entry point — do full alignment:
+- **Restate** the goal: "You want X so that Y." Get confirmation.
+- **Ask 2-4 scoping questions**: scope, constraints, quality, boundaries, verification.
 
-**b. Ask scoping questions** — only where you'd have to guess. Pick from:
-- **Scope:** "Does this include X or just Y?"
-- **Constraints:** "Any technologies/approaches that are off limits?"
-- **Quality:** "What does 'done' look like? MVP or production-ready?"
-- **Priority:** "If I have to choose between X and Y, which matters more?"
-- **Verification:** "How will you know each piece works? What can you test or observe?"
-- **Boundaries:** "What is explicitly NOT in scope for this work?"
+**If user says "just plan it"** — proceed but flag top 2 assumptions.
 
-Group questions in one message (2-4 questions max). Don't ask what you
-already know from the idea, discovery findings, or codebase context.
-
-**c. If planning from an approved idea** (`/plan I-001`): the idea's description
-and discovery decisions provide most context — ask fewer questions, focus
-only on gaps not covered by prior exploration.
-
-**e. If planning from an objective** (`/plan O-001`): the objective's KRs and
-any linked research provide scope — focus questions on implementation approach
-and prioritization between KRs.
-
-**d. If user says "just plan it"** — proceed but flag your top 2 assumptions
-in planning decisions (Step 6).
-
-**f. Capture alignment contract** — after alignment, persist the contract as structured data:
+**Capture alignment contract** for all tasks:
 ```json
 {
-  "goal": "single sentence goal from restatement",
-  "boundaries": {
-    "must": ["non-negotiable requirement 1"],
-    "must_not": ["explicit exclusion 1"],
-    "not_in_scope": ["not covered 1"]
-  },
-  "success": "how user will judge if this is right — what they can test, observe, or verify"
+  "goal": "single sentence goal",
+  "boundaries": {"must": [...], "must_not": [...], "not_in_scope": [...]},
+  "success": "how user judges if done — what to test/observe"
 }
 ```
-This will be stored on each task as the `alignment` field in Step 6. All tasks in the plan share the same top-level alignment, but `success` may be narrowed per task if they cover different aspects of the goal.
+Stored on each task as `alignment` field. Narrowing `success` per task is encouraged.
 
-**g. Persist alignment as Vision document** — store the confirmed alignment as a Knowledge object so it auto-loads into every task context via scope matching:
+**Persist as Vision** — so context survives to task 5 of 8:
 ```bash
 python -m core.knowledge add {project} --data - <<'EOF'
-[{"title": "Vision: {goal}", "category": "business-context", "scopes": ["{scopes}"], "content": "{alignment in natural language — goal, boundaries, success criteria, key design decisions}"}]
+[{"title": "Vision: {goal}", "category": "business-context", "scopes": ["{scopes}"], "content": "{goal, boundaries, success criteria}"}]
 EOF
 ```
-This ensures that by task 5 of 8, the LLM still has the original vision in context — not just the local task instruction.
 
 ---
 
@@ -294,11 +275,9 @@ python -m core.pipeline init {slug} --goal "{full goal text}"
 ```
 
 If you make any architectural decisions during planning (e.g., choosing a framework,
-deciding on a pattern), record them immediately:
+deciding on a pattern), record them:
 
-MANDATORY — load contract first (R4), then record per its spec:
 ```bash
-python -m core.decisions contract add
 python -m core.decisions add {project} --data '[...]'
 ```
 
@@ -342,6 +321,13 @@ For each task, specify:
 - `knowledge_ids`: list of Knowledge IDs (K-001, etc.) that provide context for this task. **Only assign knowledge relevant to the task** — if K-001 is about API patterns and the task is pure CSS, don't assign K-001. Inherit from source idea/objective but distribute selectively. Loaded by `pipeline context` for LLM assembly.
 - `test_requirements`: dict with boolean keys `unit`, `integration`, `e2e` indicating which test types this task needs.
 - `alignment`: the alignment contract from Step 3 (dict with `goal`, `boundaries`, `success`). All tasks share the same plan-level alignment. Required for feature/bug tasks planned via `/plan`. Narrowing `success` per task is encouraged when tasks cover different aspects of the goal.
+- `produces`: dict describing what this task creates for downstream consumers. Use when other tasks depend on this task's output. Keys are semantic labels, values describe the contract:
+  - `endpoint`: "POST /api/users → 201 {id, email}" (API shape for consuming tasks)
+  - `model`: "User(id, email, hashed_password)" (data model for dependent tasks)
+  - `migration`: "users table with columns: id, email, hashed_password, created_at" (schema for model tasks)
+  - `component`: "UserForm component accepting onSubmit(data) prop" (interface for integration tasks)
+  - `errors`: "409 duplicate email, 422 validation, 401 unauthorized" (error contract)
+  Downstream tasks see this contract in `pipeline context` and should verify their implementation matches it.
 - `exclusions`: list of task-specific DO NOT rules. Generate from:
   1. **Cross-task boundaries**: If T-005 does backend and T-008 does frontend, T-005 gets `"DO NOT modify frontend components or pages"`, T-008 gets `"DO NOT modify API routes or backend logic"`
   2. **File-level exclusions**: Name specific files this task must NOT touch that a sibling task owns (e.g., `"DO NOT modify WorkflowList.tsx — that is T-012"`)

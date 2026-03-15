@@ -37,12 +37,7 @@ If no project exists, tell the user to run `/plan` first.
 
 3. **If `--quick` IS set** — infer acceptance criteria from the description. Flag your top 2 assumptions.
 
-4. Check the contract:
-```bash
-python -m core.pipeline contract add-tasks
-```
-
-5. Add the task:
+4. Add the task:
 ```bash
 python -m core.pipeline add-tasks {project} --data '[{
   "name": "{slug-from-title}",

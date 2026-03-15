@@ -111,6 +111,8 @@ Use **component-centric decomposition**:
 Good: `Create ExecuteWorkflowModal` / `Add Execute button to WorkflowHeader` / `Connect modal to API`
 Bad: `Implement workflow execution UI` / `Handle edge cases`
 
+**Cross-domain note**: If the plan includes backend tasks, your AC should reference the `produces` contract from the backend task (expected response shape, error codes). UX error handling must match backend error contracts.
+
 ### Task Rules
 
 **instruction** must reference: exact file, exact pattern source, exact location within file.
@@ -139,6 +141,23 @@ Store in **Task fields**: instruction, acceptance_criteria, exclusions, alignmen
 Before: Read pattern source file, read target file, check imports.
 During: Follow pattern exactly, handle ALL states from AC, do NOT add unlisted behavior.
 After: For each AC — is state in code? For each exclusion — did I touch forbidden files?
+
+### Verification Workflow
+
+After implementation, verify each of these:
+1. Render each `ui_state` from AC — does component show correct content per state?
+2. Walk each `user_flow` step — does interaction chain produce expected result?
+3. Check edge states explicitly: empty data, loading, error response, overflow/long text
+4. Visual consistency: does it match existing components? (spacing, colors, fonts, component library usage)
+
+### Common Pitfalls
+
+- Missing loading state — user clicks, nothing visible happens for 2s
+- Missing empty state — list renders blank instead of "No items" message
+- Hardcoded strings instead of using existing i18n/constants pattern
+- New component ignores existing design system components (builds custom button instead of using `<Button>`)
+- Event handler missing `preventDefault()` or `stopPropagation()` — causes double-submit or navigation
+- Component works in isolation but breaks in parent context (missing key prop, wrong flex container)
 
 ### Micro-review (max 5 lines)
 

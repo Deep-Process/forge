@@ -108,10 +108,12 @@ Store in **Research (R-NNN updated) + Knowledge (K-NNN)** for durable artifacts:
 
 ### Decomposition Strategy
 
-Use **layer-centric decomposition**:
+Use **layer-centric decomposition** within the backend domain (each task <1 day):
 
 Good: `Create execution migration` / `Create ExecutionRepository` / `Create ExecutionService` / `Add POST /execute endpoint`
 Bad: `Implement workflow execution backend` / `Add error handling`
+
+**Cross-domain note**: If the plan includes UX or data tasks, the PLAN should use vertical slices (end-to-end). Layer-centric decomposition applies within each vertical slice's backend portion, not across domains.
 
 ### Task Rules
 
@@ -141,6 +143,23 @@ Store in **Task fields**: instruction, acceptance_criteria, exclusions, alignmen
 Before: Read pattern source, read related layers, check existing tests.
 During: Follow layer separation, implement EVERY business rule from AC, return EXACT error codes.
 After: Trace request → router → service → repo → response. Does it match AC?
+
+### Verification Workflow
+
+After implementation, verify each of these:
+1. Happy path: send valid request, confirm expected response shape matches `produces` contract
+2. Each error AC: send invalid input, confirm expected error code + message format
+3. Auth: send request without token → must return 401 (not 500 from unhandled exception)
+4. Idempotency: send same valid request twice → correct behavior (create returns 409 on second, or is truly idempotent)
+5. Regression: run existing tests — do they all still pass?
+
+### Common Pitfalls
+
+- Returning 500 instead of specific error code — swallowed exception reveals no info to caller
+- Not validating input before processing — trusting client data leads to DB errors surfacing as 500
+- Missing auth/permission check on new endpoint — endpoints inherit nothing by default
+- Transaction not rolled back on partial failure — half-created state in DB
+- Error response shape doesn't match existing convention — caller gets unexpected format
 
 ### Micro-review (max 5 lines)
 

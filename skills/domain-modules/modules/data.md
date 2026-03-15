@@ -111,10 +111,12 @@ Store in **Research (R-NNN updated) + Knowledge (K-NNN)**:
 
 ### Decomposition Strategy
 
-Use **layer-centric decomposition** (schema → model → repository):
+Use **layer-centric decomposition** within the data domain (schema → model → repository, each task <1 day):
 
 Good: `Create execution migration` / `Create WorkflowExecution model` / `Create ExecutionRepository` / `Add relationship to Workflow model`
 Bad: `Add execution tables and models` / `Add data access`
+
+**Cross-domain note**: If the plan includes backend or UX tasks, the PLAN should use vertical slices. Layer-centric decomposition applies within each vertical slice's data portion. Ensure column names match the model field names the backend will use.
 
 ### Task Rules
 
@@ -145,6 +147,23 @@ Store in **Task fields**: instruction, acceptance_criteria, exclusions, alignmen
 Before: Read existing migrations (pattern, revision chain), read existing models.
 During: Column types EXACTLY per schema, every constraint in migration, every index created, reversible.
 After: Does migration run on empty DB? On current DB? Does downgrade work?
+
+### Verification Workflow
+
+After implementation, verify each of these:
+1. Migration up: runs on empty DB without errors
+2. Migration down: reverses cleanly (if reversible migration pattern is used)
+3. Migration on existing data: handles non-empty tables (defaults, nullability for new columns)
+4. Constraints: try violating each constraint (unique, FK, check) — does DB reject it?
+5. Indexes: run EXPLAIN on the main query pattern — does it use the new index?
+
+### Common Pitfalls
+
+- Adding NOT NULL column without DEFAULT to existing table — migration fails on non-empty table
+- Missing index on FK columns — joins become slow at scale
+- CASCADE delete when orphan/restrict was intended — accidental data loss
+- Enum values in migration don't match application constants — silent mismatch
+- Migration order wrong — references table or column not yet created by earlier migration
 
 ### Micro-review (max 5 lines)
 

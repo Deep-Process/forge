@@ -33,10 +33,6 @@ python -m core.decisions read {project} --type risk --status ANALYZING
 ```
 
 ### Add mode (title without D- prefix):
-Check contract:
-```bash
-python -m core.decisions contract add
-```
 
 Ask the user for:
 - description (what could go wrong)

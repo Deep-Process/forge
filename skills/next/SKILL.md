@@ -83,10 +83,9 @@ Bug/chore tasks are auto-skipped by the complexity gate.
 
 Implement the task following its instruction.
 
-For every significant choice during implementation, load the contract and record per its spec:
+For every significant choice during implementation, record it:
 
 ```bash
-python -m core.decisions contract add
 python -m core.decisions add {project} --data '[...]'
 ```
 
@@ -112,9 +111,8 @@ Changes are **auto-recorded at completion** (Step 6) from git diff. This step
 is only needed if you want per-file reasoning traces or to link specific
 changes to decisions mid-task.
 
-For detailed per-file recording, load the contract first:
+For detailed per-file recording:
 ```bash
-python -m core.changes contract
 python -m core.changes record {project} --data '[...]'
 ```
 
@@ -126,57 +124,44 @@ Already-recorded files are skipped by auto-recording (no duplicates).
 
 Before validation gates, verify the quality and correctness of your changes.
 
-**a. Guidelines compliance check:**
+**a. Acceptance Criteria checklist (mandatory):**
 
-Review the guidelines loaded in Step 1 context. For each MUST guideline, verify your changes comply. For SHOULD guidelines, verify where practical.
-
-If a guideline was violated:
-- **Minor fix** (< 5 minutes): fix it now
-- **Major fix** (new feature/refactor needed): create a follow-up TODO task via `python -m core.pipeline add-tasks`, with `type: "chore"` and `depends_on: ["{task_id}"]`.
-Record the violation as a decision with `type: "convention"`.
-
-**b. Deep-verify (for non-trivial changes):**
-
-For tasks that create or modify significant logic (not simple config/docs changes), run a lightweight verification using the deep-verify procedure (`skills/deep-verify/SKILL.md`):
-
-- Scope the verification to FILES CHANGED in this task only
-- Check for: logical errors, missed edge cases, security issues, inconsistencies with existing code
-- Scoring: CRITICAL findings must be fixed. IMPORTANT findings should be fixed or tracked. MINOR findings are optional.
-
-If deep-verify finds issues:
-- **Fix immediately** if the fix is small and within scope
-- **Create TODO task** if the fix is large or out of scope
-- **Record** all findings and fixes as decisions
-
-**Skip deep-verify when:** task is trivial (config change, typo fix, docs-only), or task type is `chore`.
-
-**b2. Decision drift check (if project has CLOSED decisions):**
-
-```bash
-python -m core.decision_checker check {project} --task {task_id}
-```
-
-If MAJOR drift detected: review the flagged decisions and either fix the code to match the decision, or record a new decision explaining why the original was overridden. Do not silently contradict locked decisions.
-
-**c. Acceptance Criteria checklist:**
-
-If the task has `acceptance_criteria`, go through each criterion explicitly.
-
-If the task also has an `alignment` contract, first verify that the AC collectively satisfy the alignment's `success` criteria. If not, note the gap and address it before proceeding.
+If the task has `acceptance_criteria`, go through each criterion explicitly and map each to a test:
 
 ```
 AC Verification for {task_id}:
-1. [criterion text] — [PASS/FAIL: brief evidence]
-2. [criterion text] — [PASS/FAIL: brief evidence]
-...
+1. [criterion text] — PASS → Test: tests/test_users.py::test_create_success
+2. [criterion text] — PASS → Test: tests/test_users.py::test_duplicate_email
+3. [criterion text] — PASS → No test (UI-only, verified visually)
 Alignment check: [success criteria] — [SATISFIED/GAP: explanation]
 ```
+
+Rules:
+- Every AC for feature/bug tasks should map to a test (`→ Test: {file}::{name}`)
+- If no test exists for an AC → **write the test** before marking DONE
+- UI-only or config-only AC → `→ No test ({reason})` is acceptable
+- Gates run all tests — if a mapped test fails, the AC fails
+
+If the task also has an `alignment` contract, verify that the AC collectively satisfy the alignment's `success` criteria.
 
 All criteria must PASS before proceeding. If any criterion FAILS:
 - **Fixable now**: fix it, update changes
 - **Not fixable**: fail the task with `pipeline fail` explaining which criterion cannot be met
 
 Compose the AC reasoning summary for Step 6 (used in `--ac-reasoning`).
+
+**b. Guidelines compliance (quick scan):**
+
+Scan MUST guidelines from Step 1 context against your changes. Fix violations immediately if small. For major violations, create a follow-up chore task and record a convention decision.
+
+**c. Optional: Deep-verify + Decision drift (complex/critical tasks only):**
+
+For tasks that create or modify significant logic (architecture, security, multi-file changes), optionally run:
+
+1. **Deep-verify** (`skills/deep-verify/SKILL.md`) — scope to files changed. Fix CRITICAL findings, track IMPORTANT.
+2. **Decision drift** — `python -m core.decision_checker check {project} --task {task_id}` — only if project has CLOSED decisions. Fix MAJOR drift or record override decision.
+
+**Skip when:** task is trivial (config, docs, chore), or changes are straightforward.
 
 ---
 

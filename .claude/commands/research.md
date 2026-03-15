@@ -24,12 +24,10 @@ python -m core.research show {project} {research_id}
 # Research linked to an entity
 python -m core.research context {project} --entity {entity_id}
 
-# Add new research (load contract first)
-python -m core.research contract add
+# Add new research
 python -m core.research add {project} --data '[...]'
 
 # Update research
-python -m core.research contract update
 python -m core.research update {project} --data '[...]'
 ```
 

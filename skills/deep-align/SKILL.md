@@ -89,11 +89,13 @@ Deep-align adapts its depth based on context:
 
 | Context | Alignment depth | What to do |
 |---------|----------------|------------|
-| `/idea` | **Light** — restatement + 1-2 targeted questions | Confirm intent, clarify scope/priority if ambiguous |
-| `/plan` | **Medium** — restatement + scope/constraints/quality/boundaries | Confirm goal, boundaries, verification method, what is NOT in scope before decomposing |
-| `/discover` | **Medium** — restatement + scope/constraints | Confirm what to explore and what's out of scope before running analysis |
-| `/task` | **Light** — already has mini-align built in | Use existing alignment in task.md |
-| Direct task execution | **Skip** — task instruction IS the alignment | Trust the pipeline; task was already aligned at idea/plan stage |
+| `/objective` | **Full** — restatement + find walls + contract | This is the entry point — align thoroughly |
+| `/plan {goal}` (direct) | **Medium** — restatement + scope/constraints/quality | Entry point when no objective — align here |
+| `/plan I-001` or `/plan O-001` | **Reference** — read existing alignment, ask only gaps | Alignment exists — don't re-do |
+| `/discover` | **Reference** — read source entity, ask only scope gaps | Source entity has alignment — don't re-do |
+| `/idea` | **Capture** — quick capture, not alignment | Alignment happens at /objective or /plan |
+| `/task` | **Light** — mini-align for scope + AC | Already has built-in alignment |
+| Direct task execution | **Skip** — task instruction IS alignment | Trust the pipeline |
 
 **When to skip alignment entirely:**
 - Task has clear, unambiguous instruction (from pipeline)

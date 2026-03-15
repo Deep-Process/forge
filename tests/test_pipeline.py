@@ -981,7 +981,7 @@ class TestACReasoningValidation:
     def test_good_reasoning_no_warnings(self):
         """Well-structured reasoning produces no warnings."""
         ac = ["endpoint returns 200", "error returns 400"]
-        reasoning = "AC 1: endpoint returns 200 — PASS: tested with curl. AC 2: error returns 400 — PASS: tested with invalid input."
+        reasoning = "AC 1: endpoint returns 200 — PASS → Test: tests/test_api.py::test_endpoint_200. AC 2: error returns 400 — PASS → Test: tests/test_api.py::test_error_400."
         warnings = _validate_ac_reasoning(reasoning, ac)
         assert warnings == []
 
@@ -1002,14 +1002,14 @@ class TestACReasoningValidation:
     def test_text_fragment_matching(self):
         """Recognizes criterion by text fragment even without numbered format."""
         ac = ["endpoint returns 200 for valid requests"]
-        reasoning = "endpoint returns 200 for valid requests — confirmed via integration test, PASS"
+        reasoning = "endpoint returns 200 for valid requests — confirmed via integration test, PASS → Test: tests/test_api.py::test_valid_request"
         warnings = _validate_ac_reasoning(reasoning, ac)
         assert warnings == []
 
     def test_structured_ac_handled(self):
         """Handles structured AC format (dict with text key)."""
         ac = [{"text": "response time under 200ms", "from_template": "AC-001"}]
-        reasoning = "AC 1: response time under 200ms — PASS: k6 shows p95=180ms"
+        reasoning = "AC 1: response time under 200ms — PASS: k6 shows p95=180ms → Test: tests/test_perf.py::test_p95_latency"
         warnings = _validate_ac_reasoning(reasoning, ac)
         assert warnings == []
 

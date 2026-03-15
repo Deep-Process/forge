@@ -43,12 +43,7 @@ python -m core.knowledge impact {project} {knowledge_id}
 
 ### Add (`add {title}`)
 
-a. Check the contract:
-```bash
-python -m core.knowledge contract add
-```
-
-b. Ask the user:
+a. Ask the user:
    - **Category**: domain-rules, api-reference, architecture, business-context, technical-context, code-patterns, integration, infrastructure
    - **Content**: the knowledge content (document, rules, patterns, etc.)
    - **Scopes**: which areas this applies to

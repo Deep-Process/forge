@@ -121,6 +121,8 @@ Use **transition-centric decomposition**:
 Good: `Create execution state model` / `Implement PENDING→RUNNING` / `Implement RUNNING→CANCELLED` / `Add retry (FAILED→RUNNING)`
 Bad: `Implement state machine` / `Handle state transitions`
 
+**Cross-domain note**: If the plan includes UX or backend tasks, your state values and transition names must match the enums/constants those tasks will use. Provide state diagram and valid transitions to dependent tasks via `produces`.
+
 ### Task Rules
 
 **instruction** must reference: which transition(s), which file/method, validation, side effects.
@@ -149,6 +151,23 @@ Store in **Task fields**: instruction, acceptance_criteria, exclusions, alignmen
 Before: Read state model, read existing transitions, read event handling.
 During: Validate state BEFORE transition, use locking per strategy, fire ALL side effects.
 After: Trace: API → validation → state change → side effects. Match spec?
+
+### Verification Workflow
+
+After implementation, verify each of these:
+1. Each valid transition: from_state + trigger → expected to_state (test per AC)
+2. Each forbidden transition: from_state + trigger → expected error (test per AC)
+3. Side effects: after successful transition, verify each side effect fired (event emitted, notification sent, etc.)
+4. Concurrency: two simultaneous transitions on same entity → one succeeds, one fails cleanly (not both succeed)
+5. Recovery: if side effect fails mid-transition, what state is the entity in? (should be rolled back or in error state, not inconsistent)
+
+### Common Pitfalls
+
+- Race condition: two processes read same state, both attempt transition, both succeed (missing locking/optimistic concurrency)
+- Side effect in wrong order: email sent before state committed — state fails but email already sent
+- Missing forbidden transition check — COMPLETED → RUNNING should fail but silently succeeds
+- State stored as plain string instead of enum/constant — typo in state name causes silent bug
+- Transition succeeds but event not emitted — downstream systems don't know about state change
 
 ### Micro-review (max 5 lines)
 

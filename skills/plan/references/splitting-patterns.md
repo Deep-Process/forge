@@ -4,6 +4,8 @@
 
 **Core rule**: Every task must be a **vertical slice** (end-to-end value). Never split by technical layer (frontend/backend/tests).
 
+**Exception**: Layer-centric decomposition (migration → model → service → endpoint) is acceptable **within a single domain** when each task is small (<1 day). Cross-domain splits (frontend task + backend task + database task for one feature) MUST be vertical slices delivering end-to-end value.
+
 ## The Patterns
 
 ### 1. Workflow Steps

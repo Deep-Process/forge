@@ -188,7 +188,7 @@ CONTRACTS = {
                       "conflicts_with", "skill", "acceptance_criteria",
                       "type", "blocked_by_decisions", "scopes", "origin",
                       "knowledge_ids", "test_requirements", "alignment",
-                      "exclusions"],
+                      "exclusions", "produces"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -203,6 +203,7 @@ CONTRACTS = {
             "test_requirements": dict,
             "alignment": dict,
             "exclusions": list,
+            "produces": dict,
         },
         "invariant_texts": [
             "id: task identifier — use temporary IDs (_1, _2, ...) for auto-assignment, or explicit T-NNN. Temp IDs are remapped to T-NNN at materialize time.",
@@ -221,6 +222,7 @@ CONTRACTS = {
             "test_requirements: {unit: bool, integration: bool, e2e: bool, description: str} — what testing is needed",
             "alignment: dict with {goal, boundaries: {must, must_not, not_in_scope}, success} — persisted alignment contract from planning",
             "exclusions: list of task-specific DO NOT rules — things this task must NOT do (e.g., 'DO NOT modify WorkflowList.tsx', 'DO NOT add error handling — that is T-015')",
+            "produces: dict describing what this task creates for downstream consumers — semantic output contracts (e.g., {endpoint: 'POST /users → 201 {id, email}', model: 'User(id, email, name)'}). Shown in pipeline context for dependent tasks.",
             "Batch format: --data '{\"new_tasks\": [...], \"update_tasks\": [...]}' — atomically adds new tasks and updates existing tasks. update_tasks can reference temp IDs from new_tasks in depends_on/conflicts_with.",
         ],
         "example": [
@@ -261,7 +263,7 @@ CONTRACTS = {
                       "conflicts_with", "skill", "acceptance_criteria",
                       "type", "blocked_by_decisions", "scopes", "origin",
                       "knowledge_ids", "test_requirements", "alignment",
-                      "exclusions"],
+                      "exclusions", "produces"],
         "enums": {
             "type": {"feature", "bug", "chore", "investigation"},
         },
@@ -275,6 +277,7 @@ CONTRACTS = {
             "test_requirements": dict,
             "alignment": dict,
             "exclusions": list,
+            "produces": dict,
         },
         "invariant_texts": [
             "id: existing task ID to update",
@@ -452,6 +455,7 @@ def _build_task_entry(t: dict, source_idea_id: str = None, source_objective_id: 
         "knowledge_ids": t.get("knowledge_ids", []),
         "alignment": t.get("alignment"),
         "exclusions": t.get("exclusions", []),
+        "produces": t.get("produces"),
         "status": "TODO",
         "started_at": None,
         "completed_at": None,
@@ -1727,6 +1731,13 @@ def print_task_detail(task: dict):
         for ex in excl:
             print(f"  - {ex}")
 
+    produces = task.get("produces")
+    if produces:
+        print(f"")
+        print(f"**Produces (contract for downstream tasks)**:")
+        for key, val in produces.items():
+            print(f"  {key}: {val}")
+
     print(f"")
     print(f"When done: `python -m core.pipeline complete {{project}} {task['id']}`")
 
@@ -1820,6 +1831,11 @@ def cmd_context(args):
             print(f"**{dep_id}** — {dep_task['name']} ({dep_task['status']})")
             if dep_task.get("description"):
                 print(f"  {dep_task['description']}")
+            dep_produces = dep_task.get("produces")
+            if dep_produces:
+                print(f"  **Produces**:")
+                for key, val in dep_produces.items():
+                    print(f"    {key}: {val}")
             print()
 
         # Show changes from dependency tasks
@@ -2272,6 +2288,11 @@ def _validate_ac_reasoning(ac_reasoning: str, ac_list: list) -> list:
     # Check for PASS/FAIL keywords
     if "pass" not in reasoning_lower and "met" not in reasoning_lower:
         warnings.append("  No PASS/met verdict found in reasoning")
+
+    # Check for test mapping (AC→test traceability)
+    has_test_ref = "→ test:" in reasoning_lower or "→ no test" in reasoning_lower or "-> test:" in reasoning_lower or "-> no test" in reasoning_lower
+    if not has_test_ref:
+        warnings.append("  No test mapping found — consider mapping each AC to a test (→ Test: file::test_name)")
 
     return warnings
 

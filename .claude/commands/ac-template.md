@@ -35,12 +35,7 @@ python -m core.ac_templates show {project} {template_id}
 
 ### Add (`add {title}`)
 
-a. Check the contract:
-```bash
-python -m core.ac_templates contract add
-```
-
-b. Ask the user:
+a. Ask the user:
    - **Category**: performance, security, quality, functionality, accessibility, reliability, data-integrity, ux
    - **Template**: the AC text with `{placeholders}` for parameters
    - **Parameters**: for each placeholder — name, type, default, description

@@ -39,6 +39,12 @@ python -m core.pipeline init {slug} --goal "Project workspace"
       - "What is explicitly NOT in scope?"
       - "What assumptions must hold for this to make sense?"
 
+      If scopes are known, load domain-specific vision questions to refine KR definition:
+      ```bash
+      python -m core.domain_modules for-scopes --scopes "{scopes}" --phase vision
+      ```
+      Use domain questions alongside generic alignment (e.g., backend scope → "what's current p95 latency?" helps define KR target). Cap at 4-6 questions total.
+
       Only ask what you genuinely don't know.
 
    d. **Constraint-frame the description** — before saving, add 1-3 short constraints to the description:
@@ -50,12 +56,7 @@ python -m core.pipeline init {slug} --goal "Project workspace"
 
    e. If `--quick` — skip alignment, infer reasonable defaults, flag assumptions.
 
-3. Check the contract:
-```bash
-python -m core.objectives contract add
-```
-
-4. Create the objective from confirmed understanding:
+3. Create the objective from confirmed understanding:
 
 ```bash
 python -m core.objectives add {project} --data '[{
