@@ -9,7 +9,7 @@ export const guidelineCreateSchema = z.object({
   rationale: z.string().optional(),
   examples: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
-  weight: guidelineWeight.default("should"),
+  weight: guidelineWeight.optional().default("should"),
 });
 
 export const guidelineUpdateSchema = z.object({
@@ -24,5 +24,5 @@ export const guidelineUpdateSchema = z.object({
   derived_from: z.string().optional(),
 });
 
-export type GuidelineCreateForm = z.infer<typeof guidelineCreateSchema>;
+export type GuidelineCreateForm = z.input<typeof guidelineCreateSchema>;
 export type GuidelineUpdateForm = z.infer<typeof guidelineUpdateSchema>;

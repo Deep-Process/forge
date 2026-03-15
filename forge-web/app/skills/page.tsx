@@ -26,6 +26,8 @@ function remoteToSkillStub(rs: RemoteSkill): Skill {
     skill_md_content: null,
     version: "",
     allowed_tools: [],
+    entity_types: [],
+    contract_refs: [],
     evals_json: [],
     files: [],
     teslint_config: null,

@@ -2,7 +2,7 @@
 
 Discovery phase — explore options, assess risks, and prepare architecture BEFORE planning.
 
-Uses deep-orchestration to coordinate deep-* analysis skills (deep-explore, deep-risk, deep-architect, deep-feasibility) and records findings as Forge decisions.
+Coordinates deep-* analysis skills (deep-explore, deep-risk, deep-architect, deep-feasibility) and records findings as Forge decisions.
 
 ## Arguments
 
@@ -17,7 +17,7 @@ Uses deep-orchestration to coordinate deep-* analysis skills (deep-explore, deep
 Read and follow the procedure in `skills/discover/SKILL.md`.
 
 Key points:
-- deep-orchestration is the CONDUCTOR — it decides sequencing and parallelism
+- discover coordinates deep-* skills in dependency order (explore first, then parallel risk/architect)
 - You are the BRIDGE between Forge context and deep-* analysis
 - Record ALL significant findings as OPEN decisions in Forge
 - If feasibility = NO-GO, STOP and present to user. Do NOT auto-proceed to /plan.

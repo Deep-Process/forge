@@ -575,9 +575,12 @@ export interface ResearchUpdate {
   status?: ResearchStatus;
   category?: ResearchCategory;
   summary?: string;
+  content?: string;
   key_findings?: string[];
   decision_ids?: string[];
   file_path?: string;
+  linked_entity_type?: "objective" | "idea";
+  linked_entity_id?: string;
   linked_idea_id?: string;
   scopes?: string[];
   tags?: string[];

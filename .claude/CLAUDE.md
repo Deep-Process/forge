@@ -237,6 +237,14 @@ Phases: `vision` (during /discover), `research` (during /discover), `planning` (
 Complexity gate: bug/chore tasks auto-skipped via `--task-type`.
 Phase content is ~35 lines per module (not full 175-line file).
 
+### Decision Drift Detection
+```
+python -m core.decision_checker check {project} [--task T-NNN]   Check locked decisions against git diff
+python -m core.decision_checker report {project}                  Report all decision compliance
+```
+
+Compares CLOSED decisions (types: architecture, implementation, dependency, security, performance, testing, convention) against git changes. Detects when implementation contradicts planning decisions. Exit code 1 on MAJOR drift.
+
 ### Research (structured analysis output — R-NNN)
 ```
 python -m core.research add {project} --data '[...]'                      Add research objects

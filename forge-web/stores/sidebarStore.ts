@@ -77,6 +77,8 @@ interface SidebarActions {
   addContext: (entity: AdditionalContext) => void;
   removeContext: (index: number) => void;
   clearContexts: () => void;
+  setPendingSkillPick: (skills: string[] | null) => void;
+  setAiChooseSkill: (value: boolean) => void;
 }
 
 function persist(state: SidebarState) {
@@ -107,6 +109,8 @@ export const useSidebarStore = create<SidebarState & SidebarActions>((set, get) 
   targetEntity: null,
   entityDefaultScopes: [],
   additionalContexts: [],
+  pendingSkillPick: null,
+  aiChooseSkill: false,
   _hydrated: false,
 
   hydrate: () => {
@@ -256,5 +260,13 @@ export const useSidebarStore = create<SidebarState & SidebarActions>((set, get) 
 
   clearContexts: () => {
     set({ additionalContexts: [] });
+  },
+
+  setPendingSkillPick: (skills) => {
+    set({ pendingSkillPick: skills });
+  },
+
+  setAiChooseSkill: (value) => {
+    set({ aiChooseSkill: value });
   },
 }));

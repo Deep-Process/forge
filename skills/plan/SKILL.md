@@ -308,6 +308,8 @@ Use `task_id: "PLANNING"` for decisions made before tasks exist.
 
 ### Step 6 — Decompose
 
+If decomposition approach isn't obvious, consult `references/splitting-patterns.md` for 9 named strategies (workflow steps, CRUD, business rules, etc.). Choose the strategy that matches the goal's shape. **Never split by technical layer** (frontend/backend/tests) — always by vertical slices delivering end-to-end value.
+
 Apply these decomposition rules:
 
 1. **Each task = one focused change**: A task should modify one logical component

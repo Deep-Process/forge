@@ -127,7 +127,7 @@ export default function ResearchDetailPage() {
       if (JSON.stringify(editDecisionIds) !== JSON.stringify(item.decision_ids)) update.decision_ids = editDecisionIds;
       if (JSON.stringify(editScopes) !== JSON.stringify(item.scopes)) update.scopes = editScopes;
       if (JSON.stringify(editTags) !== JSON.stringify(item.tags)) update.tags = editTags;
-      if (editLinkedEntityType !== (item.linked_entity_type || "")) update.linked_entity_type = editLinkedEntityType || undefined;
+      if (editLinkedEntityType !== (item.linked_entity_type || "")) update.linked_entity_type = (editLinkedEntityType as "objective" | "idea") || undefined;
       if (editLinkedEntityId !== (item.linked_entity_id || "")) update.linked_entity_id = editLinkedEntityId || undefined;
       if (editContent !== (item.content || "")) update.content = editContent;
 

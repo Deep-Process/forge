@@ -150,6 +150,14 @@ If deep-verify finds issues:
 
 **Skip deep-verify when:** task is trivial (config change, typo fix, docs-only), or task type is `chore`.
 
+**b2. Decision drift check (if project has CLOSED decisions):**
+
+```bash
+python -m core.decision_checker check {project} --task {task_id}
+```
+
+If MAJOR drift detected: review the flagged decisions and either fix the code to match the decision, or record a new decision explaining why the original was overridden. Do not silently contradict locked decisions.
+
 **c. Acceptance Criteria checklist:**
 
 If the task has `acceptance_criteria`, go through each criterion explicitly.

@@ -104,11 +104,28 @@ export default function LLMChat({
         }
       }
 
+      // Merge attached skills from sidebar store (auto-attached or manually picked)
+      const sidebarState = useSidebarStore.getState();
+      const attached = sidebarState.attachedSkills;
+      if (attached.length > 0) {
+        skillNames = skillNames ?? [];
+        for (const sk of attached) {
+          if (!skillNames.includes(sk.name)) {
+            skillNames.push(sk.name);
+          }
+        }
+      }
+
       // Gather additional contexts from sidebar store
-      const ctxs = useSidebarStore.getState().additionalContexts;
+      const ctxs = sidebarState.additionalContexts;
       const additionalContexts = ctxs.length > 0
         ? ctxs.map((c) => ({ type: c.type, id: c.id }))
         : undefined;
+
+      // Clear AI-choose flag after first message (LLM has already received all skills)
+      if (sidebarState.aiChooseSkill) {
+        sidebarState.setAiChooseSkill(false);
+      }
 
       sendMessage(message, contextType, contextId, slug, null, scopes, disabledCapabilities, fileIds, pageContext, sessionType, targetEntityType, targetEntityId, skillNames, additionalContexts);
     },

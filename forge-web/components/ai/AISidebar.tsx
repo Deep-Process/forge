@@ -13,6 +13,7 @@ import LLMChat from "./LLMChat";
 import WorkflowProgress from "./WorkflowProgress";
 import TokenCounter from "./TokenCounter";
 import { AddContextButton } from "./AddContextButton";
+import { SkillPicker } from "./SkillPicker";
 import { useStreamDebug, subscribeToStreamEvents } from "@/lib/hooks/useStreamDebug";
 import { StreamView } from "./stream/StreamView";
 import useSWR from "swr";
@@ -150,6 +151,7 @@ function ScopesTab({
   pageContextText,
   pageElements,
   projectSlug,
+  entityDefaultScopes,
 }: {
   activeScopes: string[];
   onAdd: (scope: string) => void;
@@ -765,6 +767,38 @@ export default function AISidebar() {
     useSidebarStore.getState().setEntityDefaultScopes(entityScopes);
   }, [targetEntity, projectDetails, projectSlugFromPath]);
 
+  // Auto-attach skills when targetEntity changes based on entity_skills config
+  const attachSkill = useSidebarStore((s) => s.attachSkill);
+  const clearSkills = useSidebarStore((s) => s.clearSkills);
+  const pendingSkillPick = useSidebarStore((s) => s.pendingSkillPick);
+  const attachedSkills = useSidebarStore((s) => s.attachedSkills);
+  useEffect(() => {
+    if (!targetEntity || !projectSlugFromPath) {
+      useSidebarStore.getState().setPendingSkillPick(null);
+      return;
+    }
+    const detail = projectDetails[projectSlugFromPath];
+    const config = detail?.config as Record<string, unknown> | undefined;
+    const entitySkills = (config?.entity_skills as Record<string, string[]>) ?? {};
+    const skillsForType = entitySkills[targetEntity.type] ?? [];
+
+    // Clear previously auto-attached skills when entity changes
+    clearSkills();
+    useSidebarStore.getState().setAiChooseSkill(false);
+
+    if (skillsForType.length === 1) {
+      // Auto-attach the single skill
+      attachSkill(skillsForType[0], skillsForType[0]);
+      useSidebarStore.getState().setPendingSkillPick(null);
+    } else if (skillsForType.length > 1) {
+      // Show picker
+      useSidebarStore.getState().setPendingSkillPick(skillsForType);
+    } else {
+      useSidebarStore.getState().setPendingSkillPick(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetEntity?.type, targetEntity?.id, projectSlugFromPath, projectDetails]);
+
   // Resolve scopes from URL + overrides
   const { scopes: urlScopes, projectSlug, contextTypes, contextId: resolvedContextId } = useScopeResolver({
     addedScopes,
@@ -878,6 +912,35 @@ export default function AISidebar() {
           </button>
         </div>
       )}
+
+      {/* Attached skill indicator */}
+      {targetEntity && attachedSkills.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-1 border-b bg-indigo-50">
+          <svg className="w-3 h-3 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          {attachedSkills.map((sk) => (
+            <span
+              key={sk.name}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-indigo-700 bg-indigo-100 rounded px-1.5 py-0.5"
+            >
+              {sk.display_name}
+              <button
+                onClick={() => useSidebarStore.getState().detachSkill(sk.name)}
+                className="hover:text-indigo-900"
+                title={`Detach ${sk.display_name}`}
+              >
+                <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Skill picker (when entity type has >1 assigned skills) */}
+      {pendingSkillPick && <SkillPicker skillNames={pendingSkillPick} />}
 
       {/* Additional context chips + add button */}
       <AdditionalContextChips slug={projectSlug ?? ""} />

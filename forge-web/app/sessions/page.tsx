@@ -11,8 +11,8 @@ import { useAIPage, useAIElement } from "@/lib/ai-context";
 const SESSION_TYPES = ["chat", "plan", "execute", "verify", "compound"];
 const SESSION_STATUSES = ["active", "paused", "completed", "failed"];
 
-/** SWR cache key for sessions list. Exported for WS revalidation. */
-export const SESSIONS_SWR_KEY = "/llm/sessions?limit=200";
+/** SWR cache key for sessions list. */
+const SESSIONS_SWR_KEY = "/llm/sessions?limit=200";
 
 /** Format token count (e.g., 12345 → "12.3k"). */
 function fmtTokens(n: number): string {
